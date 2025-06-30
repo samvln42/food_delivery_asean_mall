@@ -1,0 +1,602 @@
+from django.db import models
+from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
+from django.db.models.signals import post_save, post_delete
+from django.dispatch import receiver
+from django.utils import timezone
+from decimal import Decimal
+from accounts.models import User  # Import User from accounts app
+from django.core.exceptions import ValidationError
+
+
+def restaurant_image_upload_path(instance, filename):
+    """Generate upload path for restaurant images"""
+    import os
+    from django.utils.text import slugify
+    
+    # Get file extension
+    ext = filename.split('.')[-1]
+    # Create filename using restaurant name
+    filename = f"{slugify(instance.restaurant_name)}_restaurant.{ext}"
+    return os.path.join('restaurants', str(instance.restaurant_id), filename)
+
+
+def product_image_upload_path(instance, filename):
+    """Generate upload path for product images"""
+    import os
+    from django.utils.text import slugify
+    
+    # Get file extension
+    ext = filename.split('.')[-1]
+    # Create filename using restaurant and product name
+    filename = f"{slugify(instance.restaurant.restaurant_name)}_{slugify(instance.product_name)}.{ext}"
+    return os.path.join('products', str(instance.restaurant.restaurant_id), filename)
+
+def category_image_upload_path(instance, filename):
+    """Generate upload path for category images"""
+    import os
+    from django.utils.text import slugify
+    
+    # Get file extension
+    ext = filename.split('.')[-1]
+    # Create filename using category name
+    filename = f"{slugify(instance.category_name)}.{ext}"
+    return os.path.join('categories', filename)
+
+
+class Restaurant(models.Model):
+    STATUS_CHOICES = [
+        ('open', 'Open'),
+        ('closed', 'Closed'),
+    ]
+    
+    restaurant_id = models.AutoField(primary_key=True)
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='restaurant')
+    restaurant_name = models.CharField(max_length=100)
+    description = models.TextField(blank=True, null=True)
+    address = models.CharField(max_length=255)
+    phone_number = models.CharField(max_length=20, blank=True, null=True)
+    is_special = models.BooleanField(default=False)
+    opening_hours = models.CharField(max_length=100, blank=True, null=True)
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='open')
+    image = models.ImageField(upload_to=restaurant_image_upload_path, blank=True, null=True, help_text="รูปภาพหน้าร้าน")
+    image_url = models.CharField(max_length=255, blank=True, null=True, help_text="URL รูปภาพหน้าร้าน")
+    qr_code_image_url = models.CharField(max_length=255, blank=True, null=True)
+    bank_account_number = models.CharField(max_length=50, blank=True, null=True)
+    bank_name = models.CharField(max_length=100, blank=True, null=True)
+    account_name = models.CharField(max_length=100, blank=True, null=True)
+    average_rating = models.DecimalField(max_digits=3, decimal_places=2, default=0.00)
+    total_reviews = models.IntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'restaurants'
+        indexes = [
+            models.Index(fields=['restaurant_name']),
+            models.Index(fields=['-average_rating']),
+        ]
+    
+    def get_image_url(self):
+        """Get restaurant image URL - prioritize uploaded image over image_url"""
+        if self.image:
+            return self.image.url
+        elif self.image_url:
+            return self.image_url
+        return None
+    
+    def __str__(self):
+        return self.restaurant_name
+
+
+class Category(models.Model):
+    category_id = models.AutoField(primary_key=True)
+    category_name = models.CharField(max_length=50, unique=True)
+    description = models.TextField(blank=True, null=True, help_text="คำอธิบายหมวดหมู่")
+    image = models.ImageField(upload_to=category_image_upload_path, blank=True, null=True, help_text="รูปภาพหมวดหมู่")
+    is_special_only = models.BooleanField(default=False, help_text="เฉพาะร้านพิเศษเท่านั้นที่ใช้หมวดหมู่นี้ได้")
+    
+    class Meta:
+        db_table = 'categories'
+        verbose_name_plural = 'Categories'
+    
+    def get_image_url(self):
+        """Get category image URL"""
+        if self.image:
+            return self.image.url
+        return None
+    
+    def __str__(self):
+        return self.category_name
+
+
+class Product(models.Model):
+    product_id = models.AutoField(primary_key=True)
+    restaurant = models.ForeignKey(Restaurant, on_delete=models.CASCADE, related_name='products')
+    category = models.ForeignKey(Category, on_delete=models.CASCADE, related_name='products')
+    product_name = models.CharField(max_length=100)
+    description = models.TextField(blank=True, null=True)
+    price = models.DecimalField(max_digits=10, decimal_places=2)
+    image_url = models.CharField(max_length=255, blank=True, null=True)
+    image = models.ImageField(upload_to=product_image_upload_path, blank=True, null=True, help_text="อัปโหลดรูปภาพสินค้า")
+    is_available = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'products'
+        indexes = [
+            models.Index(fields=['product_name']),
+            models.Index(fields=['restaurant', 'is_available']),
+        ]
+    
+    def get_image_url(self):
+        """Get image URL - prioritize uploaded image over image_url"""
+        if self.image:
+            return self.image.url
+        elif self.image_url:
+            return self.image_url
+        return None
+    
+    def __str__(self):
+        return self.product_name
+
+
+class Order(models.Model):
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('paid', 'Paid'),
+        ('preparing', 'Preparing'),
+        ('ready_for_pickup', 'Ready for Pickup'),
+        ('delivering', 'Delivering'),
+        ('completed', 'Completed'),
+        ('cancelled', 'Cancelled'),
+    ]
+    
+    order_id = models.AutoField(primary_key=True)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='orders')
+    restaurant = models.ForeignKey(Restaurant, on_delete=models.CASCADE, related_name='orders')
+    order_date = models.DateTimeField(auto_now_add=True)
+    total_amount = models.DecimalField(max_digits=10, decimal_places=2)
+    delivery_address = models.CharField(max_length=255)
+    delivery_latitude = models.DecimalField(max_digits=10, decimal_places=8, blank=True, null=True)
+    delivery_longitude = models.DecimalField(max_digits=11, decimal_places=8, blank=True, null=True)
+    current_status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    delivery_fee = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    estimated_delivery_time = models.DateTimeField(blank=True, null=True)
+    is_reviewed = models.BooleanField(default=False)
+    
+    class Meta:
+        db_table = 'orders'
+        indexes = [
+            models.Index(fields=['user', '-order_date']),
+            models.Index(fields=['restaurant', '-order_date']),
+            models.Index(fields=['current_status']),
+        ]
+    
+    def __str__(self):
+        return f"Order #{self.order_id}"
+
+
+class OrderDetail(models.Model):
+    order_detail_id = models.AutoField(primary_key=True)
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='order_details')
+    product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    quantity = models.IntegerField()
+    price_at_order = models.DecimalField(max_digits=10, decimal_places=2)
+    subtotal = models.DecimalField(max_digits=10, decimal_places=2)
+    
+    class Meta:
+        db_table = 'order_details'
+    
+    def save(self, *args, **kwargs):
+        self.subtotal = self.quantity * self.price_at_order
+        super().save(*args, **kwargs)
+    
+    def __str__(self):
+        return f"Order #{self.order.order_id} - {self.product.product_name}"
+
+
+def payment_proof_upload_path(instance, filename):
+    """Generate upload path for payment proof"""
+    return f'payments/proofs/{instance.order.order_id}/{filename}'
+
+class Payment(models.Model):
+    PAYMENT_METHOD_CHOICES = [
+        ('qr_payment', 'QR Payment'),
+        ('bank_transfer', 'Bank Transfer'),
+    ]
+    
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('completed', 'Completed'),
+        ('failed', 'Failed'),
+    ]
+    
+    payment_id = models.AutoField(primary_key=True)
+    order = models.OneToOneField(Order, on_delete=models.CASCADE, related_name='payment')
+    payment_date = models.DateTimeField(auto_now_add=True)
+    amount_paid = models.DecimalField(max_digits=10, decimal_places=2)
+    payment_method = models.CharField(max_length=20, choices=PAYMENT_METHOD_CHOICES)
+    transaction_id = models.CharField(max_length=100, unique=True, blank=True, null=True)
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending')
+    proof_of_payment_url = models.CharField(max_length=255, blank=True, null=True)
+    proof_of_payment = models.ImageField(upload_to=payment_proof_upload_path, null=True, blank=True, help_text='หลักฐานการโอนเงิน')
+    
+    class Meta:
+        db_table = 'payments'
+    
+    def get_proof_of_payment_url(self):
+        """Get proof of payment URL with fallback"""
+        if self.proof_of_payment:
+            return self.proof_of_payment.url
+        return self.proof_of_payment_url
+    
+    def __str__(self):
+        return f"Payment for Order #{self.order.order_id}"
+
+
+class Review(models.Model):
+    review_id = models.AutoField(primary_key=True)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='reviews')
+    order = models.OneToOneField(Order, on_delete=models.CASCADE, related_name='review')
+    restaurant = models.ForeignKey(Restaurant, on_delete=models.CASCADE, related_name='reviews')
+    rating_restaurant = models.IntegerField()
+    comment_restaurant = models.TextField(blank=True, null=True)
+    review_date = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        db_table = 'reviews'
+        constraints = [
+            models.CheckConstraint(
+                check=models.Q(rating_restaurant__gte=1) & models.Q(rating_restaurant__lte=5),
+                name='rating_restaurant_range'
+            )
+        ]
+    
+    def __str__(self):
+        return f"Review for {self.restaurant.restaurant_name} by {self.user.username}"
+
+
+class ProductReview(models.Model):
+    product_review_id = models.AutoField(primary_key=True)
+    order_detail = models.OneToOneField(OrderDetail, on_delete=models.CASCADE, related_name='product_review')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='product_reviews')
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='reviews')
+    rating_product = models.IntegerField()
+    comment_product = models.TextField(blank=True, null=True)
+    review_date = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        db_table = 'product_reviews'
+        constraints = [
+            models.CheckConstraint(
+                check=models.Q(rating_product__gte=1) & models.Q(rating_product__lte=5),
+                name='rating_product_range'
+            )
+        ]
+    
+    def __str__(self):
+        return f"Review for {self.product.product_name} by {self.user.username}"
+
+
+class DeliveryStatusLog(models.Model):
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('paid', 'Paid'),
+        ('preparing', 'Preparing'),
+        ('ready_for_pickup', 'Ready for Pickup'),
+        ('delivering', 'Delivering'),
+        ('completed', 'Completed'),
+        ('cancelled', 'Cancelled'),
+    ]
+    
+    log_id = models.AutoField(primary_key=True)
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='status_logs')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES)
+    timestamp = models.DateTimeField(auto_now_add=True)
+    note = models.CharField(max_length=255, blank=True, null=True)
+    updated_by_user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    
+    class Meta:
+        db_table = 'delivery_status_log'
+    
+    def __str__(self):
+        return f"Status Log for Order #{self.order.order_id}"
+
+
+class Notification(models.Model):
+    TYPE_CHOICES = [
+        ('order_update', 'Order Update'),
+        ('payment_confirm', 'Payment Confirmation'),
+        ('review_reminder', 'Review Reminder'),
+        ('promotion', 'Promotion'),
+        ('system', 'System'),
+        ('new_restaurant_registration', 'New Restaurant Registration'),
+        ('upgrade', 'Account Upgrade'),
+        ('downgrade', 'Account Downgrade'),
+    ]
+    
+    notification_id = models.AutoField(primary_key=True)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notifications')
+    title = models.CharField(max_length=100)
+    message = models.TextField()
+    type = models.CharField(max_length=30, choices=TYPE_CHOICES)
+    related_order = models.ForeignKey(Order, on_delete=models.CASCADE, null=True, blank=True)
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    read_at = models.DateTimeField(null=True, blank=True)
+    
+    class Meta:
+        db_table = 'notifications'
+        indexes = [
+            models.Index(fields=['user', 'is_read']),
+            models.Index(fields=['-created_at']),
+        ]
+    
+    def __str__(self):
+        return f"Notification for {self.user.username}: {self.title}"
+
+
+class SearchHistory(models.Model):
+    SEARCH_TYPE_CHOICES = [
+        ('restaurant', 'Restaurant'),
+        ('product', 'Product'),
+        ('category', 'Category'),
+    ]
+    
+    search_id = models.AutoField(primary_key=True)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='search_history')
+    search_query = models.CharField(max_length=255)
+    search_type = models.CharField(max_length=20, choices=SEARCH_TYPE_CHOICES)
+    results_count = models.IntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        db_table = 'search_history'
+        indexes = [
+            models.Index(fields=['user', '-created_at']),
+            models.Index(fields=['search_query']),
+        ]
+    
+    def __str__(self):
+        return f"{self.user.username} searched for: {self.search_query}"
+
+
+class PopularSearch(models.Model):
+    popular_search_id = models.AutoField(primary_key=True)
+    search_query = models.CharField(max_length=255, unique=True)
+    search_count = models.IntegerField(default=1)
+    last_searched = models.DateTimeField(auto_now=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'popular_searches'
+    
+    def __str__(self):
+        return f"{self.search_query} ({self.search_count} searches)"
+
+
+class UserFavorite(models.Model):
+    FAVORITE_TYPE_CHOICES = [
+        ('restaurant', 'Restaurant'),
+        ('product', 'Product'),
+    ]
+    
+    favorite_id = models.AutoField(primary_key=True)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='favorites')
+    restaurant = models.ForeignKey(Restaurant, on_delete=models.CASCADE, null=True, blank=True)
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, null=True, blank=True)
+    favorite_type = models.CharField(max_length=20, choices=FAVORITE_TYPE_CHOICES)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        db_table = 'user_favorites'
+        constraints = [
+            models.CheckConstraint(
+                check=(
+                    models.Q(favorite_type='restaurant', restaurant__isnull=False, product__isnull=True) |
+                    models.Q(favorite_type='product', product__isnull=False, restaurant__isnull=True)
+                ),
+                name='favorite_type_constraint'
+            )
+        ]
+    
+    def __str__(self):
+        if self.favorite_type == 'restaurant':
+            return f"{self.user.username} favorites {self.restaurant.restaurant_name}"
+        else:
+            return f"{self.user.username} favorites {self.product.product_name}"
+
+
+class AnalyticsDaily(models.Model):
+    analytics_id = models.AutoField(primary_key=True)
+    date = models.DateField(unique=True)
+    total_orders = models.IntegerField(default=0)
+    total_revenue = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+    total_customers = models.IntegerField(default=0)
+    new_customers = models.IntegerField(default=0)
+    completed_orders = models.IntegerField(default=0)
+    cancelled_orders = models.IntegerField(default=0)
+    average_order_value = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        db_table = 'analytics_daily'
+        indexes = [
+            models.Index(fields=['-date']),
+        ]
+    
+    def __str__(self):
+        return f"Analytics for {self.date}"
+
+
+class RestaurantAnalytics(models.Model):
+    restaurant_analytics_id = models.AutoField(primary_key=True)
+    restaurant = models.ForeignKey(Restaurant, on_delete=models.CASCADE, related_name='analytics')
+    date = models.DateField()
+    total_orders = models.IntegerField(default=0)
+    total_revenue = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    completed_orders = models.IntegerField(default=0)
+    cancelled_orders = models.IntegerField(default=0)
+    average_order_value = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    new_reviews = models.IntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        db_table = 'restaurant_analytics'
+        unique_together = ['restaurant', 'date']
+        indexes = [
+            models.Index(fields=['restaurant', '-date']),
+        ]
+    
+    def __str__(self):
+        return f"Analytics for {self.restaurant.restaurant_name} on {self.date}"
+
+
+class ProductAnalytics(models.Model):
+    product_analytics_id = models.AutoField(primary_key=True)
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='analytics')
+    restaurant = models.ForeignKey(Restaurant, on_delete=models.CASCADE)
+    date = models.DateField()
+    total_ordered = models.IntegerField(default=0)
+    total_quantity = models.IntegerField(default=0)
+    total_revenue = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        db_table = 'product_analytics'
+        unique_together = ['product', 'date']
+        indexes = [
+            models.Index(fields=['product', '-date']),
+        ]
+    
+    def __str__(self):
+        return f"Analytics for {self.product.product_name} on {self.date}"
+
+
+# Signals for updating restaurant ratings
+@receiver(post_save, sender=Review)
+def update_restaurant_rating_on_save(sender, instance, **kwargs):
+    restaurant = instance.restaurant
+    reviews = Review.objects.filter(restaurant=restaurant)
+    
+    if reviews.exists():
+        avg_rating = reviews.aggregate(models.Avg('rating_restaurant'))['rating_restaurant__avg']
+        restaurant.average_rating = Decimal(str(round(avg_rating, 2)))
+        restaurant.total_reviews = reviews.count()
+    else:
+        restaurant.average_rating = Decimal('0.00')
+        restaurant.total_reviews = 0
+    
+    restaurant.save()
+
+
+@receiver(post_delete, sender=Review)
+def update_restaurant_rating_on_delete(sender, instance, **kwargs):
+    restaurant = instance.restaurant
+    reviews = Review.objects.filter(restaurant=restaurant)
+    
+    if reviews.exists():
+        avg_rating = reviews.aggregate(models.Avg('rating_restaurant'))['rating_restaurant__avg']
+        restaurant.average_rating = Decimal(str(round(avg_rating, 2)))
+        restaurant.total_reviews = reviews.count()
+    else:
+        restaurant.average_rating = Decimal('0.00')
+        restaurant.total_reviews = 0
+    
+    restaurant.save()
+
+
+class AppSettings(models.Model):
+    # Basic Information
+    app_name = models.CharField(max_length=100, default='Food Delivery')
+    app_description = models.TextField(default='ระบบสั่งอาหารออนไลน์', blank=True)
+    app_logo = models.ImageField(upload_to='app/logos/', null=True, blank=True)
+    app_banner = models.ImageField(upload_to='app/banners/', null=True, blank=True)
+    
+    # Contact Information
+    contact_email = models.EmailField(default='support@fooddelivery.com', blank=True)
+    contact_phone = models.CharField(max_length=20, default='02-xxx-xxxx', blank=True)
+    contact_address = models.TextField(default='กรุงเทพฯ ประเทศไทย', blank=True)
+    
+    # Hero Section
+    hero_title = models.CharField(max_length=200, default='สั่งอาหารจากร้านโปรด', blank=True)
+    hero_subtitle = models.CharField(max_length=300, default='เลือกจากร้านอาหารชั้นนำ ส่งเร็ว อร่อย ปลอดภัย')
+    
+    # Features
+    feature_1_title = models.CharField(max_length=100, default='ส่งเร็ว')
+    feature_1_description = models.CharField(max_length=200, default='ส่งอาหารถึงมือคุณภายใน 30-45 นาที')
+    feature_1_icon = models.CharField(max_length=10, default='🚚')
+    
+    feature_2_title = models.CharField(max_length=100, default='คุณภาพดี')
+    feature_2_description = models.CharField(max_length=200, default='ร้านอาหารคุณภาพ ผ่านการคัดเลือก')
+    feature_2_icon = models.CharField(max_length=10, default='🍽️')
+    
+    feature_3_title = models.CharField(max_length=100, default='จ่ายง่าย')
+    feature_3_description = models.CharField(max_length=200, default='รองรับการชำระเงินหลายช่องทาง')
+    feature_3_icon = models.CharField(max_length=10, default='💳')
+    
+    # Social Media
+    facebook_url = models.URLField(blank=True, null=True)
+    instagram_url = models.URLField(blank=True, null=True)
+    twitter_url = models.URLField(blank=True, null=True)
+    
+    # SEO
+    meta_keywords = models.TextField(blank=True, help_text='คำค้นหาหลัก (คั่นด้วยจุลภาค)')
+    meta_description = models.TextField(blank=True, help_text='คำอธิบายสำหรับ SEO')
+    
+    # System Settings
+    maintenance_mode = models.BooleanField(default=False)
+    maintenance_message = models.TextField(default='ระบบอยู่ระหว่างการปรับปรุง กรุณาลองใหม่อีกครั้ง')
+    
+    # Regional Settings
+    timezone = models.CharField(max_length=50, default='Asia/Bangkok', help_text='เขตเวลาของระบบ')
+    currency = models.CharField(max_length=3, default='THB', help_text='สกุลเงินที่ใช้')
+    
+    # Payment Settings
+    bank_name = models.CharField(max_length=100, blank=True, default='ธนาคารกรุงเทพ', help_text='ชื่อธนาคาร')
+    bank_account_number = models.CharField(max_length=50, blank=True, help_text='เลขบัญชีธนาคาร')
+    bank_account_name = models.CharField(max_length=100, blank=True, help_text='ชื่อบัญชี')
+    qr_code_image = models.ImageField(upload_to='app/payment/', null=True, blank=True, help_text='รูป QR Code สำหรับการชำระเงิน')
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    updated_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    
+    class Meta:
+        verbose_name = 'App Settings'
+        verbose_name_plural = 'App Settings'
+        
+    def __str__(self):
+        return f"App Settings - {self.app_name}"
+    
+    def save(self, *args, **kwargs):
+        # Ensure only one settings record exists
+        if not self.pk and AppSettings.objects.exists():
+            raise ValidationError('Only one app settings record is allowed')
+        super().save(*args, **kwargs)
+    
+    @classmethod
+    def get_settings(cls):
+        """Get the app settings instance, create if doesn't exist"""
+        settings, created = cls.objects.get_or_create(pk=1)
+        return settings
+    
+    def get_logo_url(self):
+        """Get logo URL with fallback"""
+        if self.app_logo:
+            return self.app_logo.url
+        return None
+    
+    def get_banner_url(self):
+        """Get banner URL with fallback"""
+        if self.app_banner:
+            return self.app_banner.url
+        return None
+    
+    def get_qr_code_url(self):
+        """Get QR code URL with fallback"""
+        if self.qr_code_image:
+            return self.qr_code_image.url
+        return None

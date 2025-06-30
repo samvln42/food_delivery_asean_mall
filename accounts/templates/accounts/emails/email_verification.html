@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ยืนยันอีเมลของคุณ</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .logo {
+            font-size: 28px;
+            font-weight: bold;
+            color: #e74c3c;
+            margin-bottom: 10px;
+        }
+        .title {
+            color: #2c3e50;
+            font-size: 24px;
+            margin-bottom: 20px;
+        }
+        .content {
+            margin-bottom: 30px;
+        }
+        .verify-button {
+            display: inline-block;
+            background-color: #e74c3c;
+            color: white;
+            padding: 15px 30px;
+            text-decoration: none;
+            border-radius: 5px;
+            font-weight: bold;
+            margin: 20px 0;
+        }
+        .verify-button:hover {
+            background-color: #c0392b;
+        }
+        .footer {
+            text-align: center;
+            font-size: 14px;
+            color: #7f8c8d;
+            border-top: 1px solid #ecf0f1;
+            padding-top: 20px;
+        }
+        .token-info {
+            background-color: #ecf0f1;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+            font-family: monospace;
+            word-break: break-all;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">🍕 Food Delivery</div>
+            <h1 class="title">ยืนยันอีเมลของคุณ</h1>
+        </div>
+        
+        <div class="content">
+            <p>สวัสดี <strong>{{ user.username }}</strong>,</p>
+            
+            <p>ขอบคุณที่สมัครสมาชิกกับ Food Delivery! กรุณานำรหัสยืนยันด้านล่างไปกรอกในเว็บไซต์เพื่อยืนยันอีเมลของคุณ</p>
+            
+            <p style="font-size: 18px; font-weight: bold; text-align: center; margin: 20px 0;">
+                รหัสยืนยันอีเมลของคุณ:
+            </p>
+            <div class="token-info" style="text-align: center; font-size: 14px; background-color: #f8f9fa; border: 2px solid #e74c3c;">
+                <strong>{{ user.email_verification_token }}</strong>
+            </div>
+            
+            <p style="text-align: center; margin: 20px 0;">
+                <strong>วิธีการใช้งาน:</strong><br>
+                1. กลับไปที่หน้ายืนยันอีเมลในเว็บไซต์<br>
+                2. นำรหัสยืนยันด้านบนไปกรอกในช่องที่กำหนด<br>
+                3. กดปุ่ม "ยืนยันอีเมล" เพื่อเสร็จสิ้นขั้นตอน
+            </p>
+            
+            <p><strong>หมายเหตุ:</strong></p>
+            <ul>
+                <li>รหัสยืนยันนี้จะหมดอายุใน 24 ชั่วโมง</li>
+                <li>หากคุณไม่ได้สมัครสมาชิก กรุณาละเว้นอีเมลนี้</li>
+                <li>อย่าแชร์รหัสยืนยันนี้กับผู้อื่น</li>
+                <li>กรอกรหัสยืนยันตามที่แสดงทั้งหมด รวมถึงเครื่องหมายขีด (-)</li>
+            </ul>
+        </div>
+        
+        <div class="footer">
+            <p>อีเมลนี้ส่งโดยอัตโนมัติ กรุณาอย่าตอบกลับ</p>
+            <p>&copy; 2025 Food Delivery. สงวนลิขสิทธิ์</p>
+        </div>
+    </div>
+</body>
+</html> 
