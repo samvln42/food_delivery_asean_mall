@@ -99,9 +99,38 @@ class RegisterSerializer(serializers.ModelSerializer):
         fields = ['username', 'email', 'password', 'confirm_password', 
                  'phone_number', 'address', 'role']
     
+    def validate_email(self, value):
+        """ตรวจสอบอีเมลซ้ำแบบ case-insensitive"""
+        if not value:
+            raise serializers.ValidationError("อีเมลจำเป็นต้องระบุ")
+        
+        # ตรวจสอบอีเมลซ้ำโดยไม่สนใจตัวพิมพ์เล็ก-ใหญ่
+        existing_user = User.objects.filter(email__iexact=value).first()
+        if existing_user:
+            raise serializers.ValidationError("อีเมลนี้ถูกใช้งานแล้ว กรุณาใช้อีเมลอื่น")
+        
+        return value.lower()  # เก็บอีเมลเป็นตัวพิมพ์เล็ก
+    
+    def validate_username(self, value):
+        """ตรวจสอบ username ซ้ำ"""
+        if not value:
+            raise serializers.ValidationError("ชื่อผู้ใช้จำเป็นต้องระบุ")
+        
+        # ตรวจสอบ username ซ้ำ
+        existing_user = User.objects.filter(username__iexact=value).first()
+        if existing_user:
+            raise serializers.ValidationError("ชื่อผู้ใช้นี้ถูกใช้งานแล้ว กรุณาใช้ชื่อผู้ใช้อื่น")
+        
+        return value
+    
     def validate(self, data):
         if data['password'] != data['confirm_password']:
-            raise serializers.ValidationError("Passwords don't match")
+            raise serializers.ValidationError("รหัสผ่านไม่ตรงกัน")
+        
+        # ตรวจสอบความแข็งแรงของรหัสผ่าน
+        password = data['password']
+        if len(password) < 8:
+            raise serializers.ValidationError("รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร")
         
         # ตั้งค่า default role ถ้าไม่ได้ส่งมา
         if 'role' not in data or not data['role']:
@@ -112,8 +141,8 @@ class RegisterSerializer(serializers.ModelSerializer):
         allowed_registration_roles = ['customer', 'general_restaurant']
         if data.get('role') not in allowed_registration_roles:
             raise serializers.ValidationError(
-                f"Invalid role for registration. Allowed roles are: {', '.join(allowed_registration_roles)}. "
-                f"Special restaurant status requires admin approval."
+                f"บทบาทไม่ถูกต้องสำหรับการสมัครสมาชิก บทบาทที่อนุญาต: {', '.join(allowed_registration_roles)}. "
+                f"การเป็นร้านอาหารพิเศษต้องได้รับการอนุมัติจากผู้ดูแลระบบ"
             )
         
         return data
@@ -126,22 +155,32 @@ class RegisterSerializer(serializers.ModelSerializer):
         
         user_role = validated_data.get('role')
         
-        # สร้าง user
-        user = User.objects.create_user(**validated_data)
-        
-        # สร้าง email verification token
-        import uuid
-        from django.utils import timezone
-        user.email_verification_token = uuid.uuid4()
-        user.email_verification_sent_at = timezone.now()
-        user.is_email_verified = False
-        user.save()
-        
-        # ส่ง notification ไปหาแอดมินเมื่อมีการสมัครเป็นร้านอาหาร
-        if user_role == 'general_restaurant':
-            self._notify_admin_new_restaurant_registration(user)
-        
-        return user
+        try:
+            # สร้าง user
+            user = User.objects.create_user(**validated_data)
+            
+            # สร้าง email verification token
+            import uuid
+            from django.utils import timezone
+            user.email_verification_token = uuid.uuid4()
+            user.email_verification_sent_at = timezone.now()
+            user.is_email_verified = False
+            user.save()
+            
+            # ส่ง notification ไปหาแอดมินเมื่อมีการสมัครเป็นร้านอาหาร
+            if user_role == 'general_restaurant':
+                self._notify_admin_new_restaurant_registration(user)
+            
+            return user
+            
+        except Exception as e:
+            # จัดการข้อผิดพลาดจากการสร้างผู้ใช้
+            if 'email' in str(e).lower() and 'unique' in str(e).lower():
+                raise serializers.ValidationError({'email': 'อีเมลนี้ถูกใช้งานแล้ว กรุณาใช้อีเมลอื่น'})
+            elif 'username' in str(e).lower() and 'unique' in str(e).lower():
+                raise serializers.ValidationError({'username': 'ชื่อผู้ใช้นี้ถูกใช้งานแล้ว กรุณาใช้ชื่อผู้ใช้อื่น'})
+            else:
+                raise serializers.ValidationError(f'เกิดข้อผิดพลาดในการสร้างบัญชี: {str(e)}')
     
     def _notify_admin_new_restaurant_registration(self, user):
         """ส่ง notification ไปหาแอดมินทุกคนเมื่อมีร้านอาหารใหม่สมัครเข้ามา"""

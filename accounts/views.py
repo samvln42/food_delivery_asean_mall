@@ -45,9 +45,112 @@ class AuthViewSet(viewsets.GenericViewSet):
                 },
                 'message': f'เราได้ส่งรหัสยืนยันไปยัง {user.email} แล้ว กรุณาตรวจสอบอีเมลและกรอกรหัสยืนยันเพื่อเสร็จสิ้นการสมัครสมาชิก',
                 'email_verification_required': True,
-                'status': 'pending_verification'
+                'status': 'pending_verification',
+                'success': True
             }, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        # จัดการ error messages ให้ชัดเจนขึ้น
+        errors = serializer.errors
+        
+        # ตรวจสอบ error เฉพาะ
+        if 'email' in errors:
+            email_errors = errors['email']
+            if any('ถูกใช้งานแล้ว' in str(error) or 'unique' in str(error).lower() for error in email_errors):
+                return Response({
+                    'success': False,
+                    'error': 'อีเมลซ้ำ',
+                    'message': 'อีเมลนี้ถูกใช้งานแล้วในระบบ กรุณาใช้อีเมลอื่นหรือเข้าสู่ระบบด้วยอีเมลที่มีอยู่',
+                    'error_type': 'duplicate_email',
+                    'field': 'email',
+                    'details': {
+                        'email': email_errors
+                    }
+                }, status=status.HTTP_409_CONFLICT)
+        
+        if 'username' in errors:
+            username_errors = errors['username']
+            
+            # ตรวจสอบ error messages ที่เป็นไปได้ทั้งภาษาไทยและภาษาอังกฤษ
+            is_duplicate = False
+            for error in username_errors:
+                error_str = str(error).lower()
+                if any(pattern in error_str for pattern in [
+                    'ถูกใช้งานแล้ว', 'unique', 'already exists', 
+                    'a user with that username already exists'
+                ]):
+                    is_duplicate = True
+                    break
+            
+            if is_duplicate:
+                return Response({
+                    'success': False,
+                    'error': 'ชื่อผู้ใช้ซ้ำ',
+                    'message': 'ชื่อผู้ใช้นี้ถูกใช้งานแล้วในระบบ กรุณาเลือกชื่อผู้ใช้อื่น',
+                    'error_type': 'duplicate_username',
+                    'field': 'username',
+                    'details': {
+                        'username': username_errors
+                    }
+                }, status=status.HTTP_409_CONFLICT)
+        
+        # ตรวจสอบ password validation errors (อาจอยู่ใน non_field_errors)
+        password_errors = []
+        if 'password' in errors:
+            password_errors.extend(errors['password'])
+        if 'non_field_errors' in errors:
+            for error in errors['non_field_errors']:
+                if 'รหัสผ่าน' in str(error) or 'password' in str(error).lower():
+                    password_errors.append(error)
+        
+        if password_errors:
+            return Response({
+                'success': False,
+                'error': 'รหัสผ่านไม่ถูกต้อง',
+                'message': 'รหัสผ่านไม่ตรงตามเงื่อนไข กรุณาตรวจสอบและลองใหม่',
+                'error_type': 'invalid_password',
+                'field': 'password',
+                'details': {
+                    'password': password_errors
+                }
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        if 'role' in errors:
+            return Response({
+                'success': False,
+                'error': 'บทบาทไม่ถูกต้อง',
+                'message': 'บทบาทที่เลือกไม่ถูกต้องสำหรับการสมัครสมาชิก',
+                'error_type': 'invalid_role',
+                'field': 'role',
+                'details': {
+                    'role': errors['role']
+                }
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # สำหรับ error อื่นๆ ทั่วไป
+        if 'non_field_errors' in errors:
+            # กรองเฉพาะ error ที่ไม่ใช่ password
+            non_password_errors = [
+                error for error in errors['non_field_errors'] 
+                if 'รหัสผ่าน' not in str(error) and 'password' not in str(error).lower()
+            ]
+            
+            if non_password_errors:
+                return Response({
+                    'success': False,
+                    'error': 'ข้อมูลไม่ถูกต้อง',
+                    'message': str(non_password_errors[0]),
+                    'error_type': 'validation_error',
+                    'details': {'non_field_errors': non_password_errors}
+                }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Default error response
+        return Response({
+            'success': False,
+            'error': 'ข้อมูลไม่ถูกต้อง',
+            'message': 'ข้อมูลที่ส่งมาไม่ถูกต้อง กรุณาตรวจสอบและลองใหม่',
+            'error_type': 'validation_error',
+            'details': errors
+        }, status=status.HTTP_400_BAD_REQUEST)
     
     def _send_verification_email(self, user):
         """Send email verification"""
@@ -91,9 +194,16 @@ class AuthViewSet(viewsets.GenericViewSet):
                 # ตรวจสอบว่ายืนยันอีเมลแล้วหรือยัง
                 if not user.is_email_verified:
                     return Response({
-                        'error': 'กรุณายืนยันอีเมลก่อนเข้าสู่ระบบ ตรวจสอบอีเมลของคุณและกรอกรหัสยืนยัน',
+                        'success': False,
+                        'error': 'อีเมลยังไม่ได้ยืนยัน',
+                        'message': 'กรุณายืนยันอีเมลก่อนเข้าสู่ระบบ ตรวจสอบอีเมลของคุณและกรอกรหัสยืนยัน',
+                        'error_type': 'email_not_verified',
                         'email_verification_required': True,
-                        'user_email': user.email
+                        'user_email': user.email,
+                        'details': {
+                            'suggested_action': 'verify_email',
+                            'resend_verification_url': '/api/auth/resend-verification/'
+                        }
                     }, status=status.HTTP_403_FORBIDDEN)
                 
                 login(request, user)
@@ -102,15 +212,31 @@ class AuthViewSet(viewsets.GenericViewSet):
                 token, created = Token.objects.get_or_create(user=user)
                 
                 return Response({
+                    'success': True,
                     'user': UserSerializer(user).data,
                     'token': token.key,
                     'message': 'เข้าสู่ระบบสำเร็จ'
                 })
             
+            # ถ้าไม่สามารถล็อกอินได้
             return Response({
-                'error': 'อีเมล/ชื่อผู้ใช้ หรือรหัสผ่านไม่ถูกต้อง'
+                'success': False,
+                'error': 'ข้อมูลไม่ถูกต้อง',
+                'message': 'อีเมล/ชื่อผู้ใช้ หรือรหัสผ่านไม่ถูกต้อง',
+                'error_type': 'invalid_credentials',
+                'details': {
+                    'suggested_action': 'check_credentials_or_register'
+                }
             }, status=status.HTTP_401_UNAUTHORIZED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        # จัดการ serializer errors
+        return Response({
+            'success': False,
+            'error': 'ข้อมูลไม่ถูกต้อง',
+            'message': 'กรุณากรอกข้อมูลให้ถูกต้องและครบถ้วน',
+            'error_type': 'validation_error',
+            'details': serializer.errors
+        }, status=status.HTTP_400_BAD_REQUEST)
     
     @action(detail=False, methods=['post'], permission_classes=[IsAuthenticated])
     def logout(self, request):
