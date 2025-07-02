@@ -116,7 +116,7 @@ const AdminOrders = () => {
 
   const formatDateTime = (dateString) => {
     const date = new Date(dateString);
-    return date.toLocaleString('th-TH', {
+    return date.toLocaleString('en-US', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',

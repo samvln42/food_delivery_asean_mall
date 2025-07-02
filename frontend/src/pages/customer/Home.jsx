@@ -75,7 +75,7 @@ const Home = () => {
         throw apiError; // Re-throw to be caught by outer catch
       }
     } catch (err) {
-      setError('ไม่สามารถโหลดข้อมูลได้');
+      setError('Unable to load data');
       console.error("Error fetching data:", err);
     } finally {
       setLoading(false);
@@ -85,7 +85,7 @@ const Home = () => {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <Loading size="large" text="กำลังโหลดข้อมูล..." />
+        <Loading size="large" text="Loading data..." />
       </div>
     );
   }
@@ -97,7 +97,7 @@ const Home = () => {
           <div className="text-red-500 text-xl mb-4">⚠️</div>
           <p className="text-secondary-600">{error}</p>
           <button onClick={fetchData} className="btn-primary mt-4">
-            ลองอีกครั้ง
+            Try again
           </button>
         </div>
       </div>
@@ -129,17 +129,17 @@ const Home = () => {
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <div className="text-center">
             <h1 className="text-3xl md:text-4xl font-bold mb-4 text-white drop-shadow-lg">
-              {appSettings?.hero_title || 'ยินดีต้อนรับสู่ ' + (appSettings?.app_name || 'FoodDelivery')}
+              {appSettings?.hero_title || 'Welcome to ' + (appSettings?.app_name || 'FoodDelivery')}
             </h1>
             <p className="text-lg md:text-xl mb-6 text-white/90 drop-shadow-md">
-              {appSettings?.hero_subtitle || 'สั่งอาหารจากร้านโปรดของคุณ ได้ง่ายๆ แค่ปลายนิ้ว'}
+              {appSettings?.hero_subtitle || 'Order food from your favorite restaurants easily with just a finger'}
             </p>
             <div className="flex justify-center">
               <Link
                 to="/products"
                 className="btn-primary bg-white text-primary-600 hover:bg-primary-50 px-6 py-2 shadow-lg"
               >
-                สั่งอาหารเลย
+                Order now
               </Link>
             </div>
           </div>
@@ -151,13 +151,13 @@ const Home = () => {
         <section className="mb-16">
           <div className="flex items-center justify-between mb-8">
             <h2 className="text-3xl font-bold text-secondary-900">
-              หมวดหมู่ยอดนิยม
+              Popular categories
             </h2>
             <Link
               to="/categories"
               className="text-primary-600 hover:text-primary-700 font-medium"
             >
-              ดูทั้งหมด →
+              View all →
             </Link>
           </div>
 
@@ -193,16 +193,16 @@ const Home = () => {
           <section className="mb-16">
             <div className="flex items-center justify-between mb-8">
               <h2 className="text-3xl font-bold text-secondary-900">
-                ร้านอาหารแนะนำ
+                Recommended restaurants
                 <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                  ⭐ พิเศษ
+                  ⭐ Special
                 </span>
               </h2>
               <Link
                 to="/restaurants?type=special"
                 className="text-primary-600 hover:text-primary-700 font-medium"
               >
-                ดูทั้งหมด →
+                View all →
               </Link>
             </div>
 
@@ -222,13 +222,13 @@ const Home = () => {
         <section className="mb-16">
           <div className="flex items-center justify-between mb-8">
             <h2 className="text-3xl font-bold text-secondary-900">
-              ร้านอาหารยอดนิยม
+              Popular restaurants
             </h2>
             <Link
               to="/restaurants"
               className="text-primary-600 hover:text-primary-700 font-medium"
             >
-              ดูทั้งหมด →
+              View all →
             </Link>
           </div>
 
@@ -246,7 +246,7 @@ const Home = () => {
         <section className="py-16 bg-white rounded-lg shadow-sm">
           <div className="max-w-4xl mx-auto text-center px-6">
             <h2 className="text-3xl font-bold text-secondary-900 mb-12">
-              ทำไมต้องเลือกเรา?
+              Why choose us?
             </h2>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -257,11 +257,11 @@ const Home = () => {
                   </span>
                 </div>
                 <h3 className="text-xl font-semibold text-secondary-900 mb-2">
-                  {appSettings?.feature_1_title || "ส่งเร็ว"}
+                  {appSettings?.feature_1_title || "Fast delivery"}
                 </h3>
                 <p className="text-secondary-600">
                   {appSettings?.feature_1_description ||
-                    "ส่งอาหารถึงมือคุณภายใน 30-45 นาที"}
+                    "Deliver food to your hand within 30-45 minutes"}
                 </p>
               </div>
 
@@ -272,11 +272,11 @@ const Home = () => {
                   </span>
                 </div>
                 <h3 className="text-xl font-semibold text-secondary-900 mb-2">
-                  {appSettings?.feature_2_title || "คุณภาพดี"}
+                  {appSettings?.feature_2_title || "Good quality"}
                 </h3>
                 <p className="text-secondary-600">
                   {appSettings?.feature_2_description ||
-                    "ร้านอาหารคุณภาพ ผ่านการคัดเลือก"}
+                    "Restaurants with good quality through selection"}
                 </p>
               </div>
 
@@ -287,11 +287,11 @@ const Home = () => {
                   </span>
                 </div>
                 <h3 className="text-xl font-semibold text-secondary-900 mb-2">
-                  {appSettings?.feature_3_title || "จ่ายง่าย"}
+                  {appSettings?.feature_3_title || "Easy payment"}
                 </h3>
                 <p className="text-secondary-600">
                   {appSettings?.feature_3_description ||
-                    "รองรับการชำระเงินหลายช่องทาง"}
+                    "Support multiple payment methods"}
                 </p>
               </div>
             </div>
@@ -319,12 +319,12 @@ const RestaurantCard = ({ restaurant, isSpecial = false }) => (
       />
       {isSpecial && (
         <div className="absolute top-2 right-2 bg-yellow-400 text-yellow-900 px-2 py-1 rounded-full text-xs font-medium">
-          ⭐ พิเศษ
+          ⭐ Special
         </div>
       )}
       {restaurant.status === "closed" && (
         <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-          <span className="text-white text-lg font-medium">ปิดร้าน</span>
+          <span className="text-white text-lg font-medium">Closed</span>
         </div>
       )}
     </div>
@@ -344,7 +344,7 @@ const RestaurantCard = ({ restaurant, isSpecial = false }) => (
             {restaurant.average_rating &&
             !isNaN(Number(restaurant.average_rating))
               ? Number(restaurant.average_rating).toFixed(1)
-              : 'ใหม่'}
+              : 'New'}
           </span>
           <span className="text-secondary-500 text-sm ml-1">
             ({restaurant.total_reviews || 0})
@@ -352,13 +352,13 @@ const RestaurantCard = ({ restaurant, isSpecial = false }) => (
         </div>
 
         <div className="text-right">
-          <p className="text-sm text-secondary-500">จัดส่ง</p>
+          <p className="text-sm text-secondary-500">Delivery</p>
           <p className="text-sm font-medium text-secondary-700">฿30-50</p>
         </div>
       </div>
 
       <div className="mt-2 flex items-center justify-between text-sm text-secondary-500">
-        <span>30-45 นาที</span>
+        <span>30-45 minutes</span>
         <span
           className={`px-2 py-1 rounded-full text-xs ${
             restaurant.status === "open"
@@ -366,7 +366,7 @@ const RestaurantCard = ({ restaurant, isSpecial = false }) => (
               : "bg-red-100 text-red-800"
           }`}
         >
-          {restaurant.status === "open" ? 'เปิดร้าน' : 'ปิดร้าน'}
+          {restaurant.status === "open" ? 'Open' : 'Closed'}
         </span>
       </div>
     </div>

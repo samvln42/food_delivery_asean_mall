@@ -43,13 +43,13 @@ const Profile = () => {
       // จำลองการอัพเดทข้อมูล (ต้องเชื่อมต่อกับ API จริงในอนาคต)
       await new Promise(resolve => setTimeout(resolve, 1000));
       
-      setMessage('บันทึกข้อมูลเรียบร้อยแล้ว');
+      setMessage('Profile updated successfully');
       setIsEditing(false);
       
       // ซ่อนข้อความหลังจาก 3 วินาที
       setTimeout(() => setMessage(''), 3000);
     } catch (error) {
-      setMessage('เกิดข้อผิดพลาดในการบันทึกข้อมูล');
+      setMessage('Error updating profile');
     } finally {
       setLoading(false);
     }
@@ -71,7 +71,7 @@ const Profile = () => {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold text-secondary-800 mb-6">โปรไฟล์ของฉัน</h1>
+      <h1 className="text-3xl font-bold text-secondary-800 mb-6">My profile</h1>
       
       <div className="max-w-2xl mx-auto">
         <div className="bg-white rounded-lg shadow-md p-8">
@@ -85,15 +85,15 @@ const Profile = () => {
             <h2 className="text-xl font-semibold text-secondary-700">
               {profile.first_name || profile.last_name 
                 ? `${profile.first_name} ${profile.last_name}`.trim()
-                : 'ข้อมูลส่วนตัว'
+                : 'Personal information'
               }
             </h2>
             {user?.role && (
               <span className="inline-block bg-primary-100 text-primary-800 px-3 py-1 rounded-full text-sm mt-2">
-                {user.role === 'customer' ? 'ลูกค้า' : 
-                 user.role === 'general_restaurant' ? 'ร้านอาหารทั่วไป' :
-                 user.role === 'special_restaurant' ? 'ร้านอาหารพิเศษ' :
-                 user.role === 'admin' ? 'แอดมิน' : user.role}
+                {user.role === 'customer' ? 'Customer' : 
+                 user.role === 'general_restaurant' ? 'General restaurant' :
+                 user.role === 'special_restaurant' ? 'Special restaurant' :
+                 user.role === 'admin' ? 'Admin' : user.role}
               </span>
             )}
           </div>
@@ -101,7 +101,7 @@ const Profile = () => {
           {/* Message */}
           {message && (
             <div className={`mb-6 p-4 rounded-lg ${
-              message.includes('เรียบร้อย') 
+              message.includes('successfully') 
                 ? 'bg-green-100 text-green-700 border border-green-200' 
                 : 'bg-red-100 text-red-700 border border-red-200'
             }`}>
@@ -115,7 +115,7 @@ const Profile = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-secondary-700 mb-2">
-                    ชื่อ
+                    First name
                   </label>
                   <input
                     type="text"
@@ -125,13 +125,13 @@ const Profile = () => {
                     className={`w-full p-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent ${
                       !isEditing ? 'bg-secondary-50' : ''
                     }`}
-                    placeholder="กรอกชื่อ"
+                    placeholder="Enter first name"
                     readOnly={!isEditing}
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-secondary-700 mb-2">
-                    นามสกุล
+                    Last name
                   </label>
                   <input
                     type="text"
@@ -141,7 +141,7 @@ const Profile = () => {
                     className={`w-full p-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent ${
                       !isEditing ? 'bg-secondary-50' : ''
                     }`}
-                    placeholder="กรอกนามสกุล"
+                    placeholder="Enter last name"
                     readOnly={!isEditing}
                   />
                 </div>
@@ -149,7 +149,7 @@ const Profile = () => {
               
               <div>
                 <label className="block text-sm font-medium text-secondary-700 mb-2">
-                  ชื่อผู้ใช้
+                  Username
                 </label>
                 <input
                   type="text"
@@ -159,14 +159,14 @@ const Profile = () => {
                   className={`w-full p-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent ${
                     !isEditing ? 'bg-secondary-50' : ''
                   }`}
-                  placeholder="กรอกชื่อผู้ใช้"
+                  placeholder="Enter username"
                   readOnly={!isEditing}
                 />
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-secondary-700 mb-2">
-                  อีเมล
+                  Email
                 </label>
                 <input
                   type="email"
@@ -176,14 +176,14 @@ const Profile = () => {
                   className={`w-full p-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent ${
                     !isEditing ? 'bg-secondary-50' : ''
                   }`}
-                  placeholder="กรอกอีเมล"
+                  placeholder="Enter email"
                   readOnly={!isEditing}
                 />
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-secondary-700 mb-2">
-                  เบอร์โทรศัพท์
+                  Phone number
                 </label>
                 <input
                   type="tel"
@@ -193,7 +193,7 @@ const Profile = () => {
                   className={`w-full p-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent ${
                     !isEditing ? 'bg-secondary-50' : ''
                   }`}
-                  placeholder="กรอกเบอร์โทรศัพท์"
+                  placeholder="Enter phone number"
                   readOnly={!isEditing}
                 />
               </div>
@@ -207,14 +207,14 @@ const Profile = () => {
                       onClick={() => setIsEditing(true)}
                       className="w-full bg-primary-500 text-white py-3 px-4 rounded-lg hover:bg-primary-600 transition-colors"
                     >
-                      แก้ไขข้อมูล
+                      Edit information
                     </button>
                     <div className="text-center">
                       <button
                         type="button"
                         className="text-primary-600 hover:text-primary-700 text-sm"
                       >
-                        เปลี่ยนรหัสผ่าน
+                        Change password
                       </button>
                     </div>
                   </div>
@@ -226,14 +226,14 @@ const Profile = () => {
                       className="w-full bg-secondary-300 text-secondary-700 py-3 px-4 rounded-lg hover:bg-secondary-400 transition-colors"
                       disabled={loading}
                     >
-                      ยกเลิก
+                      Cancel
                     </button>
                     <button
                       type="submit"
                       className="w-full bg-primary-500 text-white py-3 px-4 rounded-lg hover:bg-primary-600 transition-colors disabled:opacity-50"
                       disabled={loading}
                     >
-                      {loading ? 'กำลังบันทึก...' : 'บันทึก'}
+                      {loading ? 'Saving...' : 'Save'}
                     </button>
                   </div>
                 )}
@@ -243,30 +243,30 @@ const Profile = () => {
 
           {/* Account Info */}
           <div className="border-t pt-6 mt-6">
-            <h3 className="text-lg font-semibold text-secondary-700 mb-4">ข้อมูลบัญชี</h3>
+            <h3 className="text-lg font-semibold text-secondary-700 mb-4">Account information</h3>
             <div className="space-y-2 text-sm text-secondary-600">
               <div className="flex justify-between">
-                <span>สมาชิกเมื่อ:</span>
-                <span>{user?.created_at ? new Date(user.created_at).toLocaleDateString('th-TH') : 'ไม่ระบุ'}</span>
+                <span>Member since:</span>
+                <span>{user?.created_at ? new Date(user.created_at).toLocaleDateString('en-US') : 'Not specified'}</span>
               </div>
               <div className="flex justify-between">
-                <span>สถานะอีเมล:</span>
+                <span>Email status:</span>
                 <span className={`px-2 py-1 rounded-full text-xs ${
                   user?.is_email_verified 
                     ? 'bg-green-100 text-green-800' 
                     : 'bg-yellow-100 text-yellow-800'
                 }`}>
-                  {user?.is_email_verified ? 'ยืนยันแล้ว' : 'ยังไม่ยืนยัน'}
+                  {user?.is_email_verified ? 'Verified' : 'Not verified'}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span>บัญชีใช้งาน:</span>
+                <span>Account status:</span>
                 <span className={`px-2 py-1 rounded-full text-xs ${
                   user?.is_active 
                     ? 'bg-green-100 text-green-800' 
                     : 'bg-red-100 text-red-800'
                 }`}>
-                  {user?.is_active ? 'ใช้งานได้' : 'ระงับการใช้งาน'}
+                  {user?.is_active ? 'Active' : 'Inactive'}
                 </span>
               </div>
             </div>

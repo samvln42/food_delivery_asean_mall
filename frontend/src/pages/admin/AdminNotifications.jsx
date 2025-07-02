@@ -15,7 +15,7 @@ const AdminNotifications = () => {
     updateUnreadCount = context.updateUnreadCount;
     fetchUnreadCount = context.fetchUnreadCount;
   } catch (error) {
-    // Context not available, create dummy functions
+    // Context not available, use fallback functions
     decreaseUnreadCount = () => console.log('Notification context not available');
     updateUnreadCount = () => console.log('Notification context not available');
     fetchUnreadCount = () => console.log('Notification context not available');
@@ -190,7 +190,7 @@ const AdminNotifications = () => {
     if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)} นาทีที่แล้ว`;
     if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)} ชั่วโมงที่แล้ว`;
     if (diffInSeconds < 604800) return `${Math.floor(diffInSeconds / 86400)} วันที่แล้ว`;
-    return date.toLocaleDateString('th-TH');
+    return date.toLocaleDateString('en-US');
   };
 
   const filteredNotifications = getFilteredNotifications();

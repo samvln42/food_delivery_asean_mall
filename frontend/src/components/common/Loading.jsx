@@ -1,6 +1,6 @@
 import React from 'react';
 
-const Loading = ({ size = 'medium', text = 'กำลังโหลด...' }) => {
+const Loading = ({ size = 'medium', text = 'Loading...' }) => {
   const sizeClasses = {
     small: 'h-4 w-4',
     medium: 'h-8 w-8',

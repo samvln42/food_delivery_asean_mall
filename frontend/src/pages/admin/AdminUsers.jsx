@@ -127,6 +127,38 @@ const AdminUsers = () => {
     }
   };
 
+  const handleDeleteUser = async (userId, username) => {
+    try {
+      // ยืนยันการลบ
+      const confirmation = window.confirm(
+        `คุณแน่ใจหรือไม่ที่จะลบผู้ใช้ "${username}"?\n\nการดำเนินการนี้ไม่สามารถกู้คืนได้`
+      );
+      
+      if (!confirmation) {
+        return;
+      }
+
+      console.log(`🗑️ Deleting user ${userId} (${username})`);
+      await userService.delete(userId);
+      fetchUsers(); // Refresh data
+      alert(`ลบผู้ใช้ "${username}" เรียบร้อยแล้ว`);
+    } catch (err) {
+      console.error('❌ Error deleting user:', err);
+      console.error('Response:', err.response?.data);
+      
+      let errorMessage = 'ไม่สามารถลบผู้ใช้ได้';
+      if (err.response?.status === 403) {
+        errorMessage = 'คุณไม่มีสิทธิ์ลบผู้ใช้รายนี้';
+      } else if (err.response?.status === 404) {
+        errorMessage = 'ไม่พบผู้ใช้ที่ต้องการลบ';
+      } else if (err.response?.data?.detail) {
+        errorMessage = err.response.data.detail;
+      }
+      
+      alert(errorMessage);
+    }
+  };
+
 
 
 
@@ -186,7 +218,7 @@ const AdminUsers = () => {
   };
 
   const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('th-TH', {
+    return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'long',
       day: 'numeric',
@@ -392,6 +424,13 @@ const AdminUsers = () => {
                             <option value="general_restaurant">ร้านทั่วไป</option>
                             <option value="special_restaurant">ร้านพิเศษ</option>
                           </select>
+                          <button
+                            onClick={() => handleDeleteUser(user.id, user.username)}
+                            className="text-red-600 hover:text-red-900 font-medium"
+                            title="ลบผู้ใช้"
+                          >
+                            ลบ
+                          </button>
                         </>
                       )}
                     </div>
@@ -733,7 +772,7 @@ const UserModal = ({ user, type, onClose, onUpdate }) => {
                   </label>
                   <input
                     type="text"
-                    value={user?.date_joined ? new Date(user.date_joined).toLocaleDateString('th-TH') : ''}
+                    value={user?.date_joined ? new Date(user.date_joined).toLocaleDateString('en-US') : ''}
                     disabled
                     className="w-full p-3 border border-secondary-300 rounded-lg bg-secondary-50"
                   />
@@ -745,7 +784,7 @@ const UserModal = ({ user, type, onClose, onUpdate }) => {
                   </label>
                   <input
                     type="text"
-                    value={user?.last_login ? new Date(user.last_login).toLocaleDateString('th-TH') : 'ยังไม่เคยเข้าสู่ระบบ'}
+                    value={user?.last_login ? new Date(user.last_login).toLocaleDateString('en-US') : 'Never logged in'}
                     disabled
                     className="w-full p-3 border border-secondary-300 rounded-lg bg-secondary-50"
                   />

@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { categoryService } from '../../services/api';
 
 const AdminCategories = () => {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [searching, setSearching] = useState(false);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState(null);
@@ -16,21 +17,47 @@ const AdminCategories = () => {
   const [totalPages, setTotalPages] = useState(1);
   const itemsPerPage = 10;
 
+  // Single useEffect with smart debouncing
   useEffect(() => {
-    fetchCategories();
+    const isSearching = searchTerm.trim();
+    
+    // If searching and not on page 1, reset to page 1 first
+    if (isSearching && currentPage !== 1) {
+      setCurrentPage(1);
+      return; // Don't fetch yet, wait for currentPage to update
+    }
+
+    const debounceTime = isSearching ? 500 : 0;
+
+    const timeoutId = setTimeout(() => {
+      fetchCategories();
+    }, debounceTime);
+
+    return () => clearTimeout(timeoutId);
   }, [currentPage, searchTerm]);
 
   const fetchCategories = async () => {
     try {
-      setLoading(true);
+      const isSearching = searchTerm.trim();
+      
+      if (isSearching) {
+        setSearching(true);
+      } else {
+        setLoading(true);
+      }
+      
       console.log('🔍 Fetching categories with search:', searchTerm);
       
       const params = {
         page: currentPage,
         page_size: itemsPerPage,
-        search: searchTerm,
         ordering: 'category_name'
       };
+
+      // เพิ่ม search parameter เฉพาะเมื่อมีการค้นหา
+      if (searchTerm && searchTerm.trim()) {
+        params.search = searchTerm.trim();
+      }
 
       console.log('📡 Sending API request with params:', params);
       const response = await categoryService.getAll(params);
@@ -49,6 +76,7 @@ const AdminCategories = () => {
       setError('ไม่สามารถโหลดข้อมูลหมวดหมู่ได้');
     } finally {
       setLoading(false);
+      setSearching(false);
     }
   };
 
@@ -102,18 +130,21 @@ const AdminCategories = () => {
 
   const handleSearch = (e) => {
     setSearchTerm(e.target.value);
-    setCurrentPage(1);
+  };
+
+  const clearSearch = () => {
+    setSearchTerm('');
   };
 
   const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('th-TH', {
+    return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'long',
       day: 'numeric'
     });
   };
 
-  if (loading) {
+  if (loading && categories.length === 0) {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="flex justify-center items-center h-64">
@@ -154,13 +185,31 @@ const AdminCategories = () => {
             <label className="block text-sm font-medium text-secondary-700 mb-2">
               ค้นหาหมวดหมู่
             </label>
-            <input
-              type="text"
-              placeholder="ค้นหาชื่อหมวดหมู่..."
-              value={searchTerm}
-              onChange={handleSearch}
-              className="w-full p-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-            />
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="ค้นหาชื่อหมวดหมู่..."
+                value={searchTerm}
+                onChange={handleSearch}
+                className="w-full p-3 pr-10 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              />
+              {searching && (
+                <div className="absolute right-10 top-1/2 transform -translate-y-1/2">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-500"></div>
+                </div>
+              )}
+              {searchTerm && !searching && (
+                <button
+                  onClick={clearSearch}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-secondary-400 hover:text-secondary-600 transition-colors"
+                  title="ล้างการค้นหา"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>

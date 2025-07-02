@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="th">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ยืนยันอีเมลของคุณ</title>
+    <title>Verify Your Email</title>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -73,40 +73,40 @@
     <div class="container">
         <div class="header">
             <div class="logo">🍕 Food Delivery</div>
-            <h1 class="title">ยืนยันอีเมลของคุณ</h1>
+            <h1 class="title">Verify Your Email</h1>
         </div>
         
         <div class="content">
-            <p>สวัสดี <strong>{{ user.username }}</strong>,</p>
+            <p>Hello <strong>{{ user.username }}</strong>,</p>
             
-            <p>ขอบคุณที่สมัครสมาชิกกับ Food Delivery! กรุณานำรหัสยืนยันด้านล่างไปกรอกในเว็บไซต์เพื่อยืนยันอีเมลของคุณ</p>
+            <p>Thank you for registering with Food Delivery! Please use the verification code below to verify your email address on our website.</p>
             
             <p style="font-size: 18px; font-weight: bold; text-align: center; margin: 20px 0;">
-                รหัสยืนยันอีเมลของคุณ:
+                Your Email Verification Code:
             </p>
             <div class="token-info" style="text-align: center; font-size: 14px; background-color: #f8f9fa; border: 2px solid #e74c3c;">
                 <strong>{{ user.email_verification_token }}</strong>
             </div>
             
             <p style="text-align: center; margin: 20px 0;">
-                <strong>วิธีการใช้งาน:</strong><br>
-                1. กลับไปที่หน้ายืนยันอีเมลในเว็บไซต์<br>
-                2. นำรหัสยืนยันด้านบนไปกรอกในช่องที่กำหนด<br>
-                3. กดปุ่ม "ยืนยันอีเมล" เพื่อเสร็จสิ้นขั้นตอน
+                <strong>How to use:</strong><br>
+                1. Go back to the email verification page on our website<br>
+                2. Enter the verification code above in the designated field<br>
+                3. Click "Verify Email" button to complete the process
             </p>
             
-            <p><strong>หมายเหตุ:</strong></p>
+            <p><strong>Important Notes:</strong></p>
             <ul>
-                <li>รหัสยืนยันนี้จะหมดอายุใน 24 ชั่วโมง</li>
-                <li>หากคุณไม่ได้สมัครสมาชิก กรุณาละเว้นอีเมลนี้</li>
-                <li>อย่าแชร์รหัสยืนยันนี้กับผู้อื่น</li>
-                <li>กรอกรหัสยืนยันตามที่แสดงทั้งหมด รวมถึงเครื่องหมายขีด (-)</li>
+                <li>This verification code will expire in 24 hours</li>
+                <li>If you did not register for an account, please ignore this email</li>
+                <li>Do not share this verification code with others</li>
+                <li>Enter the verification code exactly as shown, including dashes (-)</li>
             </ul>
         </div>
         
         <div class="footer">
-            <p>อีเมลนี้ส่งโดยอัตโนมัติ กรุณาอย่าตอบกลับ</p>
-            <p>&copy; 2025 Food Delivery. สงวนลิขสิทธิ์</p>
+            <p>This email was sent automatically. Please do not reply.</p>
+            <p>&copy; 2025 Food Delivery. All rights reserved.</p>
         </div>
     </div>
 </body>

@@ -18,7 +18,7 @@ const Categories = () => {
       setCategories(response.data.results || response.data);
     } catch (error) {
       console.error('Error fetching categories:', error);
-      setError('ไม่สามารถโหลดหมวดหมู่ได้');
+      setError('Unable to load categories');
     } finally {
       setLoading(false);
     }
@@ -29,7 +29,7 @@ const Categories = () => {
       <div className="container mx-auto px-4 py-8">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500 mx-auto"></div>
-          <p className="mt-4 text-secondary-600">กำลังโหลด...</p>
+          <p className="mt-4 text-secondary-600">Loading...</p>
         </div>
       </div>
     );
@@ -44,7 +44,7 @@ const Categories = () => {
             onClick={fetchCategories}
             className="mt-4 bg-primary-500 text-white px-4 py-2 rounded-lg hover:bg-primary-600"
           >
-            ลองใหม่
+            Try again
           </button>
         </div>
       </div>
@@ -54,8 +54,8 @@ const Categories = () => {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="text-center mb-8">
-        <h1 className="text-3xl font-bold text-secondary-800 mb-2">หมวดหมู่อาหาร</h1>
-        <p className="text-secondary-600">เลือกหมวดหมู่อาหารที่คุณชื่นชอบ</p>
+        <h1 className="text-3xl font-bold text-secondary-800 mb-2">Categories</h1>
+        <p className="text-secondary-600">Choose your favorite categories</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -86,14 +86,14 @@ const Categories = () => {
             </div>
             <div className="p-4">
               <p className="text-secondary-600 text-sm">
-                {category.description || 'สำรวจอาหารในหมวดหมู่นี้'}
+                {category.description || 'Explore food in this category'}
               </p>
               <div className="mt-2 flex items-center justify-between">
                 <span className="text-primary-500 font-semibold group-hover:text-primary-600">
-                  ดูเมนู →
+                  View menu →
                 </span>
                 <span className="text-xs text-secondary-500">
-                  {category.products_count || 0} รายการ
+                  {category.products_count || 0} items
                 </span>
               </div>
             </div>
@@ -105,10 +105,10 @@ const Categories = () => {
         <div className="text-center py-12">
           <div className="text-6xl mb-4 opacity-30">🍽️</div>
           <h3 className="text-xl font-semibold text-secondary-700 mb-2">
-            ยังไม่มีหมวดหมู่อาหาร
+            No categories found
           </h3>
           <p className="text-secondary-500">
-            กรุณาลองใหม่อีกครั้งในภายหลัง
+            Please try again later
           </p>
         </div>
       )}

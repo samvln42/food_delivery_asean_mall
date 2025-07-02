@@ -209,14 +209,14 @@ const AdminRestaurantProducts = () => {
   };
 
   const formatPrice = (price) => {
-    return new Intl.NumberFormat('th-TH', {
+    return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'THB'
     }).format(price);
   };
 
   const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('th-TH', {
+    return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'long',
       day: 'numeric'
@@ -951,13 +951,13 @@ const ProductModal = ({ product, type, categories, restaurant, onClose, onSave }
                 <div>
                   <span className="text-secondary-600">วันที่สร้าง:</span>
                   <span className="ml-2 font-medium">
-                    {new Date(product.created_at).toLocaleDateString('th-TH')}
+                    {new Date(product.created_at).toLocaleDateString('en-US')}
                   </span>
                 </div>
                 <div>
                   <span className="text-secondary-600">อัปเดตล่าสุด:</span>
                   <span className="ml-2 font-medium">
-                    {new Date(product.updated_at).toLocaleDateString('th-TH')}
+                    {new Date(product.updated_at).toLocaleDateString('en-US')}
                   </span>
                 </div>
               </div>

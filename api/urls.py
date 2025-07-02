@@ -31,5 +31,5 @@ urlpatterns = [
     path('dashboard/customer/', views.DashboardViewSet.as_view({'get': 'customer'}), name='dashboard-customer'),
     path('reports/sales/', views.ReportViewSet.as_view({'get': 'sales'}), name='report-sales'),
     path('reports/products/', views.ReportViewSet.as_view({'get': 'products'}), name='report-products'),
-    path('test/create-notifications/', views.create_test_notifications, name='create-test-notifications'),
+
 ] 

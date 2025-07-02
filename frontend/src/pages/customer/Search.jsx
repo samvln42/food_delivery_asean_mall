@@ -60,7 +60,7 @@ const Search = () => {
       setResults(newResults);
     } catch (error) {
       console.error('Search error:', error);
-      setError('เกิดข้อผิดพลาดในการค้นหา');
+      setError('Error searching');
     } finally {
       setLoading(false);
     }
@@ -77,15 +77,11 @@ const Search = () => {
   const handleAddToCart = (product) => {
     console.log('Adding product to cart from search:', product);
     
-    // ทดสอบ: ปิดการเช็ค login ชั่วคราว
-    if (!isAuthenticated) {
-      console.warn('Not authenticated but allowing add to cart for testing');
-      // alert('กรุณาเข้าสู่ระบบก่อนสั่งอาหาร');
-      // return;
-    }
+    // การตรวจสอบ login จะทำใน CartContext แล้ว
+    // ไม่ต้องตรวจสอบที่นี่อีก
 
     if (!product.is_available) {
-      alert('สินค้านี้หมดแล้ว');
+      alert('This product is out of stock');
       return;
     }
 
@@ -97,13 +93,24 @@ const Search = () => {
       };
 
       // เพิ่มสินค้าลงตะกร้า
-      addItem(product, restaurant);
+      const result = addItem(product, restaurant);
+
+      // ตรวจสอบผลลัพธ์
+      if (result && result.success === false) {
+        // หากต้องการ login ให้ CartContext จัดการ redirect ไปเอง
+        if (result.requiresLogin) {
+          return; // ไม่แสดง alert เพิ่มเติม
+        }
+        
+        alert(result.error || 'Error adding product to cart');
+        return;
+      }
 
       // แสดงข้อความยืนยัน
-      alert(`เพิ่ม "${product.product_name}" ลงตะกร้าแล้ว!`);
+      alert(`Added "${product.product_name}" to cart!`);
     } catch (error) {
       console.error('Error adding to cart:', error);
-      alert('เกิดข้อผิดพลาดในการเพิ่มสินค้าลงตะกร้า');
+      alert('Error adding product to cart');
     }
   };
 
@@ -117,27 +124,27 @@ const Search = () => {
           <div className="flex flex-col gap-4">
             <div>
               <label className="block text-sm font-medium text-secondary-700 mb-2">
-                ค้นหาร้านอาหารหรือเมนู
+                Search for restaurant or menu
               </label>
               <div className="flex gap-2">
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="กรอกคำค้นหา..."
+                  placeholder="Enter search..."
                   className="flex-1 p-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 />
                 <button
                   type="submit"
                   className="bg-primary-500 text-white px-6 py-3 rounded-lg hover:bg-primary-600 transition-colors"
                 >
-                  ค้นหา
+                  Search
                 </button>
               </div>
             </div>
             <div>
               <label className="block text-sm font-medium text-secondary-700 mb-2">
-                ประเภทการค้นหา
+                Search type
               </label>
               <div className="flex gap-4">
                 <label className="flex items-center">
@@ -148,7 +155,7 @@ const Search = () => {
                     onChange={(e) => setSearchType(e.target.value)}
                     className="mr-2"
                   />
-                  ทั้งหมด
+                  All
                 </label>
                 <label className="flex items-center">
                   <input
@@ -158,7 +165,7 @@ const Search = () => {
                     onChange={(e) => setSearchType(e.target.value)}
                     className="mr-2"
                   />
-                  ร้านอาหาร
+                  Restaurant
                 </label>
                 <label className="flex items-center">
                   <input
@@ -168,7 +175,7 @@ const Search = () => {
                     onChange={(e) => setSearchType(e.target.value)}
                     className="mr-2"
                   />
-                  เมนูอาหาร
+                  Menu
                 </label>
               </div>
             </div>
@@ -180,7 +187,7 @@ const Search = () => {
       {loading && (
         <div className="text-center py-8">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500 mx-auto"></div>
-          <p className="mt-4 text-secondary-600">กำลังค้นหา...</p>
+          <p className="mt-4 text-secondary-600">Searching...</p>
         </div>
       )}
 
@@ -194,7 +201,7 @@ const Search = () => {
         <div>
           <div className="mb-6">
             <h2 className="text-2xl font-bold text-secondary-800">
-              ผลการค้นหา "{searchParams.get('q')}" ({totalResults} รายการ)
+              Search results "{searchParams.get('q')}" ({totalResults} results)
             </h2>
           </div>
 
@@ -202,7 +209,7 @@ const Search = () => {
           {results.restaurants.length > 0 && (
             <div className="mb-8">
               <h3 className="text-xl font-semibold text-secondary-700 mb-4">
-                ร้านอาหาร ({results.restaurants.length} ร้าน)
+                Restaurant ({results.restaurants.length} restaurants)
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {results.restaurants.map((restaurant) => (
@@ -239,7 +246,7 @@ const Search = () => {
                           </span>
                         </div>
                         <span className="text-primary-500 font-semibold group-hover:text-primary-600">
-                          ดูเมนู →
+                          View menu →
                         </span>
                       </div>
                     </div>
@@ -253,7 +260,7 @@ const Search = () => {
           {results.products.length > 0 && (
             <div className="mb-8">
               <h3 className="text-xl font-semibold text-secondary-700 mb-4">
-                เมนูอาหาร ({results.products.length} รายการ)
+                Menu ({results.products.length} results)
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {results.products.map((product) => (
@@ -301,10 +308,10 @@ const Search = () => {
                         disabled={product.is_available === false}
                       >
                         {product.is_available === false 
-                          ? 'หมด' 
+                          ? 'Out of stock' 
                           : !isAuthenticated 
-                          ? 'เข้าสู่ระบบเพื่อสั่งซื้อ' 
-                          : 'เพิ่มลงตะกร้า'
+                          ? 'Login to order' 
+                          : 'Add to cart'
                         }
                       </button>
                     </div>
@@ -319,10 +326,10 @@ const Search = () => {
             <div className="text-center py-12">
               <div className="text-6xl mb-4 opacity-30">🔍</div>
               <h3 className="text-xl font-semibold text-secondary-700 mb-2">
-                ไม่พบผลการค้นหา
+                No search results
               </h3>
               <p className="text-secondary-500 mb-6">
-                ลองใช้คำค้นหาอื่น หรือเปลี่ยนประเภทการค้นหา
+                Try a different search or change the search type
               </p>
             </div>
           )}
@@ -334,10 +341,10 @@ const Search = () => {
         <div className="text-center py-12">
           <div className="text-6xl mb-4 opacity-30">🔍</div>
           <h3 className="text-xl font-semibold text-secondary-700 mb-2">
-            ค้นหาร้านอาหารและเมนูที่คุณชอบ
+            Search for restaurant or menu
           </h3>
           <p className="text-secondary-500">
-            กรอกคำค้นหาด้านบนเพื่อเริ่มต้น
+            Enter a search above to start
           </p>
         </div>
       )}

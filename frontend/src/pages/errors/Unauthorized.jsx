@@ -15,14 +15,14 @@ const Unauthorized = () => {
         <div className="mb-8">
           <div className="text-9xl font-bold text-red-500 mb-4">403</div>
           <h1 className="text-3xl font-bold text-secondary-900 mb-2">
-            ไม่มีสิทธิ์เข้าถึง
+            Unauthorized
           </h1>
           <p className="text-secondary-600">
-            ขออภัย คุณไม่มีสิทธิ์เข้าถึงหน้านี้
+            Sorry, you are not authorized to access this page
           </p>
           {user && (
             <p className="text-sm text-secondary-500 mt-2">
-              คุณเข้าสู่ระบบในฐานะ: <span className="font-medium">{user.role}</span>
+              You are logged in as: <span className="font-medium">{user.role}</span>
             </p>
           )}
         </div>
@@ -32,7 +32,7 @@ const Unauthorized = () => {
             to="/"
             className="btn-primary inline-block"
           >
-            กลับสู่หน้าแรก
+            Back to home
           </Link>
           <br />
           {user ? (
@@ -40,20 +40,20 @@ const Unauthorized = () => {
               onClick={handleLogout}
               className="btn-secondary"
             >
-              ออกจากระบบ
+              Logout
             </button>
           ) : (
             <Link
               to="/login"
               className="btn-secondary inline-block"
             >
-              เข้าสู่ระบบ
+              Login
             </Link>
           )}
         </div>
         
         <div className="mt-12 text-sm text-secondary-500">
-          <p>หากคุณคิดว่านี่เป็นข้อผิดพลาด กรุณา <Link to="/contact" className="text-primary-600 hover:underline">ติดต่อแอดมิน</Link></p>
+          <p>If you think this is an error, please <Link to="/contact" className="text-primary-600 hover:underline">contact us</Link></p>
         </div>
       </div>
     </div>

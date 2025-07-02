@@ -26,7 +26,7 @@ const CategoryDetail = () => {
       setCategory(response.data);
     } catch (error) {
       console.error('Error fetching category detail:', error);
-      setError('ไม่สามารถโหลดข้อมูลหมวดหมู่ได้');
+      setError('Unable to load category data');
     }
   };
 
@@ -37,7 +37,7 @@ const CategoryDetail = () => {
       setProducts(response.data.results || response.data);
     } catch (error) {
       console.error('Error fetching category products:', error);
-      setError('ไม่สามารถโหลดสินค้าได้');
+      setError('Unable to load products');
     } finally {
       setLoading(false);
     }
@@ -48,26 +48,22 @@ const CategoryDetail = () => {
     
     // ตรวจสอบสถานะร้าน
     if (product.restaurant_status !== 'open') {
-      alert('ร้านนี้ปิดทำการอยู่ ไม่สามารถสั่งอาหารได้');
+      alert('This restaurant is closed and cannot order food');
       return;
     }
     
-    // ทดสอบ: ปิดการเช็ค login ชั่วคราว
-    if (!isAuthenticated) {
-      console.warn('Not authenticated but allowing add to cart for testing');
-      // alert('กรุณาเข้าสู่ระบบก่อนสั่งอาหาร');
-      // return;
-    }
+    // การตรวจสอบ login จะทำใน CartContext แล้ว
+    // ไม่ต้องตรวจสอบที่นี่อีก
 
     if (!product.is_available) {
-      alert('สินค้านี้หมดแล้ว');
+      alert('This product is out of stock');
       return;
     }
 
     // ตรวจสอบว่ามี restaurant_id หรือไม่
     if (!product.restaurant_id && !product.restaurant) {
       console.error('Product missing restaurant information:', product);
-      alert('ข้อมูลร้านอาหารไม่ครบถ้วน ไม่สามารถเพิ่มลงตะกร้าได้');
+      alert('Restaurant information is incomplete and cannot be added to the cart');
       return;
     }
 
@@ -84,7 +80,7 @@ const CategoryDetail = () => {
 
       // ตรวจสอบว่า restaurant_id มีค่าหรือไม่
       if (!restaurant.id && !restaurant.restaurant_id) {
-        throw new Error('ไม่พบข้อมูล restaurant_id');
+        throw new Error('No restaurant_id found');
       }
 
       // เพิ่มสินค้าลงตะกร้า
@@ -92,15 +88,20 @@ const CategoryDetail = () => {
 
       // ตรวจสอบผลลัพธ์
       if (result && result.success === false) {
-        alert(result.error || 'เกิดข้อผิดพลาดในการเพิ่มสินค้าลงตะกร้า');
+        // หากต้องการ login ให้ CartContext จัดการ redirect ไปเอง
+        if (result.requiresLogin) {
+          return; // ไม่แสดง alert เพิ่มเติม
+        }
+        
+        alert(result.error || 'Error adding product to cart');
         return;
       }
 
       // แสดงข้อความยืนยัน
-      alert(`เพิ่ม "${product.product_name}" ลงตะกร้าแล้ว!`);
+      alert(`Added "${product.product_name}" to cart!`);
     } catch (error) {
       console.error('Error adding to cart:', error);
-      alert('เกิดข้อผิดพลาดในการเพิ่มสินค้าลงตะกร้า: ' + error.message);
+      alert('Error adding product to cart: ' + error.message);
     }
   };
 
@@ -109,7 +110,7 @@ const CategoryDetail = () => {
       <div className="container mx-auto px-4 py-8">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500 mx-auto"></div>
-          <p className="mt-4 text-secondary-600">กำลังโหลด...</p>
+          <p className="mt-4 text-secondary-600">Loading...</p>
         </div>
       </div>
     );
@@ -124,7 +125,7 @@ const CategoryDetail = () => {
             to="/categories"
             className="mt-4 inline-block bg-primary-500 text-white px-4 py-2 rounded-lg hover:bg-primary-600"
           >
-            กลับไปหมวดหมู่
+            Back to category
           </Link>
         </div>
       </div>
@@ -135,9 +136,9 @@ const CategoryDetail = () => {
     <div className="container mx-auto px-4 py-8">
       {/* Breadcrumb */}
       <nav className="text-sm mb-6">
-        <Link to="/" className="text-primary-500 hover:text-primary-600">หน้าแรก</Link>
+        <Link to="/" className="text-primary-500 hover:text-primary-600">Home</Link>
         <span className="mx-2 text-secondary-400">&gt;</span>
-        <Link to="/categories" className="text-primary-500 hover:text-primary-600">หมวดหมู่อาหาร</Link>
+        <Link to="/categories" className="text-primary-500 hover:text-primary-600">Categories</Link>
         <span className="mx-2 text-secondary-400">&gt;</span>
         <span className="text-secondary-600">{category?.category_name}</span>
       </nav>
@@ -175,7 +176,7 @@ const CategoryDetail = () => {
       {/* Products Grid */}
       <div className="mb-6">
         <h2 className="text-2xl font-bold text-secondary-800 mb-4">
-          เมนูอาหารในหมวดหมู่นี้ ({products.length} รายการ)
+          Menu in this category ({products.length} items)
         </h2>
       </div>
 
@@ -203,12 +204,12 @@ const CategoryDetail = () => {
                 )}
                 {product.is_available === false && (
                   <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-                    <span className="text-white font-semibold">หมด</span>
+                    <span className="text-white font-semibold">Out of stock</span>
                   </div>
                 )}
                 {product.restaurant_status !== 'open' && (
                   <div className="absolute inset-0 bg-red-600 bg-opacity-70 flex items-center justify-center">
-                    <span className="text-white font-semibold">ร้านปิดทำการ</span>
+                    <span className="text-white font-semibold">Closed</span>
                   </div>
                 )}
               </div>
@@ -221,7 +222,7 @@ const CategoryDetail = () => {
                 </p>
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-primary-500 font-bold text-lg">
-                    ฿{Number(product.price).toFixed(2)}
+                    {Number(product.price).toFixed(2)}
                   </span>
                   <span className="text-xs text-secondary-500">
                     {product.restaurant_name}
@@ -233,7 +234,7 @@ const CategoryDetail = () => {
                   to={`/restaurants/${product.restaurant_id || product.restaurant}`}
                   className="block w-full mb-2 py-2 px-4 bg-secondary-100 text-secondary-700 text-center rounded-lg font-medium hover:bg-secondary-200 transition-colors text-sm"
                 >
-                  🏪 ดูร้านนี้
+                  🏪 View this restaurant
                 </Link>
                 
                 <button
@@ -248,12 +249,12 @@ const CategoryDetail = () => {
                   disabled={product.restaurant_status !== 'open' || product.is_available === false}
                 >
                   {product.restaurant_status !== 'open'
-                    ? 'ร้านปิดทำการ'
+                    ? 'Closed'
                     : product.is_available === false 
-                    ? 'หมด' 
+                    ? 'Out of stock' 
                     : !isAuthenticated 
-                    ? 'เข้าสู่ระบบเพื่อสั่งซื้อ' 
-                    : 'เพิ่มลงตะกร้า'
+                    ? 'Login to order' 
+                    : 'Add to cart'
                   }
                 </button>
               </div>
@@ -264,16 +265,16 @@ const CategoryDetail = () => {
         <div className="text-center py-12">
           <div className="text-6xl mb-4 opacity-30">🍽️</div>
           <h3 className="text-xl font-semibold text-secondary-700 mb-2">
-            ยังไม่มีเมนูในหมวดหมู่นี้
+            No menu in this category
           </h3>
           <p className="text-secondary-500 mb-6">
-            ลองเลือกหมวดหมู่อื่นดูสิ
+            Try choosing another category
           </p>
           <Link
             to="/categories"
             className="inline-block bg-primary-500 text-white px-6 py-3 rounded-lg hover:bg-primary-600 transition-colors"
           >
-            ดูหมวดหมู่อื่น
+            View other categories
           </Link>
         </div>
       )}

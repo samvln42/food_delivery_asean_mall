@@ -39,11 +39,11 @@ const Register = () => {
 
   const validatePasswords = () => {
     if (formData.password !== formData.confirmPassword) {
-      setPasswordError('รหัสผ่านไม่ตรงกัน');
+      setPasswordError('Passwords do not match');
       return false;
     }
     if (formData.password.length < 8) {
-      setPasswordError('รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร');
+      setPasswordError('Password must be at least 8 characters');
       return false;
     }
     return true;
@@ -57,7 +57,7 @@ const Register = () => {
     }
 
     if (!formData.agreeToTerms) {
-      alert('กรุณายอมรับข้อกำหนดและเงื่อนไข');
+      alert('Please agree to the terms and conditions');
       return;
     }
 
@@ -94,14 +94,14 @@ const Register = () => {
               <span className="text-2xl">✅</span>
             </div>
             <h2 className="mt-6 text-center text-3xl font-extrabold text-secondary-900">
-              สมัครสมาชิกสำเร็จ!
+              Registration successful!
             </h2>
             <p className="mt-2 text-center text-sm text-secondary-600">
-              เราได้ส่งลิงก์ยืนยันไปยังอีเมล {formData.email} แล้ว<br />
-              กรุณาตรวจสอบอีเมลและยืนยันการสมัครสมาชิก
+              We have sent a verification link to your email {formData.email} <br />
+              Please check your email and verify your registration
             </p>
             <div className="mt-4">
-              <Loading size="small" text="กำลังโหลด..." />
+              <Loading size="small" text="Loading..." />
             </div>
           </div>
         </div>
@@ -117,15 +117,15 @@ const Register = () => {
             <span className="text-2xl">🍕</span>
           </div>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-secondary-900">
-            สมัครสมาชิก
+            Register
           </h2>
           <p className="mt-2 text-center text-sm text-secondary-600">
-            หรือ{' '}
+            Or{' '}
             <Link
               to="/login"
               className="font-medium text-primary-600 hover:text-primary-500"
             >
-              เข้าสู่ระบบ
+              Login
             </Link>
           </p>
         </div>
@@ -140,7 +140,7 @@ const Register = () => {
           <div className="space-y-4">
             <div>
               <label htmlFor="username" className="block text-sm font-medium text-secondary-700">
-                ชื่อผู้ใช้ *
+                Username *
               </label>
               <input
                 id="username"
@@ -150,13 +150,13 @@ const Register = () => {
                 value={formData.username}
                 onChange={handleChange}
                 className="input-field mt-1"
-                placeholder="กรอกชื่อผู้ใช้"
+                placeholder="Enter username"
               />
             </div>
 
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-secondary-700">
-                อีเมล *
+                Email *
               </label>
               <input
                 id="email"
@@ -166,13 +166,13 @@ const Register = () => {
                 value={formData.email}
                 onChange={handleChange}
                 className="input-field mt-1"
-                placeholder="กรอกอีเมล"
+                placeholder="Enter email"
               />
             </div>
 
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-secondary-700">
-                รหัสผ่าน *
+                Password *
               </label>
               <input
                 id="password"
@@ -182,13 +182,13 @@ const Register = () => {
                 value={formData.password}
                 onChange={handleChange}
                 className="input-field mt-1"
-                placeholder="กรอกรหัสผ่าน (อย่างน้อย 8 ตัวอักษร)"
+                placeholder="Enter password (at least 8 characters)"
               />
             </div>
 
             <div>
               <label htmlFor="confirmPassword" className="block text-sm font-medium text-secondary-700">
-                ยืนยันรหัสผ่าน *
+                Confirm Password *
               </label>
               <input
                 id="confirmPassword"
@@ -198,7 +198,7 @@ const Register = () => {
                 value={formData.confirmPassword}
                 onChange={handleChange}
                 className="input-field mt-1"
-                placeholder="ยืนยันรหัสผ่าน"
+                placeholder="Confirm password"
               />
               {passwordError && (
                 <p className="mt-1 text-sm text-red-600">{passwordError}</p>
@@ -207,7 +207,7 @@ const Register = () => {
 
             <div>
               <label htmlFor="phone" className="block text-sm font-medium text-secondary-700">
-                เบอร์โทรศัพท์
+                Phone Number
               </label>
               <input
                 id="phone"
@@ -216,13 +216,13 @@ const Register = () => {
                 value={formData.phone}
                 onChange={handleChange}
                 className="input-field mt-1"
-                placeholder="กรอกเบอร์โทรศัพท์"
+                placeholder="Enter phone number"
               />
             </div>
 
             <div>
               <label htmlFor="address" className="block text-sm font-medium text-secondary-700">
-                ที่อยู่
+                Address
               </label>
               <textarea
                 id="address"
@@ -231,13 +231,13 @@ const Register = () => {
                 value={formData.address}
                 onChange={handleChange}
                 className="input-field mt-1"
-                placeholder="กรอกที่อยู่"
+                placeholder="Enter address"
               />
             </div>
 
             <div>
               <label htmlFor="role" className="block text-sm font-medium text-secondary-700">
-                ประเภทผู้ใช้ *
+                User Type *
               </label>
               <select
                 id="role"
@@ -247,11 +247,11 @@ const Register = () => {
                 onChange={handleChange}
                 className="input-field mt-1"
               >
-                <option value="customer">ลูกค้า</option>
-                <option value="general_restaurant">เจ้าของร้านอาหาร</option>
+                <option value="customer">Customer</option>
+                <option value="general_restaurant">Restaurant Owner</option>
               </select>
               <p className="mt-1 text-sm text-secondary-500">
-                หมายเหตุ: ร้านอาหารพิเศษต้องได้รับการอนุมัติจากแอดมิน
+                Note: Special restaurants must be approved by admin
               </p>
             </div>
           </div>
@@ -267,13 +267,13 @@ const Register = () => {
               className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-secondary-300 rounded"
             />
             <label htmlFor="agreeToTerms" className="ml-2 block text-sm text-secondary-900">
-              ฉันยอมรับ{' '}
+              I agree to{' '}
               <Link to="/terms" className="text-primary-600 hover:text-primary-500">
-                ข้อกำหนดและเงื่อนไข
+                Terms and Conditions
               </Link>{' '}
-              และ{' '}
+              and{' '}
               <Link to="/privacy" className="text-primary-600 hover:text-primary-500">
-                นโยบายความเป็นส่วนตัว
+                Privacy Policy
               </Link>
             </label>
           </div>
@@ -284,7 +284,7 @@ const Register = () => {
               disabled={loading}
               className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? <Loading size="small" text="" /> : 'สมัครสมาชิก'}
+              {loading ? <Loading size="small" text="" /> : 'Register'}
             </button>
           </div>
 
@@ -294,7 +294,7 @@ const Register = () => {
                 <div className="w-full border-t border-secondary-300" />
               </div>
               <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-secondary-50 text-secondary-500">หรือ</span>
+                <span className="px-2 bg-secondary-50 text-secondary-500">Or</span>
               </div>
             </div>
 
@@ -309,7 +309,7 @@ const Register = () => {
                   <path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
                   <path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
                 </svg>
-                <span className="ml-2">สมัครสมาชิก Google</span>
+                <span className="ml-2">Register with Google</span>
               </button>
             </div>
           </div>

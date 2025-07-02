@@ -8,10 +8,10 @@ const NotFound = () => {
         <div className="mb-8">
           <div className="text-9xl font-bold text-primary-600 mb-4">404</div>
           <h1 className="text-3xl font-bold text-secondary-900 mb-2">
-            ไม่พบหน้าที่ต้องการ
+            Page not found
           </h1>
           <p className="text-secondary-600">
-            ขออภัย หน้าที่คุณกำลังมองหาไม่มีอยู่ในระบบ
+            Sorry, the page you are looking for does not exist
           </p>
         </div>
         
@@ -20,19 +20,19 @@ const NotFound = () => {
             to="/"
             className="btn-primary inline-block"
           >
-            กลับสู่หน้าแรก
+            Back to home
           </Link>
           <br />
           <button
             onClick={() => window.history.back()}
             className="btn-secondary"
           >
-            ย้อนกลับ
+            Back
           </button>
         </div>
         
         <div className="mt-12 text-sm text-secondary-500">
-          <p>หากคุณคิดว่านี่เป็นข้อผิดพลาด กรุณา <Link to="/contact" className="text-primary-600 hover:underline">ติดต่อเรา</Link></p>
+          <p>If you think this is an error, please <Link to="/contact" className="text-primary-600 hover:underline">contact us</Link></p>
         </div>
       </div>
     </div>

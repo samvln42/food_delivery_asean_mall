@@ -52,28 +52,28 @@ const CustomerLayout = ({ children }) => {
             </div>
             
             <div>
-              <h4 className="font-medium mb-4">ลิงก์ด่วน</h4>
+              <h4 className="font-medium mb-4">Quick Links</h4>
               <ul className="space-y-2 text-sm text-secondary-300">
-                <li><a href="/" className="hover:text-white">หน้าแรก</a></li>
-                <li><a href="/products" className="hover:text-white">สินค้า</a></li>
-                <li><a href="/restaurants" className="hover:text-white">ร้านอาหาร</a></li>
-                <li><a href="/categories" className="hover:text-white">หมวดหมู่</a></li>
-                <li><a href="/about" className="hover:text-white">เกี่ยวกับเรา</a></li>
+                <li><a href="/" className="hover:text-white">Home</a></li>
+                <li><a href="/products" className="hover:text-white">Products</a></li>
+                <li><a href="/restaurants" className="hover:text-white">Restaurants</a></li>
+                <li><a href="/categories" className="hover:text-white">Categories</a></li>
+                <li><a href="/about" className="hover:text-white">About Us</a></li>
               </ul>
             </div>
             
             <div>
-              <h4 className="font-medium mb-4">บริการ</h4>
+              <h4 className="font-medium mb-4">Services</h4>
               <ul className="space-y-2 text-sm text-secondary-300">
-                <li><a href="/help" className="hover:text-white">ช่วยเหลือ</a></li>
-                <li><a href="/contact" className="hover:text-white">ติดต่อเรา</a></li>
-                <li><a href="/terms" className="hover:text-white">ข้อกำหนด</a></li>
-                <li><a href="/privacy" className="hover:text-white">นโยบายความเป็นส่วนตัว</a></li>
+                <li><a href="/help" className="hover:text-white">Help</a></li>
+                <li><a href="/contact" className="hover:text-white">Contact Us</a></li>
+                <li><a href="/terms" className="hover:text-white">Terms of Service</a></li>
+                <li><a href="/privacy" className="hover:text-white">Privacy Policy</a></li>
               </ul>
             </div>
             
             <div>
-              <h4 className="font-medium mb-4">ติดตามเรา</h4>
+              <h4 className="font-medium mb-4">Follow Us</h4>
               <div className="flex space-x-4">
                 <a href="#" className="text-secondary-300 hover:text-white">
                   📘 Facebook
@@ -89,7 +89,7 @@ const CustomerLayout = ({ children }) => {
           </div>
           
           <div className="border-t border-secondary-700 mt-8 pt-8 text-center text-sm text-secondary-400">
-            <p>&copy; 2025 FoodDelivery. สงวนลิขสิทธิ์ทั้งหมด.</p>
+            <p>&copy; 2025 FoodDelivery. All rights reserved.</p>
           </div>
         </div>
       </footer>

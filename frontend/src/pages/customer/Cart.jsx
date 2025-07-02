@@ -3,6 +3,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useCart } from '../../contexts/CartContext';
 import { appSettingsService } from '../../services/api';
+import { ErrorHandler, handleError } from '../../utils/errorHandler';
+import { toast } from '../../hooks/useNotification';
 
 const Cart = () => {
   const { user } = useAuth();
@@ -99,17 +101,17 @@ const Cart = () => {
 
   const handleCheckout = async () => {
     if (cartItems.length === 0) {
-      alert('ตะกร้าของคุณว่างเปล่า');
+      toast.warning('Your cart is empty');
       return;
     }
 
     if (!deliveryAddress.trim()) {
-      alert('กรุณากรอกที่อยู่จัดส่ง');
+      toast.warning('Please enter delivery address');
       return;
     }
 
     if (!proofOfPayment) {
-      alert('กรุณาแนบหลักฐานการโอนเงิน');
+      toast.warning('Please attach payment proof');
       return;
     }
 
@@ -118,7 +120,7 @@ const Cart = () => {
     const token = localStorage.getItem('token');
     
     if (!userId || !token) {
-      alert('กรุณาเข้าสู่ระบบก่อนสั่งซื้อ');
+      toast.error('Please login before placing order');
       return;
     }
 
@@ -130,14 +132,14 @@ const Cart = () => {
         if (response.ok) {
           const restaurant = await response.json();
           if (restaurant.status !== 'open') {
-            alert(`ขออภัย ร้าน "${restaurant.restaurant_name}" ปิดทำการแล้ว กรุณาลบสินค้าจากร้านนี้ออกจากตะกร้าก่อนสั่งซื้อ`);
+            toast.error(`Sorry, "${restaurant.restaurant_name}" is closed. Please remove items from this restaurant before ordering`);
             return;
           }
         }
       }
     } catch (error) {
       console.error('Error checking restaurant status:', error);
-      alert('ไม่สามารถตรวจสอบสถานะร้านได้ กรุณาลองใหม่อีกครั้ง');
+      toast.error('Unable to check restaurant status. Please try again');
       return;
     }
 
@@ -204,14 +206,14 @@ const Cart = () => {
         const orderResult = JSON.parse(result);
         clearCart();
         
-        let successMessage = `สั่งอาหารสำเร็จแล้ว!\n`;
-        if (orderResult.order_id) {
-          successMessage += `หมายเลขคำสั่งซื้อ: ${orderResult.order_id}\n`;
-        }
-        successMessage += `จำนวนร้าน: ${restaurantCount} ร้าน\n`;
-        successMessage += `รวมทั้งสิ้น: ฿${total}`;
+        let successMessage = `Order successful!\n`;
+                  if (orderResult.order_id) {
+            successMessage += `Order ID: ${orderResult.order_id}\n`;
+          }
+          successMessage += `Number of restaurants: ${restaurantCount}\n`;
+          successMessage += `Total: ฿${total}`;
         
-        alert(successMessage);
+        toast.success(successMessage);
         navigate('/orders');
       } else {
         // ถ้า API multi ยังไม่มี ลองใช้ single restaurant order แบบเดิม
@@ -222,7 +224,7 @@ const Cart = () => {
           const errorData = JSON.parse(result);
           console.error('Order failed:', errorData);
           
-          let errorMessage = 'เกิดข้อผิดพลาดในการสั่งอาหาร';
+          let errorMessage = 'Error occurred while placing order';
           if (typeof errorData === 'object') {
             const errors = [];
             Object.keys(errorData).forEach(key => {
@@ -233,16 +235,15 @@ const Cart = () => {
               }
             });
             if (errors.length > 0) {
-              errorMessage = `เกิดข้อผิดพลาด:\n${errors.join('\n')}`;
+              errorMessage = `Error occurred:\n${errors.join('\n')}`;
             }
           }
-          alert(errorMessage);
+          toast.error(errorMessage);
         }
       }
 
     } catch (error) {
-      console.error('Error:', error);
-      alert('เกิดข้อผิดพลาดในการเชื่อมต่อ กรุณาลองใหม่อีกครั้ง');
+              ErrorHandler.handleNetworkError('Order');
     } finally {
       setLoading(false);
     }
@@ -298,7 +299,7 @@ const Cart = () => {
     if (response.ok) {
       const orderResult = JSON.parse(result);
       clearCart();
-      alert(`สั่งอาหารสำเร็จแล้ว!\nหมายเลขคำสั่งซื้อ: ${orderResult.id || 'ORD-' + Date.now()}\nรวม: ฿${total}`);
+      toast.success(`Order successful!\nOrder ID: ${orderResult.id || 'ORD-' + Date.now()}\nTotal: ฿${total}`);
       navigate('/orders');
     } else {
       throw new Error('Single restaurant order failed');
@@ -314,7 +315,7 @@ const Cart = () => {
       <div className="container mx-auto px-4 py-8">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500 mx-auto"></div>
-          <p className="mt-4 text-secondary-600">กำลังดำเนินการสั่งซื้อ...</p>
+          <p className="mt-4 text-secondary-600">Processing order...</p>
         </div>
       </div>
     );
@@ -322,7 +323,7 @@ const Cart = () => {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold text-secondary-800 mb-6">ตะกร้าสินค้า</h1>
+      <h1 className="text-3xl font-bold text-secondary-800 mb-6">Cart</h1>
       
       {cartItems.length > 0 ? (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -337,9 +338,9 @@ const Cart = () => {
                       <span className="text-2xl">🏪</span>
                     </div>
                     <div className="ml-3">
-                      <h3 className="text-blue-800 font-semibold">การสั่งซื้อจากหลายร้าน</h3>
+                      <h3 className="text-blue-800 font-semibold">Order from multiple restaurants</h3>
                       <p className="text-blue-600 text-sm">
-                        คุณกำลังสั่งอาหารจาก {restaurantCount} ร้าน ค่าจัดส่งคำนวณเป็น: ร้านแรก 30 บาท + ร้านเพิ่มเติม 20 บาทต่อร้าน
+                        You are ordering food from {restaurantCount} restaurants. The delivery fee is calculated as: First restaurant 30 baht + 20 baht per additional restaurant
                       </p>
                     </div>
                   </div>
@@ -354,15 +355,15 @@ const Cart = () => {
                       <span className="text-2xl">⚠️</span>
                     </div>
                     <div className="ml-3">
-                      <h3 className="text-red-800 font-semibold">มีร้านปิดทำการในตะกร้า</h3>
+                      <h3 className="text-red-800 font-semibold">There are closed restaurants in the cart</h3>
                       <p className="text-red-600 text-sm">
                         ร้าน: {Object.entries(restaurantStatuses)
                           .filter(([_, status]) => status.status !== 'open')
                           .map(([_, status]) => status.name)
-                          .join(', ')} ปิดทำการแล้ว
+                          .join(', ')} is closed
                       </p>
                       <p className="text-red-600 text-sm mt-1">
-                        กรุณาลบสินค้าจากร้านที่ปิดออกจากตะกร้าก่อนสั่งซื้อ
+                        Please remove the items from the closed restaurants before ordering
                       </p>
                     </div>
                   </div>
@@ -389,10 +390,10 @@ const Cart = () => {
                     </div>
                     <div className="text-right">
                       <p className="text-lg font-semibold text-primary-600">
-                        ฿{formatCurrency(restaurantData.subtotal)}
+                        {formatCurrency(restaurantData.subtotal)}
                       </p>
                       <p className="text-sm text-secondary-500">
-                        {restaurantData.items.length} รายการ
+                        {restaurantData.items.length} items
                       </p>
                     </div>
                   </div>
@@ -421,10 +422,10 @@ const Cart = () => {
                             <h3 className="font-semibold text-secondary-800">{item.product_name}</h3>
                             {item.special_instructions && (
                               <p className="text-sm text-secondary-500 italic">
-                                หมายเหตุ: {item.special_instructions}
+                                Note: {item.special_instructions}
                               </p>
                             )}
-                            <p className="text-primary-600 font-semibold">฿{formatCurrency(item.price)}</p>
+                            <p className="text-primary-600 font-semibold">{formatCurrency(item.price)}</p>
                           </div>
                           
                           <div className="flex items-center space-x-3">
@@ -464,19 +465,19 @@ const Cart = () => {
                   onClick={clearCart}
                   className="text-red-500 hover:text-red-700 text-sm underline"
                 >
-                  🗑️ ล้างตะกร้าทั้งหมด
+                  🗑️ Clear all
                 </button>
               </div>
             </div>
 
             {/* Delivery Address */}
             <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-              <h3 className="text-lg font-semibold text-secondary-700 mb-4">ที่อยู่จัดส่ง</h3>
+              <h3 className="text-lg font-semibold text-secondary-700 mb-4">Delivery address</h3>
               <textarea
                 value={deliveryAddress}
                 onChange={(e) => setDeliveryAddress(e.target.value)}
                 className="w-full p-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                placeholder="กรอกที่อยู่จัดส่งอย่างละเอียด เช่น บ้านเลขที่ ซอี ถนน แขวง เขต จังหวัด รหัสไปรษณีย์"
+                placeholder="Enter the delivery address in detail, such as house number, street, district, province, postal code"
                 rows="3"
                 required
               />
@@ -484,12 +485,12 @@ const Cart = () => {
 
             {/* Special Instructions */}
             <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-              <h3 className="text-lg font-semibold text-secondary-700 mb-4">หมายเหตุพิเศษ</h3>
+              <h3 className="text-lg font-semibold text-secondary-700 mb-4">Special instructions</h3>
               <textarea
                 value={specialInstructions}
                 onChange={(e) => setSpecialInstructions(e.target.value)}
                 className="w-full p-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                placeholder="เช่น ไม่เผ็ด, ไม่ใส่ผักชี, ขอช้อนส้อมเพิ่ม"
+                placeholder="For example, not spicy, no vegetables, add a spoon"
                 rows="2"
               />
             </div>
@@ -497,11 +498,11 @@ const Cart = () => {
             {/* Payment Information */}
             {paymentInfo && (
               <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-                <h3 className="text-lg font-semibold text-secondary-700 mb-4">ข้อมูลการชำระเงิน</h3>
+                <h3 className="text-lg font-semibold text-secondary-700 mb-4">Payment information</h3>
                 
                 {/* Payment Method Selection */}
                 <div className="mb-6">
-                  <label className="block text-sm font-medium text-secondary-700 mb-3">เลือกวิธีการชำระเงิน</label>
+                  <label className="block text-sm font-medium text-secondary-700 mb-3">Select payment method</label>
                   <div className="space-y-3">
                     <label className="flex items-center">
                       <input
@@ -512,7 +513,7 @@ const Cart = () => {
                         onChange={(e) => setPaymentMethod(e.target.value)}
                         className="mr-3 h-4 w-4 text-primary-600 focus:ring-primary-500 border-secondary-300"
                       />
-                      <span className="text-sm text-secondary-700">โอนเงินผ่านธนาคาร</span>
+                      <span className="text-sm text-secondary-700">Bank transfer</span>
                     </label>
                     <label className="flex items-center">
                       <input
@@ -534,7 +535,7 @@ const Cart = () => {
                     <div className="flex items-start">
                       <span className="text-blue-500 mr-3 mt-1">🏦</span>
                       <div className="flex-1">
-                        <h4 className="font-semibold text-blue-800 mb-2">ข้อมูลบัญชีธนาคาร</h4>
+                        <h4 className="font-semibold text-blue-800 mb-2">Bank account information</h4>
                         <div className="space-y-1 text-sm text-blue-700">
                           <p><strong>ธนาคาร:</strong> {paymentInfo.bank_name || 'ไม่ระบุ'}</p>
                           <p><strong>เลขบัญชี:</strong> {paymentInfo.bank_account_number || 'ไม่ระบุ'}</p>
@@ -549,7 +550,7 @@ const Cart = () => {
                 {paymentMethod === 'qr_payment' && paymentInfo.qr_code_url && (
                   <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
                     <div className="text-center">
-                      <h4 className="font-semibold text-green-800 mb-3">QR Code สำหรับการชำระเงิน</h4>
+                      <h4 className="font-semibold text-green-800 mb-3">QR Code for payment</h4>
                       <div className="flex justify-center">
                         <img
                           src={paymentInfo.qr_code_url}
@@ -557,7 +558,7 @@ const Cart = () => {
                           className="w-48 h-48 object-contain border border-green-300 rounded-lg"
                         />
                       </div>
-                      <p className="text-sm text-green-700 mt-2">สแกน QR Code เพื่อชำระเงิน</p>
+                      <p className="text-sm text-green-700 mt-2">Scan QR Code to pay</p>
                     </div>
                   </div>
                 )}
@@ -565,7 +566,7 @@ const Cart = () => {
                 {/* Proof of Payment Upload */}
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-secondary-700 mb-2">
-                    หลักฐานการโอนเงิน <span className="text-red-500">*</span>
+                    Proof of payment <span className="text-red-500">*</span>
                   </label>
                   <div className="border-2 border-dashed border-secondary-300 rounded-lg p-4 text-center">
                     <input
@@ -581,13 +582,13 @@ const Cart = () => {
                         <div className="text-green-600">
                           <span className="text-2xl block mb-2">✅</span>
                           <p className="text-sm font-medium">{proofOfPayment.name}</p>
-                          <p className="text-xs text-secondary-500">คลิกเพื่อเปลี่ยนไฟล์</p>
+                          <p className="text-xs text-secondary-500">Click to change file</p>
                         </div>
                       ) : (
                         <div className="text-secondary-500">
                           <span className="text-2xl block mb-2">📷</span>
-                          <p className="text-sm font-medium">คลิกเพื่อแนบหลักฐานการโอนเงิน</p>
-                          <p className="text-xs">รองรับไฟล์ JPG, PNG ขนาดไม่เกิน 5MB</p>
+                          <p className="text-sm font-medium">Click to attach proof of payment</p>
+                          <p className="text-xs">Supports JPG, PNG files up to 5MB</p>
                         </div>
                       )}
                     </label>
@@ -598,8 +599,8 @@ const Cart = () => {
                   <div className="flex items-start">
                     <span className="text-yellow-500 mr-2 mt-0.5">⚠️</span>
                     <div className="text-sm text-yellow-800">
-                      <strong>หมายเหตุ:</strong> กรุณาแนบหลักฐานการโอนเงินหลังจากชำระเงินแล้ว 
-                      คำสั่งซื้อจะได้รับการยืนยันหลังจากที่เราตรวจสอบการชำระเงินแล้ว
+                      <strong>Note:</strong> Please attach proof of payment after payment.
+                      The order will be confirmed after we check the payment.
                     </div>
                   </div>
                 </div>
@@ -610,38 +611,38 @@ const Cart = () => {
           {/* Order Summary */}
           <div className="lg:col-span-1">
             <div className="bg-white rounded-lg shadow-md p-6 sticky top-8">
-              <h2 className="text-xl font-semibold text-secondary-700 mb-4">สรุปคำสั่งซื้อ</h2>
+              <h2 className="text-xl font-semibold text-secondary-700 mb-4">Order summary</h2>
               
               <div className="space-y-3 mb-4">
                 <div className="flex justify-between">
-                  <span className="text-secondary-600">ยอดรวม ({itemCount} รายการ)</span>
+                  <span className="text-secondary-600">Total ({itemCount} items)</span>
                   <span className="text-secondary-800">฿{formatCurrency(subtotal)}</span>
                 </div>
                 
                 {/* Delivery Fee Details */}
                 <div className="space-y-1">
                   <div className="flex justify-between">
-                    <span className="text-secondary-600">ค่าจัดส่ง</span>
+                    <span className="text-secondary-600">Delivery fee</span>
                     <span className="text-secondary-800">฿{formatCurrency(deliveryFee)}</span>
                   </div>
                   {restaurantCount > 1 && (
                     <div className="text-xs text-secondary-500 pl-2">
-                      • ร้านแรก: ฿30<br/>
-                      • ร้านเพิ่มเติม: ฿{20 * (restaurantCount - 1)} ({restaurantCount - 1} ร้าน × ฿20)
+                      • First restaurant: ฿30<br/>
+                      • Additional restaurant: ฿{20 * (restaurantCount - 1)} ({restaurantCount - 1} restaurants × ฿20)
                     </div>
                   )}
                 </div>
                 
                 <div className="border-t pt-3">
                   <div className="flex justify-between text-lg font-semibold">
-                    <span className="text-secondary-800">ยอดชำระ</span>
+                    <span className="text-secondary-800">Total</span>
                     <span className="text-primary-600">฿{formatCurrency(total)}</span>
                   </div>
                 </div>
                 
                 {/* Restaurant Count Info */}
                 <div className="text-center text-sm text-secondary-500 pt-2 border-t">
-                  🏪 {restaurantCount} ร้าน • 📦 {itemCount} รายการ
+                  🏪 {restaurantCount} restaurants • 📦 {itemCount} items
                 </div>
               </div>
 
@@ -656,14 +657,14 @@ const Cart = () => {
                 }`}
               >
                 {loading 
-                  ? 'กำลังดำเนินการ...' 
+                  ? 'Processing...' 
                   : Object.values(restaurantStatuses).some(status => status.status !== 'open')
-                  ? 'ไม่สามารถสั่งซื้อได้ (ร้านปิด)'
+                  ? 'Cannot order (closed restaurants)'
                   : !deliveryAddress.trim()
-                  ? 'กรุณากรอกที่อยู่จัดส่ง'
+                  ? 'Please enter the delivery address'
                   : !proofOfPayment
-                  ? 'กรุณาแนบหลักฐานการโอน'
-                  : `สั่งซื้อจาก ${restaurantCount} ร้าน`
+                  ? 'Please attach proof of payment'
+                  : `Order from ${restaurantCount} restaurants`
                 }
               </button>
               
@@ -672,7 +673,7 @@ const Cart = () => {
                   to="/restaurants" 
                   className="text-primary-600 hover:text-primary-700 text-sm"
                 >
-                  ← กลับไปเลือกร้านอาหาร
+                  ← Back to choose restaurant
                 </Link>
               </div>
             </div>
@@ -681,20 +682,20 @@ const Cart = () => {
       ) : (
         <div className="bg-white rounded-lg shadow-md p-8 text-center">
           <div className="text-6xl mb-4 opacity-30">🛒</div>
-          <h2 className="text-xl font-semibold text-secondary-700 mb-2">ตะกร้าของคุณว่างเปล่า</h2>
-          <p className="text-secondary-500 mb-6">เริ่มสั่งอาหารจากร้านที่คุณชื่นชอบกันเถอะ! ตอนนี้คุณสามารถสั่งจากหลายร้านในครั้งเดียวได้แล้ว</p>
+          <h2 className="text-xl font-semibold text-secondary-700 mb-2">Your cart is empty</h2>
+          <p className="text-secondary-500 mb-6">Start ordering from your favorite restaurants!</p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link 
               to="/restaurants" 
               className="bg-primary-500 text-white px-6 py-3 rounded-lg hover:bg-primary-600 transition-colors"
             >
-              เลือกร้านอาหาร
+              Choose restaurant
             </Link>
             <Link 
               to="/categories" 
               className="bg-secondary-200 text-secondary-700 px-6 py-3 rounded-lg hover:bg-secondary-300 transition-colors"
             >
-              เลือกตามหมวดหมู่
+              Choose by category
             </Link>
           </div>
         </div>

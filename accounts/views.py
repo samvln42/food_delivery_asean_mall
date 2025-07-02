@@ -1,7 +1,7 @@
 from rest_framework import viewsets, status, filters
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.permissions import IsAuthenticated, AllowAny, IsAdminUser
 from rest_framework.authtoken.models import Token
 from django.contrib.auth import authenticate, login, logout
 from django.db.models import Count, Sum
@@ -24,132 +24,85 @@ class AuthViewSet(viewsets.GenericViewSet):
     
     @action(detail=False, methods=['post'])
     def register(self, request):
-        """Register a new user"""
+        """Register a new user (requires email verification)"""
         serializer = RegisterSerializer(data=request.data)
         if serializer.is_valid():
-            user = serializer.save()
-            
-            # Send email verification
-            self._send_verification_email(user)
-            
-            # ไม่สร้าง token จนกว่าจะยืนยันอีเมล
-            # token จะถูกสร้างเมื่อยืนยันอีเมลสำเร็จ
-            
-            return Response({
-                'user': {
-                    'id': user.id,
-                    'username': user.username,
-                    'email': user.email,
-                    'role': user.role,
-                    'is_email_verified': user.is_email_verified
-                },
-                'message': f'เราได้ส่งรหัสยืนยันไปยัง {user.email} แล้ว กรุณาตรวจสอบอีเมลและกรอกรหัสยืนยันเพื่อเสร็จสิ้นการสมัครสมาชิก',
-                'email_verification_required': True,
-                'status': 'pending_verification',
-                'success': True
-            }, status=status.HTTP_201_CREATED)
-        
-        # จัดการ error messages ให้ชัดเจนขึ้น
-        errors = serializer.errors
-        
-        # ตรวจสอบ error เฉพาะ
-        if 'email' in errors:
-            email_errors = errors['email']
-            if any('ถูกใช้งานแล้ว' in str(error) or 'unique' in str(error).lower() for error in email_errors):
+            try:
+                # สร้างผู้ใช้ใหม่ แต่ยังไม่ยืนยันอีเมล
+                user = serializer.save()
+                
+                # ผู้ใช้ที่สมัครเองจะไม่มี token จนกว่าจะยืนยันอีเมล
+                user.is_email_verified = False
+                user.save()
+                
+                # ส่งอีเมลยืนยัน
+                success = self._send_verification_email(user)
+                
+                if not success:
+                    # ถ้าส่งอีเมลไม่ได้ ให้ลบผู้ใช้ที่สร้างไว้
+                    user.delete()
+                    return Response({
+                        'success': False,
+                        'error': 'Failed to send verification email',
+                        'message': 'An error occurred while sending the verification email. Please try again later',
+                        'error_type': 'email_send_failed'
+                    }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                
+                return Response({
+                    'success': True,
+                    'message': f'Registration successful! We have sent a verification email to {user.email}. Please check your email and enter the verification code to complete registration',
+                    'user': UserSerializer(user).data,
+                    'next_step': 'verify_email',
+                    'note': 'You will receive an API token after email verification is complete'
+                }, status=status.HTTP_201_CREATED)
+                
+            except Exception as e:
                 return Response({
                     'success': False,
-                    'error': 'อีเมลซ้ำ',
-                    'message': 'อีเมลนี้ถูกใช้งานแล้วในระบบ กรุณาใช้อีเมลอื่นหรือเข้าสู่ระบบด้วยอีเมลที่มีอยู่',
+                    'error': 'Registration error',
+                    'message': str(e),
+                    'error_type': 'registration_error'
+                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+        # Handle error from serializer
+        if 'email' in serializer.errors:
+            if any('unique' in str(error).lower() or 'already' in str(error).lower() for error in serializer.errors['email']): 
+                return Response({
+                    'success': False,
+                    'error': 'Email already exists',
+                    'message': 'This email is already in use. Please use a different email or login with an existing email',
                     'error_type': 'duplicate_email',
                     'field': 'email',
-                    'details': {
-                        'email': email_errors
-                    }
+                    'details': serializer.errors
                 }, status=status.HTTP_409_CONFLICT)
         
-        if 'username' in errors:
-            username_errors = errors['username']
-            
-            # ตรวจสอบ error messages ที่เป็นไปได้ทั้งภาษาไทยและภาษาอังกฤษ
-            is_duplicate = False
-            for error in username_errors:
-                error_str = str(error).lower()
-                if any(pattern in error_str for pattern in [
-                    'ถูกใช้งานแล้ว', 'unique', 'already exists', 
-                    'a user with that username already exists'
-                ]):
-                    is_duplicate = True
-                    break
-            
-            if is_duplicate:
+        if 'username' in serializer.errors:
+            if any('unique' in str(error).lower() or 'already' in str(error).lower() for error in serializer.errors['username']):
                 return Response({
                     'success': False,
-                    'error': 'ชื่อผู้ใช้ซ้ำ',
-                    'message': 'ชื่อผู้ใช้นี้ถูกใช้งานแล้วในระบบ กรุณาเลือกชื่อผู้ใช้อื่น',
+                    'error': 'Username already exists',
+                    'message': 'This username is already in use. Please use a different username',
                     'error_type': 'duplicate_username',
                     'field': 'username',
-                    'details': {
-                        'username': username_errors
-                    }
+                    'details': serializer.errors
                 }, status=status.HTTP_409_CONFLICT)
         
-        # ตรวจสอบ password validation errors (อาจอยู่ใน non_field_errors)
-        password_errors = []
-        if 'password' in errors:
-            password_errors.extend(errors['password'])
-        if 'non_field_errors' in errors:
-            for error in errors['non_field_errors']:
-                if 'รหัสผ่าน' in str(error) or 'password' in str(error).lower():
-                    password_errors.append(error)
-        
-        if password_errors:
+        if 'password' in serializer.errors:
             return Response({
                 'success': False,
-                'error': 'รหัสผ่านไม่ถูกต้อง',
-                'message': 'รหัสผ่านไม่ตรงตามเงื่อนไข กรุณาตรวจสอบและลองใหม่',
+                'error': 'Password is invalid',
+                'message': 'Password must be at least 8 characters long and must contain both letters and numbers',
                 'error_type': 'invalid_password',
                 'field': 'password',
-                'details': {
-                    'password': password_errors
-                }
+                'details': serializer.errors
             }, status=status.HTTP_400_BAD_REQUEST)
         
-        if 'role' in errors:
-            return Response({
-                'success': False,
-                'error': 'บทบาทไม่ถูกต้อง',
-                'message': 'บทบาทที่เลือกไม่ถูกต้องสำหรับการสมัครสมาชิก',
-                'error_type': 'invalid_role',
-                'field': 'role',
-                'details': {
-                    'role': errors['role']
-                }
-            }, status=status.HTTP_400_BAD_REQUEST)
-        
-        # สำหรับ error อื่นๆ ทั่วไป
-        if 'non_field_errors' in errors:
-            # กรองเฉพาะ error ที่ไม่ใช่ password
-            non_password_errors = [
-                error for error in errors['non_field_errors'] 
-                if 'รหัสผ่าน' not in str(error) and 'password' not in str(error).lower()
-            ]
-            
-            if non_password_errors:
-                return Response({
-                    'success': False,
-                    'error': 'ข้อมูลไม่ถูกต้อง',
-                    'message': str(non_password_errors[0]),
-                    'error_type': 'validation_error',
-                    'details': {'non_field_errors': non_password_errors}
-                }, status=status.HTTP_400_BAD_REQUEST)
-        
-        # Default error response
         return Response({
             'success': False,
-            'error': 'ข้อมูลไม่ถูกต้อง',
-            'message': 'ข้อมูลที่ส่งมาไม่ถูกต้อง กรุณาตรวจสอบและลองใหม่',
+            'error': 'Invalid data',
+            'message': 'Please check your data and try again',
             'error_type': 'validation_error',
-            'details': errors
+            'details': serializer.errors
         }, status=status.HTTP_400_BAD_REQUEST)
     
     def _send_verification_email(self, user):
@@ -195,8 +148,8 @@ class AuthViewSet(viewsets.GenericViewSet):
                 if not user.is_email_verified:
                     return Response({
                         'success': False,
-                        'error': 'อีเมลยังไม่ได้ยืนยัน',
-                        'message': 'กรุณายืนยันอีเมลก่อนเข้าสู่ระบบ ตรวจสอบอีเมลของคุณและกรอกรหัสยืนยัน',
+                        'error': 'Email not verified',
+                        'message': 'Please verify your email before logging in. Check your email and enter the verification code',
                         'error_type': 'email_not_verified',
                         'email_verification_required': True,
                         'user_email': user.email,
@@ -215,14 +168,14 @@ class AuthViewSet(viewsets.GenericViewSet):
                     'success': True,
                     'user': UserSerializer(user).data,
                     'token': token.key,
-                    'message': 'เข้าสู่ระบบสำเร็จ'
+                    'message': 'Login successful'
                 })
             
             # ถ้าไม่สามารถล็อกอินได้
             return Response({
                 'success': False,
-                'error': 'ข้อมูลไม่ถูกต้อง',
-                'message': 'อีเมล/ชื่อผู้ใช้ หรือรหัสผ่านไม่ถูกต้อง',
+                'error': 'Invalid data',
+                'message': 'Email/username or password is incorrect',
                 'error_type': 'invalid_credentials',
                 'details': {
                     'suggested_action': 'check_credentials_or_register'
@@ -232,8 +185,8 @@ class AuthViewSet(viewsets.GenericViewSet):
         # จัดการ serializer errors
         return Response({
             'success': False,
-            'error': 'ข้อมูลไม่ถูกต้อง',
-            'message': 'กรุณากรอกข้อมูลให้ถูกต้องและครบถ้วน',
+            'error': 'Invalid data',
+            'message': 'Please check your data and try again',
             'error_type': 'validation_error',
             'details': serializer.errors
         }, status=status.HTTP_400_BAD_REQUEST)
@@ -242,7 +195,7 @@ class AuthViewSet(viewsets.GenericViewSet):
     def logout(self, request):
         """Logout user"""
         logout(request)
-        return Response({'message': 'ออกจากระบบสำเร็จ'})
+        return Response({'message': 'Logout successful'})
     
     @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
     def me(self, request):
@@ -274,7 +227,7 @@ class AuthViewSet(viewsets.GenericViewSet):
             
             if not user.check_password(old_password):
                 return Response({
-                    'error': 'รหัสผ่านเดิมไม่ถูกต้อง'
+                    'error': 'Old password is incorrect'
                 }, status=status.HTTP_400_BAD_REQUEST)
             
             user.set_password(new_password)
@@ -283,7 +236,7 @@ class AuthViewSet(viewsets.GenericViewSet):
             # Re-authenticate user
             login(request, user)
             
-            return Response({'message': 'เปลี่ยนรหัสผ่านสำเร็จ'})
+            return Response({'message': 'Password changed successfully'})
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
     @action(detail=False, methods=['post'])
@@ -331,7 +284,7 @@ class AuthViewSet(viewsets.GenericViewSet):
                 
                 if user.is_email_verified:
                     return Response({
-                        'message': 'อีเมลนี้ได้รับการยืนยันแล้ว คุณสามารถเข้าสู่ระบบได้',
+                        'message': 'Email already verified',
                         'user': UserSerializer(user).data
                     })
                 
@@ -343,14 +296,15 @@ class AuthViewSet(viewsets.GenericViewSet):
                 auth_token, created = Token.objects.get_or_create(user=user)
                 
                 return Response({
-                    'message': 'ยืนยันอีเมลสำเร็จ! การสมัครสมาชิกเสร็จสมบูรณ์ คุณสามารถเข้าสู่ระบบได้แล้ว',
+                    'message': 'Email verified successfully',
                     'user': UserSerializer(user).data,
                     'token': auth_token.key,
                     'status': 'registration_complete'
                 })
             except User.DoesNotExist:
                 return Response({
-                    'error': 'รหัสยืนยันไม่ถูกต้องหรือหมดอายุแล้ว กรุณาขอส่งรหัสยืนยันใหม่'
+                    'error': 'Verification token is invalid or expired',
+                    'message': 'Please request a new verification email'
                 }, status=status.HTTP_400_BAD_REQUEST)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
@@ -374,15 +328,17 @@ class AuthViewSet(viewsets.GenericViewSet):
                 
                 if not success:
                     return Response({
-                        'error': 'ไม่สามารถส่งอีเมลยืนยันได้ กรุณาลองใหม่อีกครั้งในภายหลัง'
+                        'error': 'Failed to send verification email',
+                        'message': 'An error occurred while sending the verification email. Please try again later'
                     }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
                 
                 return Response({
-                    'message': f'เราได้ส่งรหัสยืนยันใหม่ไปยัง {email} แล้ว กรุณาตรวจสอบอีเมลและกรอกรหัสยืนยันเพื่อเสร็จสิ้นการสมัครสมาชิก'
+                    'message': f'We have sent a new verification code to {email}. Please check your email and enter the verification code to complete registration'
                 })
             except User.DoesNotExist:
                 return Response({
-                    'error': 'ไม่พบอีเมลนี้ในระบบ กรุณาตรวจสอบอีเมลหรือสมัครสมาชิกใหม่'
+                    'error': 'Email not found',
+                    'message': 'Please check your email or register again'
                 }, status=status.HTTP_404_NOT_FOUND)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
@@ -462,7 +418,8 @@ class UserViewSet(viewsets.ModelViewSet):
     
     def get_permissions(self):
         if self.action in ['create']:
-            permission_classes = [AllowAny]
+            # เฉพาะ admin เท่านั้นที่สร้าง user ผ่าน admin dashboard ได้
+            permission_classes = [IsAuthenticated, IsAdminUser]
         elif self.action in ['list']:
             # Admin only for list action
             permission_classes = [IsAuthenticated]
@@ -735,8 +692,8 @@ class UserViewSet(viewsets.ModelViewSet):
             from api.models import Notification
             Notification.objects.create(
                 user=user,
-                title='🎉 ยินดีด้วย! คุณได้รับการอัปเกรดเป็นร้านอาหารพิเศษแล้ว',
-                message='บัญชีของคุณได้รับการอัปเกรดเป็น Special Restaurant แล้ว คุณสามารถใช้ฟีเจอร์พิเศษต่างๆ ได้แล้ว',
+                title='🎉 Congratulations! You have been upgraded to a special restaurant',
+                message='Your account has been upgraded to a Special Restaurant. You can now use the special features',
                 notification_type='upgrade'
             )
         except ImportError:
@@ -759,7 +716,8 @@ class UserViewSet(viewsets.ModelViewSet):
         
         if user.role != 'special_restaurant':
             return Response({
-                'error': 'User must be a special restaurant to downgrade to general restaurant'
+                'error': 'User must be a special restaurant to downgrade to general restaurant',
+                'message': 'Please upgrade to special restaurant first'
             }, status=status.HTTP_400_BAD_REQUEST)
         
         # ดาวน์เกรดเป็น general restaurant
@@ -779,8 +737,8 @@ class UserViewSet(viewsets.ModelViewSet):
             from api.models import Notification
             Notification.objects.create(
                 user=user,
-                title='📢 การเปลี่ยนแปลงสถานะบัญชี',
-                message='บัญชีของคุณได้รับการเปลี่ยนแปลงจาก Special Restaurant เป็น General Restaurant',
+                title='📢 Account status changed',
+                message='Your account has been downgraded from Special Restaurant to General Restaurant',
                 notification_type='downgrade'
             )
         except ImportError:
@@ -838,5 +796,79 @@ class UserViewSet(viewsets.ModelViewSet):
             'fixed_users': fixed_users,
             'details': mismatched_users
         })
+    
+    def create(self, request, *args, **kwargs):
+        """สร้าง user ใหม่โดย admin - จะมี token อัตโนมัติและไม่ต้องยืนยันอีเมล"""
+        
+        # ตรวจสอบว่าเป็น admin หรือไม่
+        if not request.user.is_authenticated or request.user.role != 'admin':
+            return Response({
+                'success': False,
+                'error': 'Access denied',
+                'message': 'Only admin can create users through the dashboard',
+                'error_type': 'permission_denied'
+            }, status=status.HTTP_403_FORBIDDEN)
+        
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            try:
+                # บันทึกข้อมูลผู้ใช้ใหม่
+                user = serializer.save()
+                
+                # ตั้งค่าพิเศษสำหรับ user ที่สร้างโดย admin
+                user._created_by_admin = True  # ตั้งค่า flag สำหรับ signal
+                user.is_email_verified = True  # admin สร้างให้ ไม่ต้องยืนยันอีเมล
+                user.save()
+                
+                # สร้าง token อัตโนมัติ (จะถูกสร้างผ่าน signal)
+                token, created = Token.objects.get_or_create(user=user)
+                
+                return Response({
+                    'success': True,
+                    'message': f'User {user.username} created successfully with API token',
+                    'user': UserSerializer(user).data,
+                    'token': token.key,
+                    'note': 'Users created by admin will have an automatic token and do not need to verify email'
+                }, status=status.HTTP_201_CREATED)
+                
+            except Exception as e:
+                return Response({
+                    'success': False,
+                    'error': 'Error creating user',
+                    'message': str(e),
+                    'error_type': 'creation_error'
+                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+        # Handle error from serializer
+        errors = {}
+        if 'email' in serializer.errors:
+            if any('unique' in str(error).lower() or 'already' in str(error).lower() for error in serializer.errors['email']): 
+                return Response({
+                    'success': False,
+                    'error': 'Email already exists',
+                    'message': 'This email is already in use. Please use a different email',
+                    'error_type': 'duplicate_email',
+                    'field': 'email',
+                    'details': serializer.errors
+                }, status=status.HTTP_409_CONFLICT)
+        
+        if 'username' in serializer.errors:
+            if any('unique' in str(error).lower() or 'already' in str(error).lower() for error in serializer.errors['username']):
+                return Response({
+                    'success': False,
+                    'error': 'Username already exists',
+                    'message': 'This username is already in use. Please use a different username',
+                    'error_type': 'duplicate_username',
+                    'field': 'username',
+                    'details': serializer.errors
+                }, status=status.HTTP_409_CONFLICT)
+        
+        return Response({
+            'success': False,
+            'error': 'Invalid data',
+            'message': 'Please check your data and try again',
+            'error_type': 'validation_error',
+            'details': serializer.errors
+        }, status=status.HTTP_400_BAD_REQUEST)
     
  

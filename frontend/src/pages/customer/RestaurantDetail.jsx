@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import api from '../../services/api';
-import Loading from '../../components/common/Loading';
-import { useCart } from '../../contexts/CartContext';
-import { useAuth } from '../../contexts/AuthContext';
+import React, { useState, useEffect } from "react";
+import { useParams, Link } from "react-router-dom";
+import api from "../../services/api";
+import Loading from "../../components/common/Loading";
+import { useCart } from "../../contexts/CartContext";
+import { useAuth } from "../../contexts/AuthContext";
 
 const RestaurantDetail = () => {
   const { id } = useParams();
@@ -14,7 +14,7 @@ const RestaurantDetail = () => {
   const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [activeTab, setActiveTab] = useState('menu');
+  const [activeTab, setActiveTab] = useState("menu");
 
   useEffect(() => {
     if (id) {
@@ -30,15 +30,15 @@ const RestaurantDetail = () => {
       const [restaurantRes, productsRes, reviewsRes] = await Promise.all([
         api.get(`/restaurants/${id}/`),
         api.get(`/products/?restaurant_id=${id}`),
-        api.get(`/reviews/?restaurant_id=${id}`)
+        api.get(`/reviews/?restaurant_id=${id}`),
       ]);
 
       setRestaurant(restaurantRes.data);
       setProducts(productsRes.data.results || productsRes.data);
       setReviews(reviewsRes.data.results || reviewsRes.data);
     } catch (error) {
-      console.error('Error fetching restaurant data:', error);
-      setError('ไม่สามารถโหลดข้อมูลร้านอาหารได้');
+      console.error("Error fetching restaurant data:", error);
+      setError("Unable to load restaurant data");
     } finally {
       setLoading(false);
     }
@@ -47,7 +47,7 @@ const RestaurantDetail = () => {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <Loading size="large" text="กำลังโหลดข้อมูลร้านอาหาร..." />
+        <Loading size="large" text="Loading restaurant data..." />
       </div>
     );
   }
@@ -62,7 +62,7 @@ const RestaurantDetail = () => {
             to="/restaurants"
             className="bg-primary-500 text-white px-6 py-3 rounded-lg hover:bg-primary-600 transition-colors inline-block"
           >
-            กลับไปรายการร้านอาหาร
+            Back to restaurant list
           </Link>
         </div>
       </div>
@@ -74,12 +74,12 @@ const RestaurantDetail = () => {
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <div className="text-secondary-400 text-xl mb-4">🏪</div>
-          <p className="text-secondary-600 mb-4">ไม่พบร้านอาหารที่คุณต้องการ</p>
+          <p className="text-secondary-600 mb-4">No restaurant found</p>
           <Link
             to="/restaurants"
             className="bg-primary-500 text-white px-6 py-3 rounded-lg hover:bg-primary-600 transition-colors inline-block"
           >
-            กลับไปรายการร้านอาหาร
+            Back to restaurant list
           </Link>
         </div>
       </div>
@@ -92,11 +92,20 @@ const RestaurantDetail = () => {
       <div className="bg-white border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
           <nav className="text-sm">
-            <Link to="/" className="text-primary-600 hover:text-primary-700">หน้าแรก</Link>
+            <Link to="/" className="text-primary-600 hover:text-primary-700">
+              Home
+            </Link>
             <span className="mx-2 text-secondary-400">&gt;</span>
-            <Link to="/restaurants" className="text-primary-600 hover:text-primary-700">ร้านอาหาร</Link>
+            <Link
+              to="/restaurants"
+              className="text-primary-600 hover:text-primary-700"
+            >
+              Restaurants
+            </Link>
             <span className="mx-2 text-secondary-400">&gt;</span>
-            <span className="text-secondary-600">{restaurant.restaurant_name}</span>
+            <span className="text-secondary-600">
+              {restaurant.restaurant_name}
+            </span>
           </nav>
         </div>
       </div>
@@ -114,28 +123,34 @@ const RestaurantDetail = () => {
                     alt={restaurant.restaurant_name}
                     className="w-full h-full object-cover"
                     onError={(e) => {
-                      e.target.style.display = 'none';
-                      e.target.nextSibling.style.display = 'flex';
+                      e.target.style.display = "none";
+                      e.target.nextSibling.style.display = "flex";
                     }}
                   />
                 ) : null}
-                <div className={`w-full h-full bg-secondary-200 flex items-center justify-center ${restaurant.image_display_url ? 'hidden' : ''}`}>
+                <div
+                  className={`w-full h-full bg-secondary-200 flex items-center justify-center ${
+                    restaurant.image_display_url ? "hidden" : ""
+                  }`}
+                >
                   <div className="text-6xl opacity-30">🏪</div>
                 </div>
                 {restaurant.is_special && (
                   <div className="absolute top-4 right-4">
                     <span className="bg-yellow-400 text-yellow-900 px-3 py-1 rounded-full text-sm font-semibold">
-                      ⭐ ร้านพิเศษ
+                      ⭐ Special restaurant
                     </span>
                   </div>
                 )}
                 <div className="absolute bottom-4 right-4">
-                  <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
-                    restaurant.status === 'open'
-                      ? 'bg-green-100 text-green-800'
-                      : 'bg-red-100 text-red-800'
-                  }`}>
-                    {restaurant.status === 'open' ? '🟢 เปิดร้าน' : '🔴 ปิดร้าน'}
+                  <span
+                    className={`px-3 py-1 rounded-full text-sm font-semibold ${
+                      restaurant.status === "open"
+                        ? "bg-green-100 text-green-800"
+                        : "bg-red-100 text-red-800"
+                    }`}
+                  >
+                    {restaurant.status === "open" ? "🟢 Open" : "🔴 Closed"}
                   </span>
                 </div>
               </div>
@@ -158,7 +173,7 @@ const RestaurantDetail = () => {
                     {Number(restaurant.average_rating || 0).toFixed(1)}
                   </span>
                   <span className="text-secondary-500 ml-1">
-                    ({restaurant.total_reviews} รีวิว)
+                    ({restaurant.total_reviews} reviews)
                   </span>
                 </div>
               </div>
@@ -167,23 +182,31 @@ const RestaurantDetail = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                 <div className="flex items-center">
                   <span className="text-secondary-500 mr-2">📍</span>
-                  <span className="text-secondary-700">{restaurant.address}</span>
+                  <span className="text-secondary-700">
+                    {restaurant.address}
+                  </span>
                 </div>
                 {restaurant.phone_number && (
                   <div className="flex items-center">
                     <span className="text-secondary-500 mr-2">📞</span>
-                    <span className="text-secondary-700">{restaurant.phone_number}</span>
+                    <span className="text-secondary-700">
+                      {restaurant.phone_number}
+                    </span>
                   </div>
                 )}
                 {restaurant.opening_hours && (
                   <div className="flex items-center">
                     <span className="text-secondary-500 mr-2">⏰</span>
-                    <span className="text-secondary-700">{restaurant.opening_hours}</span>
+                    <span className="text-secondary-700">
+                      {restaurant.opening_hours}
+                    </span>
                   </div>
                 )}
                 <div className="flex items-center">
                   <span className="text-secondary-500 mr-2">🚚</span>
-                  <span className="text-secondary-700">ค่าส่ง 30-50 บาท</span>
+                  <span className="text-secondary-700">
+                    Delivery fee 30-50 baht
+                  </span>
                 </div>
               </div>
             </div>
@@ -196,24 +219,24 @@ const RestaurantDetail = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex space-x-8">
             <button
-              onClick={() => setActiveTab('menu')}
+              onClick={() => setActiveTab("menu")}
               className={`py-4 px-2 border-b-2 font-medium text-sm ${
-                activeTab === 'menu'
-                  ? 'border-primary-500 text-primary-600'
-                  : 'border-transparent text-secondary-500 hover:text-secondary-700'
+                activeTab === "menu"
+                  ? "border-primary-500 text-primary-600"
+                  : "border-transparent text-secondary-500 hover:text-secondary-700"
               }`}
             >
-              เมนูอาหาร ({products.length})
+              Menu ({products.length})
             </button>
             <button
-              onClick={() => setActiveTab('reviews')}
+              onClick={() => setActiveTab("reviews")}
               className={`py-4 px-2 border-b-2 font-medium text-sm ${
-                activeTab === 'reviews'
-                  ? 'border-primary-500 text-primary-600'
-                  : 'border-transparent text-secondary-500 hover:text-secondary-700'
+                activeTab === "reviews"
+                  ? "border-primary-500 text-primary-600"
+                  : "border-transparent text-secondary-500 hover:text-secondary-700"
               }`}
             >
-              รีวิว ({reviews.length})
+              Reviews ({reviews.length})
             </button>
           </div>
         </div>
@@ -221,15 +244,15 @@ const RestaurantDetail = () => {
 
       {/* Tab Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {activeTab === 'menu' && (
+        {activeTab === "menu" && (
           <div>
-            <h2 className="text-2xl font-bold text-secondary-900 mb-6">เมนูอาหาร</h2>
+            <h2 className="text-2xl font-bold text-secondary-900 mb-6">Menu</h2>
             {products.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {products.map((product) => (
-                  <ProductCard 
-                    key={product.product_id} 
-                    product={product} 
+                  <ProductCard
+                    key={product.product_id}
+                    product={product}
                     restaurant={restaurant}
                     onAddToCart={addItem}
                     isAuthenticated={isAuthenticated}
@@ -239,15 +262,17 @@ const RestaurantDetail = () => {
             ) : (
               <div className="text-center py-12">
                 <div className="text-6xl mb-4 opacity-30">🍽️</div>
-                <p className="text-secondary-500">ยังไม่มีเมนูอาหาร</p>
+                <p className="text-secondary-500">No menu</p>
               </div>
             )}
           </div>
         )}
 
-        {activeTab === 'reviews' && (
+        {activeTab === "reviews" && (
           <div>
-            <h2 className="text-2xl font-bold text-secondary-900 mb-6">รีวิวจากลูกค้า</h2>
+            <h2 className="text-2xl font-bold text-secondary-900 mb-6">
+              Reviews
+            </h2>
             {reviews.length > 0 ? (
               <div className="space-y-6">
                 {reviews.map((review) => (
@@ -257,7 +282,7 @@ const RestaurantDetail = () => {
             ) : (
               <div className="text-center py-12">
                 <div className="text-6xl mb-4 opacity-30">💬</div>
-                <p className="text-secondary-500">ยังไม่มีรีวิว</p>
+                <p className="text-secondary-500">No reviews</p>
               </div>
             )}
           </div>
@@ -270,25 +295,21 @@ const RestaurantDetail = () => {
 // Product Card Component
 const ProductCard = ({ product, restaurant, onAddToCart, isAuthenticated }) => {
   const handleAddToCart = () => {
-    console.log('Product:', product);
-    console.log('Restaurant:', restaurant);
-    console.log('isAuthenticated:', isAuthenticated);
+    console.log("Product:", product);
+    console.log("Restaurant:", restaurant);
+    console.log("isAuthenticated:", isAuthenticated);
 
     // ตรวจสอบสถานะร้าน
-    if (restaurant.status !== 'open') {
-      alert('ร้านนี้ปิดทำการอยู่ ไม่สามารถสั่งอาหารได้');
+    if (restaurant.status !== "open") {
+      alert("This restaurant is closed and cannot order food");
       return;
     }
 
-    // ทดสอบ: ปิดการเช็ค login ชั่วคราว  
-    if (!isAuthenticated) {
-      console.warn('Not authenticated but allowing add to cart for testing');
-      // alert('กรุณาเข้าสู่ระบบก่อนสั่งอาหาร');
-      // return;
-    }
+    // การตรวจสอบ login จะทำใน CartContext แล้ว
+    // ไม่ต้องตรวจสอบที่นี่อีก
 
     if (!product.is_available) {
-      alert('สินค้านี้หมดแล้ว');
+      alert("This product is out of stock");
       return;
     }
 
@@ -296,33 +317,38 @@ const ProductCard = ({ product, restaurant, onAddToCart, isAuthenticated }) => {
       // เพิ่มสินค้าลงตะกร้า - ใช้ field ที่ถูกต้อง
       const result = onAddToCart(product, {
         id: restaurant.restaurant_id || restaurant.id,
-        name: restaurant.restaurant_name || restaurant.name
+        name: restaurant.restaurant_name || restaurant.name,
       });
 
       // ตรวจสอบผลลัพธ์
       if (result && result.success === false) {
-        alert(result.error || 'เกิดข้อผิดพลาดในการเพิ่มสินค้าลงตะกร้า');
+        // หากต้องการ login ให้ CartContext จัดการ redirect ไปเอง
+        if (result.requiresLogin) {
+          return; // ไม่แสดง alert เพิ่มเติม
+        }
+
+        alert(result.error || "Error adding product to cart");
         return;
       }
 
       // แสดงข้อความยืนยัน
-      alert(`เพิ่ม "${product.product_name}" ลงตะกร้าแล้ว!`);
+      alert(`Added "${product.product_name}" to cart!`);
     } catch (error) {
-      console.error('Error adding to cart:', error);
-      alert('เกิดข้อผิดพลาดในการเพิ่มสินค้าลงตะกร้า');
+      console.error("Error adding to cart:", error);
+      alert("Error adding product to cart");
     }
   };
 
   return (
     <div className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow overflow-hidden">
       <div className="relative h-48 bg-secondary-200">
-        {(product.image_display_url || product.image_url) ? (
+        {product.image_display_url || product.image_url ? (
           <img
             src={product.image_display_url || product.image_url}
             alt={product.product_name}
             className="w-full h-full object-cover"
             onError={(e) => {
-              e.target.style.display = 'none';
+              e.target.style.display = "none";
             }}
           />
         ) : (
@@ -332,7 +358,7 @@ const ProductCard = ({ product, restaurant, onAddToCart, isAuthenticated }) => {
         )}
         {!product.is_available && (
           <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-            <span className="text-white font-semibold">หมด</span>
+            <span className="text-white font-semibold">Out of stock</span>
           </div>
         )}
       </div>
@@ -345,7 +371,7 @@ const ProductCard = ({ product, restaurant, onAddToCart, isAuthenticated }) => {
         </p>
         <div className="flex items-center justify-between mb-3">
           <span className="text-primary-600 font-bold text-lg">
-            ฿{Number(product.price).toFixed(2)}
+            {Number(product.price).toFixed(2)}
           </span>
           {product.category_name && (
             <span className="text-xs text-secondary-500 bg-secondary-100 px-2 py-1 rounded">
@@ -356,20 +382,17 @@ const ProductCard = ({ product, restaurant, onAddToCart, isAuthenticated }) => {
         <button
           onClick={handleAddToCart}
           className={`w-full py-2 px-4 rounded-lg font-semibold transition-colors ${
-            product.is_available && isAuthenticated && restaurant.status === 'open'
-              ? 'bg-primary-500 text-white hover:bg-primary-600'
-              : 'bg-secondary-300 text-secondary-500 cursor-not-allowed'
+            product.is_available && restaurant.status === "open"
+              ? "bg-primary-500 text-white hover:bg-primary-600"
+              : "bg-secondary-300 text-secondary-500 cursor-not-allowed"
           }`}
-          disabled={!product.is_available || restaurant.status !== 'open'}
+          disabled={!product.is_available || restaurant.status !== "open"}
         >
-          {restaurant.status !== 'open'
-            ? 'ร้านปิดทำการ'
-            : !product.is_available 
-            ? 'หมด' 
-            : !isAuthenticated 
-            ? 'เข้าสู่ระบบเพื่อสั่งซื้อ' 
-            : 'เพิ่มลงตะกร้า'
-          }
+          {restaurant.status !== "open"
+            ? "Restaurant is closed"
+            : !product.is_available
+            ? "Out of stock"
+            : "Add to cart"}
         </button>
       </div>
     </div>
@@ -382,14 +405,16 @@ const ReviewCard = ({ review }) => (
     <div className="flex items-start justify-between mb-4">
       <div className="flex items-center">
         <div className="w-10 h-10 bg-primary-500 rounded-full flex items-center justify-center text-white font-semibold mr-3">
-          {review.user_username ? review.user_username.charAt(0).toUpperCase() : 'U'}
+          {review.user_username
+            ? review.user_username.charAt(0).toUpperCase()
+            : "U"}
         </div>
         <div>
           <h4 className="font-semibold text-secondary-800">
-            {review.user_username || 'ผู้ใช้'}
+            {review.user_username || "User"}
           </h4>
           <p className="text-sm text-secondary-500">
-            {new Date(review.review_date).toLocaleDateString('th-TH')}
+            {new Date(review.review_date).toLocaleDateString("en-US")}
           </p>
         </div>
       </div>
@@ -398,7 +423,9 @@ const ReviewCard = ({ review }) => (
           <span
             key={i}
             className={`text-lg ${
-              i < review.rating_restaurant ? 'text-yellow-400' : 'text-secondary-300'
+              i < review.rating_restaurant
+                ? "text-yellow-400"
+                : "text-secondary-300"
             }`}
           >
             ⭐
@@ -412,4 +439,4 @@ const ReviewCard = ({ review }) => (
   </div>
 );
 
-export default RestaurantDetail; 
+export default RestaurantDetail;

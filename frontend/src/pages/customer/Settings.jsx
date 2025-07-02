@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import { userService } from '../../services/api';
 
 const Settings = () => {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const [settings, setSettings] = useState({
     notifications: {
       order_updates: true,
@@ -33,6 +34,9 @@ const Settings = () => {
 
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
+  const [deleteConfirmation, setDeleteConfirmation] = useState('');
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
 
   useEffect(() => {
     loadSettings();
@@ -74,18 +78,18 @@ const Settings = () => {
       // จำลองการบันทึกใน API
       await new Promise(resolve => setTimeout(resolve, 500));
       
-      setMessage('บันทึกการตั้งค่าเรียบร้อยแล้ว');
+      setMessage('Settings saved successfully');
       setTimeout(() => setMessage(''), 3000);
     } catch (error) {
       console.error('Error saving settings:', error);
-      setMessage('เกิดข้อผิดพลาดในการบันทึกการตั้งค่า');
+      setMessage('Error saving settings');
     } finally {
       setLoading(false);
     }
   };
 
   const resetSettings = () => {
-    if (confirm('คุณต้องการรีเซ็ตการตั้งค่าทั้งหมดกลับเป็นค่าเริ่มต้นหรือไม่?')) {
+    if (confirm('Are you sure you want to reset all settings to default?')) {
       const defaultSettings = {
         notifications: {
           order_updates: true,
@@ -119,6 +123,71 @@ const Settings = () => {
     }
   };
 
+  const handleDeleteAccount = async () => {
+    try {
+      // ขั้นตอนที่ 1: ยืนยันความต้องการลบบัญชี
+      const firstConfirmation = window.confirm(
+        `Are you sure you want to delete your account "${user?.username}"?\n\n⚠️ This action will delete all your information, including:\n• Order history\n• Reviews and ratings\n• Personal information\n• All settings\n\nThis action cannot be undone!`
+      );
+      
+      if (!firstConfirmation) {
+        return;
+      }
+
+      // ขั้นตอนที่ 2: ป้อนชื่อผู้ใช้เพื่อยืนยัน
+      setShowDeleteConfirm(true);
+    } catch (error) {
+      console.error('Error in delete confirmation:', error);
+    }
+  };
+
+  const confirmDeleteAccount = async () => {
+    try {
+      // ตรวจสอบการพิมพ์ชื่อผู้ใช้ 
+      if (deleteConfirmation !== user?.username) {
+        alert(`Please enter the username "${user?.username}" correctly`);
+        return;
+      }
+
+      setDeletingAccount(true);
+      
+      console.log(`🗑️ Deleting account for user ${user?.id} (${user?.username})`);
+      
+      // เรียก API ลบบัญชี
+      await userService.delete(user?.id);
+      
+      alert('Account deleted successfully\nThank you for using our service');
+      
+      // ออกจากระบบและไปหน้าหลัก
+      await logout();
+      window.location.href = '/';
+      
+    } catch (err) {
+      console.error('❌ Error deleting account:', err);
+      console.error('Response:', err.response?.data);
+      
+      let errorMessage = 'Unable to delete account';
+      if (err.response?.status === 403) {
+        errorMessage = 'You do not have permission to delete this account';
+      } else if (err.response?.status === 404) {
+        errorMessage = 'Account not found';
+      } else if (err.response?.data?.detail) {
+        errorMessage = err.response.data.detail;
+      }
+      
+      alert(errorMessage);
+    } finally {
+      setDeletingAccount(false);
+      setShowDeleteConfirm(false);
+      setDeleteConfirmation('');
+    }
+  };
+
+  const cancelDeleteAccount = () => {
+    setShowDeleteConfirm(false);
+    setDeleteConfirmation('');
+  };
+
   const ToggleSwitch = ({ checked, onChange, disabled = false }) => (
     <div className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
       disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
@@ -140,12 +209,12 @@ const Settings = () => {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold text-secondary-800 mb-6">การตั้งค่า</h1>
+      <h1 className="text-3xl font-bold text-secondary-800 mb-6">Settings</h1>
       
       {/* Message */}
       {message && (
         <div className={`mb-6 p-4 rounded-lg ${
-          message.includes('เรียบร้อย') 
+          message.includes('Success') 
             ? 'bg-green-100 text-green-700' 
             : 'bg-red-100 text-red-700'
         }`}>
@@ -157,12 +226,12 @@ const Settings = () => {
         
         {/* Notifications Settings */}
         <div className="bg-white rounded-lg shadow-md p-6">
-          <h2 className="text-xl font-semibold text-secondary-700 mb-4">การแจ้งเตือน</h2>
+          <h2 className="text-xl font-semibold text-secondary-700 mb-4">Notifications</h2>
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
-                <span className="text-secondary-700 font-medium">แจ้งเตือนสถานะคำสั่งซื้อ</span>
-                <p className="text-sm text-secondary-500">รับการแจ้งเตือนเมื่อสถานะคำสั่งซื้อเปลี่ยนแปลง</p>
+                <span className="text-secondary-700 font-medium">Order status updates</span>
+                <p className="text-sm text-secondary-500">Receive notifications when order status changes</p>
               </div>
               <ToggleSwitch
                 checked={settings.notifications.order_updates}
@@ -172,8 +241,8 @@ const Settings = () => {
             
             <div className="flex items-center justify-between">
               <div>
-                <span className="text-secondary-700 font-medium">แจ้งเตือนโปรโมชั่น</span>
-                <p className="text-sm text-secondary-500">รับข้อมูลส่วนลดและโปรโมชั่นพิเศษ</p>
+                <span className="text-secondary-700 font-medium">Promotions</span>
+                <p className="text-sm text-secondary-500">Receive information about discounts and special promotions</p>
               </div>
               <ToggleSwitch
                 checked={settings.notifications.promotions}
@@ -183,8 +252,8 @@ const Settings = () => {
             
             <div className="flex items-center justify-between">
               <div>
-                <span className="text-secondary-700 font-medium">แจ้งเตือนทางอีเมล</span>
-                <p className="text-sm text-secondary-500">รับการแจ้งเตือนผ่านอีเมล</p>
+                <span className="text-secondary-700 font-medium">Email notifications</span>
+                <p className="text-sm text-secondary-500">Receive notifications via email</p>
               </div>
               <ToggleSwitch
                 checked={settings.notifications.email_notifications}
@@ -195,7 +264,7 @@ const Settings = () => {
             <div className="flex items-center justify-between">
               <div>
                 <span className="text-secondary-700 font-medium">Push Notifications</span>
-                <p className="text-sm text-secondary-500">รับการแจ้งเตือนแบบ Push ในเบราว์เซอร์</p>
+                <p className="text-sm text-secondary-500">Receive push notifications in the browser</p>
               </div>
               <ToggleSwitch
                 checked={settings.notifications.push_notifications}
@@ -205,8 +274,8 @@ const Settings = () => {
             
             <div className="flex items-center justify-between">
               <div>
-                <span className="text-secondary-700 font-medium">แจ้งเตือนทาง SMS</span>
-                <p className="text-sm text-secondary-500">รับการแจ้งเตือนผ่านข้อความ SMS</p>
+                <span className="text-secondary-700 font-medium">SMS notifications</span>
+                <p className="text-sm text-secondary-500">Receive notifications via SMS</p>
               </div>
               <ToggleSwitch
                 checked={settings.notifications.sms_notifications}
@@ -218,12 +287,12 @@ const Settings = () => {
 
         {/* Privacy Settings */}
         <div className="bg-white rounded-lg shadow-md p-6">
-          <h2 className="text-xl font-semibold text-secondary-700 mb-4">ความเป็นส่วนตัว</h2>
+          <h2 className="text-xl font-semibold text-secondary-700 mb-4">Privacy</h2>
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
-                <span className="text-secondary-700 font-medium">แสดงประวัติการสั่งซื้อ</span>
-                <p className="text-sm text-secondary-500">อนุญาตให้ร้านอาหารดูประวัติการสั่งซื้อของคุณ</p>
+                <span className="text-secondary-700 font-medium">Show order history</span>
+                <p className="text-sm text-secondary-500">Allow restaurants to view your order history</p>
               </div>
               <ToggleSwitch
                 checked={settings.privacy.show_order_history}
@@ -233,8 +302,8 @@ const Settings = () => {
             
             <div className="flex items-center justify-between">
               <div>
-                <span className="text-secondary-700 font-medium">แชร์ข้อมูลการใช้งาน</span>
-                <p className="text-sm text-secondary-500">ช่วยปรับปรุงบริการโดยแชร์ข้อมูลการใช้งานแบบไม่ระบุตัวตน</p>
+                <span className="text-secondary-700 font-medium">Share usage data</span>
+                <p className="text-sm text-secondary-500">Help improve services by sharing usage data anonymously</p>
               </div>
               <ToggleSwitch
                 checked={settings.privacy.share_usage_data}
@@ -244,8 +313,8 @@ const Settings = () => {
             
             <div className="flex items-center justify-between">
               <div>
-                <span className="text-secondary-700 font-medium">ติดตามตำแหน่ง</span>
-                <p className="text-sm text-secondary-500">อนุญาตให้ติดตามตำแหน่งเพื่อแนะนำร้านอาหารใกล้เคียง</p>
+                <span className="text-secondary-700 font-medium">Track location</span>
+                <p className="text-sm text-secondary-500">Allow tracking your location to recommend nearby restaurants</p>
               </div>
               <ToggleSwitch
                 checked={settings.privacy.allow_location_tracking}
@@ -255,8 +324,8 @@ const Settings = () => {
             
             <div className="flex items-center justify-between">
               <div>
-                <span className="text-secondary-700 font-medium">แสดงสถานะออนไลน์</span>
-                <p className="text-sm text-secondary-500">แสดงสถานะการออนไลน์ให้ร้านอาหารเห็น</p>
+                <span className="text-secondary-700 font-medium">Show online status</span>
+                <p className="text-sm text-secondary-500">Show your online status to restaurants</p>
               </div>
               <ToggleSwitch
                 checked={settings.privacy.show_online_status}
@@ -268,11 +337,11 @@ const Settings = () => {
 
         {/* Preferences */}
         <div className="bg-white rounded-lg shadow-md p-6">
-          <h2 className="text-xl font-semibold text-secondary-700 mb-4">ความชอบส่วนตัว</h2>
+          <h2 className="text-xl font-semibold text-secondary-700 mb-4">Preferences</h2>
           <div className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-secondary-700 mb-2">ภาษา</label>
+                <label className="block text-sm font-medium text-secondary-700 mb-2">Language</label>
                 <select
                   value={settings.preferences.language}
                   onChange={(e) => updateSetting('preferences', 'language', e.target.value)}
@@ -284,27 +353,27 @@ const Settings = () => {
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-secondary-700 mb-2">ธีม</label>
+                <label className="block text-sm font-medium text-secondary-700 mb-2">Theme</label>
                 <select
                   value={settings.preferences.theme}
                   onChange={(e) => updateSetting('preferences', 'theme', e.target.value)}
                   className="w-full p-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500"
                 >
-                  <option value="light">สว่าง</option>
-                  <option value="dark">มืด</option>
-                  <option value="auto">อัตโนมัติ</option>
+                  <option value="light">Light</option>
+                  <option value="dark">Dark</option>
+                  <option value="auto">Auto</option>
                 </select>
               </div>
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-secondary-700 mb-2">คำแนะนำการจัดส่ง</label>
+              <label className="block text-sm font-medium text-secondary-700 mb-2">Delivery instructions</label>
               <textarea
                 value={settings.preferences.delivery_instructions}
                 onChange={(e) => updateSetting('preferences', 'delivery_instructions', e.target.value)}
                 className="w-full p-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500"
                 rows="3"
-                placeholder="เช่น ให้วางที่หน้าประตู, โทรก่อนส่ง, ฯลฯ"
+                placeholder="For example, place it at the front door, call before delivery, etc."
               />
             </div>
           </div>
@@ -312,12 +381,12 @@ const Settings = () => {
 
         {/* Account Security */}
         <div className="bg-white rounded-lg shadow-md p-6">
-          <h2 className="text-xl font-semibold text-secondary-700 mb-4">ความปลอดภัยบัญชี</h2>
+          <h2 className="text-xl font-semibold text-secondary-700 mb-4">Account Security</h2>
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
-                <span className="text-secondary-700 font-medium">การยืนยันตัวตนแบบ 2 ขั้นตอน</span>
-                <p className="text-sm text-secondary-500">เพิ่มความปลอดภัยด้วยรหัส OTP</p>
+                <span className="text-secondary-700 font-medium">Two-factor authentication</span>
+                <p className="text-sm text-secondary-500">Add security with OTP</p>
               </div>
               <ToggleSwitch
                 checked={settings.account.two_factor_auth}
@@ -327,8 +396,8 @@ const Settings = () => {
             
             <div className="flex items-center justify-between">
               <div>
-                <span className="text-secondary-700 font-medium">แจ้งเตือนการเข้าสู่ระบบ</span>
-                <p className="text-sm text-secondary-500">รับการแจ้งเตือนเมื่อมีการเข้าสู่ระบบใหม่</p>
+                <span className="text-secondary-700 font-medium">Login alerts</span>
+                <p className="text-sm text-secondary-500">Receive notifications when you log in</p>
               </div>
               <ToggleSwitch
                 checked={settings.account.login_alerts}
@@ -338,18 +407,18 @@ const Settings = () => {
             
             <div>
               <label className="block text-sm font-medium text-secondary-700 mb-2">
-                หมดเวลาเซสชันอัตโนมัติ (นาที)
+                Session timeout (minutes)
               </label>
               <select
                 value={settings.account.session_timeout}
                 onChange={(e) => updateSetting('account', 'session_timeout', e.target.value)}
                 className="w-full p-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500"
               >
-                <option value="15">15 นาที</option>
-                <option value="30">30 นาที</option>
-                <option value="60">1 ชั่วโมง</option>
-                <option value="120">2 ชั่วโมง</option>
-                <option value="0">ไม่หมดเวลา</option>
+                <option value="15">15 minutes</option>
+                <option value="30">30 minutes</option>
+                <option value="60">1 hour</option>
+                <option value="120">2 hours</option>
+                <option value="0">Never</option>
               </select>
             </div>
           </div>
@@ -363,7 +432,7 @@ const Settings = () => {
               className="bg-secondary-500 text-white px-6 py-3 rounded-lg hover:bg-secondary-600 transition-colors"
               disabled={loading}
             >
-              รีเซ็ตการตั้งค่า
+              Reset settings
             </button>
             
             <div className="flex gap-3">
@@ -371,17 +440,87 @@ const Settings = () => {
                 onClick={() => window.location.reload()}
                 className="border border-secondary-300 text-secondary-700 px-6 py-3 rounded-lg hover:bg-secondary-50 transition-colors"
               >
-                ยกเลิก
+                Cancel
               </button>
               <button
                 onClick={() => saveSettings(settings)}
                 className="bg-primary-500 text-white px-6 py-3 rounded-lg hover:bg-primary-600 transition-colors"
                 disabled={loading}
               >
-                {loading ? 'บันทึก...' : 'บันทึกการตั้งค่า'}
+                {loading ? 'Saving...' : 'Save settings'}
               </button>
             </div>
           </div>
+        </div>
+
+        {/* Danger Zone - Delete Account */}
+        <div className="bg-red-50 border border-red-200 rounded-lg shadow-md p-6">
+          <h2 className="text-xl font-semibold text-red-700 mb-4 flex items-center">
+            <svg className="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.664-.833-2.464 0L4.35 16.5c-.77.833.192 2.5 1.732 2.5z" />
+            </svg>
+            Delete account
+          </h2>
+          
+          <div className="bg-white border border-red-200 rounded-lg p-4 mb-4">
+            <h3 className="font-medium text-red-800 mb-2">⚠️ The following information will be permanently deleted:</h3>
+            <ul className="text-sm text-red-700 space-y-1 ml-4">
+              <li>• All order history</li>
+              <li>• Reviews and ratings</li>
+              <li>• Personal information and contact</li>
+              <li>• Settings and preferences</li>
+              <li>• Favorite and saved items</li>
+            </ul>
+          </div>
+
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+            <p className="text-yellow-800 text-sm">
+              <strong>Note:</strong> This action cannot be undone. Please consider carefully before making a decision
+            </p>
+          </div>
+
+          {!showDeleteConfirm ? (
+            <button
+              onClick={handleDeleteAccount}
+              className="bg-red-600 text-white px-6 py-3 rounded-lg hover:bg-red-700 transition-colors font-medium"
+              disabled={loading || deletingAccount}
+            >
+              Delete my account
+            </button>
+          ) : (
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-red-700 mb-2">
+                  Enter your username "<strong className="text-red-800">{user?.username}</strong>" to confirm account deletion:
+                </label>
+                <input
+                  type="text"
+                  value={deleteConfirmation}
+                  onChange={(e) => setDeleteConfirmation(e.target.value)}
+                  className="w-full p-3 border border-red-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                  placeholder={`Enter "${user?.username}" here`}
+                  disabled={deletingAccount}
+                />
+              </div>
+              
+              <div className="flex gap-3">
+                <button
+                  onClick={cancelDeleteAccount}
+                  className="bg-secondary-500 text-white px-6 py-3 rounded-lg hover:bg-secondary-600 transition-colors"
+                  disabled={deletingAccount}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmDeleteAccount}
+                  className="bg-red-600 text-white px-6 py-3 rounded-lg hover:bg-red-700 transition-colors font-medium"
+                  disabled={deletingAccount || deleteConfirmation !== user?.username}
+                >
+                  {deletingAccount ? 'Deleting account...' : 'Confirm account deletion'}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

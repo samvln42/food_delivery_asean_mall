@@ -21,7 +21,7 @@ class ErrorBoundary extends React.Component {
           <div className="text-center p-8">
             <div className="text-6xl mb-4">😵</div>
             <h2 className="text-2xl font-bold text-secondary-900 mb-4">
-              เกิดข้อผิดพลาด
+              Error Occurred
             </h2>
             <p className="text-secondary-600 mb-6">
               เราพบปัญหาในการแสดงผลหน้านี้

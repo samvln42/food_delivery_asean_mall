@@ -116,7 +116,7 @@ class RestaurantSerializer(serializers.ModelSerializer):
             if user.role != new_role:
                 user.role = new_role
                 user.save()
-                print(f"🔄 Auto-sync: Restaurant {instance.restaurant_name} is_special={validated_data['is_special']} → User {user.username} role={new_role}")
+                # print(f"🔄 Auto-sync: Restaurant {instance.restaurant_name} is_special={validated_data['is_special']} → User {user.username} role={new_role}")
         
         return instance
 
@@ -255,17 +255,17 @@ class MultiRestaurantOrderSerializer(serializers.Serializer):
     def validate_restaurants(self, value):
         """ตรวจสอบข้อมูลร้านและสินค้า"""
         if not isinstance(value, list) or not value:
-            raise serializers.ValidationError("ต้องมีอย่างน้อย 1 ร้าน และต้องเป็น list")
+            raise serializers.ValidationError("Must have at least 1 restaurant and must be a list")
         
         for i, restaurant_data in enumerate(value):
             # ตรวจสอบ structure ของแต่ละร้าน
             if not isinstance(restaurant_data, dict):
-                raise serializers.ValidationError(f"ข้อมูลร้านที่ {i+1} ต้องเป็น object")
+                raise serializers.ValidationError(f"Restaurant data at index {i+1} must be an object")
             
             if 'restaurant_id' not in restaurant_data:
-                raise serializers.ValidationError(f"ร้านที่ {i+1}: ต้องระบุ restaurant_id")
+                raise serializers.ValidationError(f"Restaurant {i+1}: restaurant_id is required")
             if 'items' not in restaurant_data:
-                raise serializers.ValidationError(f"ร้านที่ {i+1}: ต้องมีรายการสินค้า (items)")
+                raise serializers.ValidationError(f"Restaurant {i+1}: items list is required")
             
             restaurant_id = restaurant_data.get('restaurant_id')
             items = restaurant_data.get('items')
@@ -275,28 +275,28 @@ class MultiRestaurantOrderSerializer(serializers.Serializer):
                 restaurant_id = int(restaurant_id)
                 restaurant = Restaurant.objects.get(restaurant_id=restaurant_id)
             except (ValueError, TypeError):
-                raise serializers.ValidationError(f"ร้านที่ {i+1}: restaurant_id ต้องเป็นตัวเลข")
+                raise serializers.ValidationError(f"Restaurant {i+1}: restaurant_id must be a number")
             except Restaurant.DoesNotExist:
-                raise serializers.ValidationError(f"ไม่พบร้าน ID: {restaurant_id}")
+                raise serializers.ValidationError(f"Restaurant not found with ID: {restaurant_id}")
             
             # ตรวจสอบ items
             if not isinstance(items, list) or not items:
-                raise serializers.ValidationError(f"ร้านที่ {i+1}: ต้องมีรายการสินค้าอย่างน้อย 1 รายการ")
+                raise serializers.ValidationError(f"Restaurant {i+1}: must have at least 1 item in the list")
             
             # ตรวจสอบสินค้าในร้าน
             for j, item in enumerate(items):
                 if not isinstance(item, dict):
-                    raise serializers.ValidationError(f"ร้านที่ {i+1}, สินค้าที่ {j+1}: ต้องเป็น object")
+                    raise serializers.ValidationError(f"Restaurant {i+1}, item {j+1}: must be an object")
                 
                 if 'product_id' not in item or 'quantity' not in item:
-                    raise serializers.ValidationError(f"ร้านที่ {i+1}, สินค้าที่ {j+1}: ต้องมี product_id และ quantity")
+                    raise serializers.ValidationError(f"Restaurant {i+1}, item {j+1}: product_id and quantity are required")
                 
                 try:
                     product_id = int(item['product_id'])
                     quantity = int(item['quantity'])
                     
                     if quantity <= 0:
-                        raise serializers.ValidationError(f"ร้านที่ {i+1}, สินค้าที่ {j+1}: จำนวนต้องมากกว่า 0")
+                        raise serializers.ValidationError(f"Restaurant {i+1}, item {j+1}: quantity must be greater than 0")
                     
                     product = Product.objects.get(
                         product_id=product_id, 
@@ -304,10 +304,10 @@ class MultiRestaurantOrderSerializer(serializers.Serializer):
                         is_available=True
                     )
                 except (ValueError, TypeError):
-                    raise serializers.ValidationError(f"ร้านที่ {i+1}, สินค้าที่ {j+1}: product_id และ quantity ต้องเป็นตัวเลข")
+                    raise serializers.ValidationError(f"Restaurant {i+1}, item {j+1}: product_id and quantity must be numbers")
                 except Product.DoesNotExist:
                     raise serializers.ValidationError(
-                        f"ไม่พบสินค้า ID: {product_id} ในร้าน {restaurant.restaurant_name}"
+                        f"Product not found with ID: {product_id} in restaurant {restaurant.restaurant_name}"
                     )
         
         return value

@@ -2,13 +2,13 @@ import React, { useState, useRef, useEffect } from 'react';
 
 const GoogleTranslate = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const [currentLang, setCurrentLang] = useState('th');
+  const [currentLang, setCurrentLang] = useState('en');
   const [isTranslating, setIsTranslating] = useState(false);
   const dropdownRef = useRef(null);
 
   const languages = [
-    { code: 'th', name: 'ไทย', flag: '🇹🇭', nativeName: 'ไทย' },
     { code: 'en', name: 'English', flag: '🇺🇸', nativeName: 'English' },
+    { code: 'th', name: 'Thai', flag: '🇹🇭', nativeName: 'Thai' },
     { code: 'ko', name: 'Korean', flag: '🇰🇷', nativeName: '한국어' },
     // { code: 'ja', name: 'Japanese', flag: '🇯🇵', nativeName: '日本語' },
     // { code: 'zh-CN', name: 'Chinese', flag: '🇨🇳', nativeName: '中文' },
@@ -46,7 +46,7 @@ const GoogleTranslate = () => {
       .split('; ')
       .find(row => row.startsWith('googtrans='));
     
-    let currentLangFromCookie = 'th';
+    let currentLangFromCookie = 'en';
     if (currentCookie) {
       try {
         const cookieValue = currentCookie.split('=')[1];
@@ -69,7 +69,7 @@ const GoogleTranslate = () => {
     setIsTranslating(true);
     console.log(`Starting translation to ${langCode}`);
 
-    if (langCode === 'th') {
+    if (langCode === 'en') {
       // กลับไปภาษาต้นฉบับ - ลบ cookie และ reload
       console.log('Clearing cookies and returning to Thai');
       document.cookie = "googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
@@ -130,7 +130,7 @@ const GoogleTranslate = () => {
           const parts = cookieValue.split('/');
           if (parts.length >= 3) {
             const langCode = parts[2];
-            if (langCode && langCode !== 'th' && langCode !== 'auto') {
+            if (langCode && langCode !== 'en' && langCode !== 'auto') {
               setCurrentLang(langCode);
               return;
             }
@@ -141,7 +141,7 @@ const GoogleTranslate = () => {
       }
       
       // ถ้าไม่เจออะไร ให้เป็นภาษาไทย
-      setCurrentLang('th');
+      setCurrentLang('en');
     };
 
     checkTranslatedPage();
@@ -171,8 +171,8 @@ const GoogleTranslate = () => {
     if (!window.google || !window.google.translate) {
       window.googleTranslateElementInit = function() {
         new window.google.translate.TranslateElement({
-          pageLanguage: 'th',
-          includedLanguages: 'th,en,ko,ja,zh-CN,fr,de,es,vi,ru',
+          pageLanguage: 'en',
+          includedLanguages: 'en,th,ko,ja,zh-CN,fr,de,es,vi,ru',
           layout: window.google.translate.TranslateElement.InlineLayout.SIMPLE,
           autoDisplay: false,
           multilanguagePage: true
@@ -208,11 +208,11 @@ const GoogleTranslate = () => {
             ? 'opacity-75 cursor-not-allowed' 
             : 'hover:bg-gray-50 cursor-pointer'
         }`}
-        title={isTranslating ? "กำลังแปลภาษา..." : "เลือกภาษา"}
+        title={isTranslating ? "Translating..." : "Select Language"}
       >
         <span className="text-lg">{getCurrentLanguage().flag}</span>
         <span className="text-sm font-medium text-gray-700 hidden sm:inline">
-          {isTranslating ? 'กำลังแปล...' : getCurrentLanguage().nativeName}
+          {isTranslating ? 'Translating...' : getCurrentLanguage().nativeName}
         </span>
         {isTranslating ? (
           <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
@@ -237,7 +237,7 @@ const GoogleTranslate = () => {
             {/* หัวข้อ */}
             <div className="px-4 py-2 border-b border-gray-100">
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                เลือกภาษา
+                Select language
               </p>
             </div>
             
@@ -268,10 +268,10 @@ const GoogleTranslate = () => {
               <div className="flex items-center space-x-2">
                 <span className="text-xs text-gray-500">⚡ Powered by Google Translate</span>
               </div>
-              {currentLang !== 'th' && (
+              {currentLang !== 'en' && (
                 <div className="mt-2">
                   <p className="text-xs text-blue-600 font-medium">
-                    🌐 หน้านี้กำลังแสดงเป็นภาษา {getCurrentLanguage().nativeName}
+                    🌐 This page is currently showing in {getCurrentLanguage().nativeName}
                   </p>
                 </div>
               )}
@@ -281,7 +281,7 @@ const GoogleTranslate = () => {
       )}
 
       {/* สถานะการแปล */}
-      {currentLang !== 'th' && !isTranslating && (
+      {currentLang !== 'en' && !isTranslating && (
         <div className="absolute -top-1 -right-1">
           <span className="inline-flex items-center justify-center w-4 h-4 text-xs font-bold text-white bg-blue-500 rounded-full">
             T
@@ -294,10 +294,10 @@ const GoogleTranslate = () => {
         <div className="absolute top-full right-0 mt-2 bg-blue-100 border border-blue-300 rounded-lg px-3 py-2 text-sm text-blue-800 whitespace-nowrap z-50 shadow-lg">
           <div className="flex items-center space-x-2">
             <div className="animate-spin h-3 w-3 border-2 border-blue-600 border-t-transparent rounded-full"></div>
-            <span>กำลังแปลหน้าเว็บ...</span>
+            <span>Translating page...</span>
           </div>
           <div className="text-xs text-blue-600 mt-1">
-            กรุณารอสักครู่
+            Please wait...
           </div>
         </div>
       )}

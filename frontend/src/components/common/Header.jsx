@@ -69,55 +69,55 @@ const Header = () => {
   const getNavigationItems = () => {
     if (!isAuthenticated) {
       return [
-        { name: 'หน้าแรก', href: '/', current: true },
-        { name: 'ร้านอาหาร', href: '/restaurants', current: false },
-        { name: 'หมวดหมู่', href: '/categories', current: false },
+        { name: 'Home', href: '/', current: true },
+        { name: 'Restaurants', href: '/restaurants', current: false },
+        { name: 'Categories', href: '/categories', current: false },
       ];
     }
 
     switch (user?.role) {
       case 'admin':
         return [
-          { name: 'แดชบอร์ด', href: '/admin', current: true },
-          { name: 'ผู้ใช้งาน', href: '/admin/users', current: false },
-          { name: 'ร้านอาหาร', href: '/admin/restaurants', current: false },
-          { name: 'คำสั่งซื้อ', href: '/admin/orders', current: false },
-          { name: 'รายงาน', href: '/admin/analytics', current: false },
+          { name: 'Dashboard', href: '/admin', current: true },
+          { name: 'Users', href: '/admin/users', current: false },
+          { name: 'Restaurants', href: '/admin/restaurants', current: false },
+          { name: 'Orders', href: '/admin/orders', current: false },
+          { name: 'Analytics', href: '/admin/analytics', current: false },
         ];
 
       case 'special_restaurant':
       case 'general_restaurant':
         return [
-          { name: 'แดชบอร์ด', href: '/restaurant', current: true },
-          { name: 'คำสั่งซื้อ', href: '/restaurant/orders', current: false },
-          { name: 'เมนู', href: '/restaurant/menu', current: false },
-          { name: 'รีวิว', href: '/restaurant/reviews', current: false },
-          { name: 'สถิติ', href: '/restaurant/analytics', current: false },
+          { name: 'Dashboard', href: '/restaurant', current: true },
+          { name: 'Orders', href: '/restaurant/orders', current: false },
+          { name: 'Menu', href: '/restaurant/menu', current: false },
+          { name: 'Reviews', href: '/restaurant/reviews', current: false },
+          { name: 'Analytics', href: '/restaurant/analytics', current: false },
         ];
 
       case 'customer':
       default:
         return [
-          { name: 'หน้าแรก', href: '/', current: true },
-          { name: 'สินค้า', href: '/products', current: false },
-          { name: 'ร้านอาหาร', href: '/restaurants', current: false },
-          { name: 'หมวดหมู่', href: '/categories', current: false },
-          { name: 'คำสั่งซื้อ', href: '/orders', current: false },
+          { name: 'Home', href: '/', current: true },
+          { name: 'Products', href: '/products', current: false },
+          { name: 'Restaurants', href: '/restaurants', current: false },
+          { name: 'Categories', href: '/categories', current: false },
+          { name: 'Orders', href: '/orders', current: false },
         ];
     }
   };
 
   const getProfileMenuItems = () => {
     const baseItems = [
-      { name: 'โปรไฟล์', href: '/profile', icon: UserIcon },
-      { name: 'การตั้งค่า', href: '/settings', icon: Cog6ToothIcon },
+      { name: 'Profile', href: '/profile', icon: UserIcon },
+      { name: 'Settings', href: '/settings', icon: Cog6ToothIcon },
     ];
 
     if (user?.role === 'customer') {
       return [
         ...baseItems,
-        { name: 'รายการโปรด', href: '/favorites', icon: HeartIcon },
-        { name: 'ที่อยู่', href: '/addresses', icon: UserIcon },
+        { name: 'Favorites', href: '/favorites', icon: HeartIcon },
+        { name: 'Addresses', href: '/addresses', icon: UserIcon },
       ];
     }
 
@@ -180,7 +180,7 @@ const Header = () => {
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       className="block w-full pl-10 pr-3 py-2 border border-secondary-300 rounded-lg leading-5 bg-white placeholder-secondary-500 focus:outline-none focus:placeholder-secondary-400 focus:ring-1 focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
-                      placeholder="ค้นหาร้านอาหาร อาหาร..."
+                      placeholder="Search for restaurant or food..."
                     />
                   </div>
                 </form>
@@ -262,7 +262,7 @@ const Header = () => {
                         className="flex items-center w-full px-4 py-2 text-sm text-secondary-700 hover:bg-secondary-50"
                       >
                         <ArrowRightOnRectangleIcon className="h-4 w-4 mr-3" />
-                        ออกจากระบบ
+                        Logout
                       </button>
                     </div>
                   )}
@@ -274,13 +274,13 @@ const Header = () => {
                   to="/login"
                   className="text-secondary-700 hover:text-secondary-900 px-3 py-2 text-sm font-medium"
                 >
-                  เข้าสู่ระบบ
+                  Login
                 </Link>
                 <Link
                   to="/register"
                   className="btn-primary text-sm"
                 >
-                  สมัครสมาชิก
+                  Register
                 </Link>
               </div>
             )}

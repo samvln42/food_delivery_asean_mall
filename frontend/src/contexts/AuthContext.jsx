@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
 import { authService } from '../services/api';
+import { ErrorHandler } from '../utils/errorHandler';
+import { parseApiError } from '../hooks/useNotification';
 
 // Initial state
 const initialState = {
@@ -125,12 +127,14 @@ export const AuthProvider = ({ children }) => {
       
       return { success: true, user, token };
     } catch (error) {
-      const errorMessage = error.response?.data?.error || 'การเข้าสู่ระบบล้มเหลว';
+      // Use centralized error handling
+      const { message } = ErrorHandler.handleApiError(error, 'Login');
+      
       dispatch({
         type: actionTypes.LOGIN_FAILURE,
-        payload: errorMessage,
+        payload: message,
       });
-      return { success: false, error: errorMessage };
+      return { success: false, error: message };
     }
   };
 
@@ -148,12 +152,14 @@ export const AuthProvider = ({ children }) => {
         needsEmailVerification: response.data.email_verification_required 
       };
     } catch (error) {
-      const errorMessage = error.response?.data?.error || 'การสมัครสมาชิกล้มเหลว';
+      // Use centralized error handling
+      const { message } = ErrorHandler.handleApiError(error, 'Registration');
+      
       dispatch({
         type: actionTypes.LOGIN_FAILURE,
-        payload: errorMessage,
+        payload: message,
       });
-      return { success: false, error: errorMessage };
+      return { success: false, error: message };
     }
   };
 
@@ -176,7 +182,7 @@ export const AuthProvider = ({ children }) => {
       
       return { success: true, user, token };
     } catch (error) {
-      const errorMessage = error.response?.data?.error || 'การเข้าสู่ระบบด้วย Google ล้มเหลว';
+      const errorMessage = error.response?.data?.error || 'Google login failed';
       dispatch({
         type: actionTypes.LOGIN_FAILURE,
         payload: errorMessage,
@@ -217,7 +223,7 @@ export const AuthProvider = ({ children }) => {
       return { success: true, user };
     } catch (error) {
       console.error('Update profile error:', error);
-      return { success: false, error: 'ไม่สามารถอัปเดตข้อมูลโปรไฟล์ได้' };
+      return { success: false, error: 'Failed to update profile' };
     }
   };
 
@@ -232,7 +238,7 @@ export const AuthProvider = ({ children }) => {
       const response = await authService.verifyEmail(token);
       return { success: true, message: response.data.message };
     } catch (error) {
-      const errorMessage = error.response?.data?.error || 'การยืนยันอีเมลล้มเหลว';
+      const errorMessage = error.response?.data?.error || 'Email verification failed';
       return { success: false, error: errorMessage };
     }
   };
@@ -243,7 +249,7 @@ export const AuthProvider = ({ children }) => {
       const response = await authService.resendVerification(email);
       return { success: true, message: response.data.message };
     } catch (error) {
-      const errorMessage = error.response?.data?.error || 'ไม่สามารถส่งอีเมลยืนยันได้';
+      const errorMessage = error.response?.data?.error || 'Failed to resend verification email';
       return { success: false, error: errorMessage };
     }
   };
@@ -254,7 +260,7 @@ export const AuthProvider = ({ children }) => {
       const response = await authService.resetPassword(email);
       return { success: true, message: response.data.message };
     } catch (error) {
-      const errorMessage = error.response?.data?.error || 'ไม่สามารถส่งลิงก์รีเซ็ตรหัสผ่านได้';
+      const errorMessage = error.response?.data?.error || 'Failed to reset password';
       return { success: false, error: errorMessage };
     }
   };

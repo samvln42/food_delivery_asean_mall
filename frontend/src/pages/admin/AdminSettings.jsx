@@ -107,21 +107,18 @@ const AdminSettings = () => {
         console.log('App settings loaded (direct object):', response.data);
       } else {
         console.warn('No app settings found in response');
-        toast.warning('ไม่พบข้อมูลการตั้งค่าแอปพลิเคชัน');
+        toast.warning('Application settings not found');
       }
       
-      // For now, we'll use mock data for other settings
-      // In a real implementation, you would fetch from API
-      // const response = await api.get('/admin/settings/');
-      // setSettings(response.data);
+      // Additional settings can be implemented here when needed
     } catch (error) {
       console.error('Error fetching settings:', error);
       if (error.response?.status === 401) {
-        toast.error('คุณไม่มีสิทธิ์ในการดูข้อมูลการตั้งค่า');
+        toast.error('You do not have permission to view settings');
       } else if (error.response?.status === 403) {
-        toast.error('คุณไม่มีสิทธิ์ในการดูข้อมูลการตั้งค่า');
+        toast.error('You do not have permission to view settings');
       } else {
-        toast.error('ไม่สามารถโหลดการตั้งค่าได้');
+        toast.error('Unable to load settings');
       }
     } finally {
       setAppSettingsLoading(false);
@@ -180,7 +177,7 @@ const AdminSettings = () => {
         setAppSettings(response.data);
       }
       
-      toast.success('บันทึกข้อมูลแอปพลิเคชันเรียบร้อยแล้ว');
+      toast.success('Application settings saved successfully');
     } catch (error) {
       console.error('Error saving app settings:', error);
       
@@ -191,16 +188,16 @@ const AdminSettings = () => {
           const errorMessages = Object.entries(errorData)
             .map(([field, messages]) => `${field}: ${Array.isArray(messages) ? messages.join(', ') : messages}`)
             .join('\n');
-          toast.error(`ข้อมูลไม่ถูกต้อง:\n${errorMessages}`);
+          toast.error(`Invalid data:\n${errorMessages}`);
         } else {
-          toast.error('ข้อมูลไม่ถูกต้อง กรุณาตรวจสอบข้อมูลที่กรอก');
+          toast.error('Invalid data. Please check the information entered');
         }
       } else if (error.response?.status === 401) {
-        toast.error('คุณไม่มีสิทธิ์ในการแก้ไขข้อมูล');
+        toast.error('You do not have permission to edit data');
       } else if (error.response?.status === 403) {
-        toast.error('คุณไม่มีสิทธิ์ในการแก้ไขข้อมูล');
+        toast.error('You do not have permission to edit data');
       } else {
-        toast.error('ไม่สามารถบันทึกข้อมูลแอปพลิเคชันได้');
+        toast.error('Unable to save application settings');
       }
     } finally {
       setAppSettingsLoading(false);
@@ -216,10 +213,10 @@ const AdminSettings = () => {
     try {
       // For now, just show success message for other tabs
       // In real implementation, you would save to API
-      toast.success('บันทึกการตั้งค่าเรียบร้อยแล้ว');
+      toast.success('Settings saved successfully');
     } catch (error) {
       console.error('Error saving settings:', error);
-      toast.error('ไม่สามารถบันทึกการตั้งค่าได้');
+      toast.error('Unable to save settings');
     } finally {
       setLoading(false);
     }

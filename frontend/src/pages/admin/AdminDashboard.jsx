@@ -13,7 +13,7 @@ const AdminDashboard = () => {
     const context = useNotificationContext();
     decreaseUnreadCount = context.decreaseUnreadCount;
   } catch (error) {
-    // Context not available, create dummy function
+    // Context not available, use fallback function
     decreaseUnreadCount = () => console.log('Notification context not available');
   }
   const [dashboardData, setDashboardData] = useState({
@@ -168,14 +168,14 @@ const AdminDashboard = () => {
   };
 
   const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('th-TH', {
+    return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'THB'
     }).format(amount || 0);
   };
 
   const formatNumber = (number) => {
-    return new Intl.NumberFormat('th-TH').format(number || 0);
+    return new Intl.NumberFormat('en-US').format(number || 0);
   };
 
   const getTypeIcon = (type) => {
@@ -215,7 +215,7 @@ const AdminDashboard = () => {
     if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)} นาทีที่แล้ว`;
     if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)} ชั่วโมงที่แล้ว`;
     if (diffInSeconds < 604800) return `${Math.floor(diffInSeconds / 86400)} วันที่แล้ว`;
-    return date.toLocaleDateString('th-TH');
+    return date.toLocaleDateString('en-US');
   };
 
   const markAsRead = async (notificationId) => {

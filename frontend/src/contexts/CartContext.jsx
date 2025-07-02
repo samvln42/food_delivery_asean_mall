@@ -36,7 +36,7 @@ const cartReducer = (state, action) => {
       // ตรวจสอบสถานะร้าน
       if (product.restaurant_status !== 'open') {
         console.warn('Cannot add item from closed restaurant');
-        throw new Error('ร้านนี้ปิดทำการอยู่ ไม่สามารถเพิ่มสินค้าลงตะกร้าได้');
+        throw new Error('This restaurant is closed. Cannot add items to cart.');
       }
       
       // เพิ่มสินค้าจากร้านใดก็ได้ (ไม่จำกัดร้านเดียว)
@@ -237,6 +237,26 @@ export const CartProvider = ({ children }) => {
 
   // Functions
   const addItem = (product, restaurant) => {
+    // ตรวจสอบว่าผู้ใช้ล็อกอินแล้วหรือยัง
+    if (!user || !user.id) {
+      const shouldRedirect = window.confirm(
+        'Please login before adding items to cart\n\nClick "OK" to go to the login page'
+      );
+      
+      if (shouldRedirect) {
+        // เก็บ URL ปัจจุบันเพื่อกลับมาหลังจากล็อกอิน
+        const currentPath = window.location.pathname;
+        localStorage.setItem('redirectAfterLogin', currentPath);
+        window.location.href = '/login';
+      }
+      
+      return { 
+        success: false, 
+        error: 'Please login before adding items to cart',
+        requiresLogin: true
+      };
+    }
+
     console.log('CartContext - Adding item:', { product, restaurant });
     console.log('CartContext - Restaurant ID from restaurant object:', restaurant.id || restaurant.restaurant_id);
     try {
@@ -313,7 +333,7 @@ export const CartProvider = ({ children }) => {
       setPromoCode(upperCode);
       return { success: true, discount: validPromoCodes[upperCode] };
     }
-    return { success: false, error: 'โค้ดส่วนลดไม่ถูกต้อง' };
+    return { success: false, error: 'Invalid promo code' };
   };
 
   // จัดกลุ่มสินค้าตามร้าน

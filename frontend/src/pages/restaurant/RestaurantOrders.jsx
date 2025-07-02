@@ -8,58 +8,7 @@ const RestaurantOrders = () => {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
 
-  // Mock orders data for restaurant
-  const mockOrders = [
-    {
-      order_id: 'ORD-2024-001',
-      customer_name: 'คุณสมชาย',
-      customer_phone: '08-1234-5678',
-      status: 'confirmed',
-      order_date: new Date(Date.now() - 1000 * 60 * 15).toISOString(),
-      delivery_address: '123/45 ถนนสุขุมวิท แขวงคลองตัน เขตคลองเตย',
-      items: [
-        { product_name: 'ผัดไทยกุ้ง', quantity: 2, price: 120, special_instructions: 'ไม่ใส่ถั่วงอก' },
-        { product_name: 'ต้มยำกุ้ง', quantity: 1, price: 150, special_instructions: 'เผ็ดน้อย' }
-      ],
-      total_amount: 390,
-      delivery_fee: 30,
-      estimated_prep_time: 20,
-      special_instructions: 'ห่อแยกชาม ขอทานร้อนๆ'
-    },
-    {
-      order_id: 'ORD-2024-002',
-      customer_name: 'คุณสมหญิง',
-      customer_phone: '08-9876-5432',
-      status: 'preparing',
-      order_date: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
-      delivery_address: '456/78 ถนนรัชดาภิเษก แขวงลาดยาว เขตจตุจักร',
-      items: [
-        { product_name: 'แกงเขียวหวานไก่', quantity: 1, price: 140, special_instructions: '' },
-        { product_name: 'ข้าวสวย', quantity: 2, price: 20, special_instructions: '' }
-      ],
-      total_amount: 215,
-      delivery_fee: 35,
-      estimated_prep_time: 15,
-      special_instructions: ''
-    },
-    {
-      order_id: 'ORD-2024-003',
-      customer_name: 'คุณสมเสร็จ',
-      customer_phone: '08-5555-1234',
-      status: 'ready',
-      order_date: new Date(Date.now() - 1000 * 60 * 45).toISOString(),
-      delivery_address: '789/12 ถนนพระราม 4 แขวงมหาพฤฒาราม เขตบางรัก',
-      items: [
-        { product_name: 'ส้มตำไทย', quantity: 1, price: 60, special_instructions: 'เผ็ดมาก' },
-        { product_name: 'ไก่ย่าง', quantity: 1, price: 120, special_instructions: 'ย่างไฟแรง' },
-        { product_name: 'ข้าวเหนียว', quantity: 1, price: 25, special_instructions: '' }
-      ],
-      total_amount: 230,
-      delivery_fee: 25,
-      estimated_prep_time: 0,
-      special_instructions: 'โทรก่อนส่ง'
-    }
-  ];
+
 
   useEffect(() => {
     fetchOrders();
@@ -68,10 +17,23 @@ const RestaurantOrders = () => {
   const fetchOrders = async () => {
     try {
       setLoading(true);
-      // ใช้ mock data
-      setOrders(mockOrders);
+      // เรียก API จริง
+      const response = await api.get('/orders/');
+      const apiOrders = response.data.results || response.data;
+      
+      // กรองเฉพาะ orders ของร้านนี้ (หากมี restaurant_id)
+      let filteredOrders = apiOrders;
+      if (user?.restaurant?.restaurant_id) {
+        filteredOrders = apiOrders.filter(order => 
+          order.restaurant_id === user.restaurant.restaurant_id ||
+          order.restaurant === user.restaurant.restaurant_id
+        );
+      }
+      
+      setOrders(filteredOrders);
     } catch (error) {
       console.error('Error fetching orders:', error);
+      setOrders([]);
     } finally {
       setLoading(false);
     }
@@ -79,17 +41,23 @@ const RestaurantOrders = () => {
 
   const updateOrderStatus = async (orderId, newStatus) => {
     try {
-      // จำลองการอัพเดทสถานะ
+      // เรียก API เพื่ออัพเดทสถานะ
+      await api.patch(`/orders/${orderId}/`, { 
+        current_status: newStatus 
+      });
+      
+      // อัพเดท local state
       setOrders(prevOrders =>
         prevOrders.map(order =>
           order.order_id === orderId
-            ? { ...order, status: newStatus }
+            ? { ...order, status: newStatus, current_status: newStatus }
             : order
         )
       );
-      alert(`อัพเดทสถานะคำสั่งซื้อ ${orderId} เป็น ${getStatusDisplay(newStatus).text} แล้ว`);
+      alert(`Updated order ${orderId} status to ${getStatusDisplay(newStatus).text}`);
     } catch (error) {
       console.error('Error updating order status:', error);
+      alert('Failed to update order status');
     }
   };
 
@@ -122,14 +90,14 @@ const RestaurantOrders = () => {
             onClick={() => updateOrderStatus(order.order_id, 'confirmed')}
             className="bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600"
           >
-            ยืนยัน
+            Confirm
           </button>,
           <button
             key="cancel"
             onClick={() => updateOrderStatus(order.order_id, 'cancelled')}
             className="bg-red-500 text-white px-3 py-1 rounded text-sm hover:bg-red-600"
           >
-            ปฏิเสธ
+            Reject
           </button>
         );
         break;
@@ -140,7 +108,7 @@ const RestaurantOrders = () => {
             onClick={() => updateOrderStatus(order.order_id, 'preparing')}
             className="bg-orange-500 text-white px-3 py-1 rounded text-sm hover:bg-orange-600"
           >
-            เริ่มเตรียม
+            Start preparing
           </button>
         );
         break;
@@ -151,7 +119,7 @@ const RestaurantOrders = () => {
             onClick={() => updateOrderStatus(order.order_id, 'ready')}
             className="bg-green-500 text-white px-3 py-1 rounded text-sm hover:bg-green-600"
           >
-            พร้อมส่ง
+            Ready to deliver
           </button>
         );
         break;
@@ -162,7 +130,7 @@ const RestaurantOrders = () => {
             onClick={() => updateOrderStatus(order.order_id, 'delivering')}
             className="bg-purple-500 text-white px-3 py-1 rounded text-sm hover:bg-purple-600"
           >
-            ส่งแล้ว
+            Delivered
           </button>
         );
         break;
@@ -172,7 +140,7 @@ const RestaurantOrders = () => {
   };
 
   const formatDateTime = (dateString) => {
-    return new Date(dateString).toLocaleString('th-TH');
+    return new Date(dateString).toLocaleString('en-US');
   };
 
   const filteredOrders = getFilteredOrders();
@@ -182,7 +150,7 @@ const RestaurantOrders = () => {
       <div className="p-8">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500 mx-auto"></div>
-          <p className="mt-4 text-secondary-600">กำลังโหลด...</p>
+          <p className="mt-4 text-secondary-600">Loading...</p>
         </div>
       </div>
     );
@@ -191,9 +159,9 @@ const RestaurantOrders = () => {
   return (
     <div className="p-8">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-3xl font-bold text-secondary-800">จัดการคำสั่งซื้อ</h1>
+        <h1 className="text-3xl font-bold text-secondary-800">Manage orders</h1>
         <div className="bg-white rounded-lg px-4 py-2 shadow">
-          <span className="text-sm text-secondary-600">คำสั่งซื้อรวม: </span>
+          <span className="text-sm text-secondary-600">Total orders: </span>
           <span className="font-semibold text-primary-600">{orders.length}</span>
         </div>
       </div>
@@ -202,13 +170,13 @@ const RestaurantOrders = () => {
       <div className="bg-white rounded-lg shadow-md mb-6">
         <div className="flex overflow-x-auto border-b">
           {[
-            { key: 'all', label: 'ทั้งหมด' },
-            { key: 'pending', label: 'รอยืนยัน' },
-            { key: 'confirmed', label: 'ยืนยันแล้ว' },
-            { key: 'preparing', label: 'กำลังเตรียม' },
-            { key: 'ready', label: 'พร้อมส่ง' },
-            { key: 'delivering', label: 'กำลังจัดส่ง' },
-            { key: 'delivered', label: 'เสร็จสิ้น' }
+            { key: 'all', label: 'All' },
+            { key: 'pending', label: 'Pending' },
+            { key: 'confirmed', label: 'Confirmed' },
+            { key: 'preparing', label: 'Preparing' },
+            { key: 'ready', label: 'Ready' },
+            { key: 'delivering', label: 'Delivering' },
+            { key: 'delivered', label: 'Delivered' }
           ].map((tab) => (
             <button
               key={tab.key}
@@ -255,7 +223,7 @@ const RestaurantOrders = () => {
                     </p>
                     {order.estimated_prep_time > 0 && (
                       <p className="text-sm text-secondary-500">
-                        เตรียม: ~{order.estimated_prep_time} นาที
+                        Preparing: ~{order.estimated_prep_time} minutes
                       </p>
                     )}
                   </div>
@@ -264,19 +232,19 @@ const RestaurantOrders = () => {
                 {/* Customer Info */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                   <div>
-                    <h4 className="font-medium text-secondary-700 mb-1">ข้อมูลลูกค้า</h4>
+                    <h4 className="font-medium text-secondary-700 mb-1">Customer information</h4>
                     <p className="text-secondary-600">{order.customer_name}</p>
                     <p className="text-secondary-600">{order.customer_phone}</p>
                   </div>
                   <div>
-                    <h4 className="font-medium text-secondary-700 mb-1">ที่อยู่จัดส่ง</h4>
+                    <h4 className="font-medium text-secondary-700 mb-1">Delivery address</h4>
                     <p className="text-secondary-600 text-sm">{order.delivery_address}</p>
                   </div>
                 </div>
 
                 {/* Order Items */}
                 <div className="mb-4">
-                  <h4 className="font-medium text-secondary-700 mb-2">รายการอาหาร</h4>
+                  <h4 className="font-medium text-secondary-700 mb-2">Food list</h4>
                   <div className="space-y-2">
                     {order.items.map((item, index) => (
                       <div key={index} className="flex justify-between items-start">
@@ -286,7 +254,7 @@ const RestaurantOrders = () => {
                           </span>
                           {item.special_instructions && (
                             <p className="text-sm text-secondary-500 italic">
-                              หมายเหตุ: {item.special_instructions}
+                              Note: {item.special_instructions}
                             </p>
                           )}
                         </div>
@@ -299,7 +267,7 @@ const RestaurantOrders = () => {
                   
                   {order.special_instructions && (
                     <div className="mt-3 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
-                      <p className="text-sm font-medium text-yellow-800">คำแนะนำพิเศษ:</p>
+                      <p className="text-sm font-medium text-yellow-800">Special instructions:</p>
                       <p className="text-sm text-yellow-700">{order.special_instructions}</p>
                     </div>
                   )}
@@ -319,19 +287,19 @@ const RestaurantOrders = () => {
         <div className="bg-white rounded-lg shadow-md p-8 text-center">
           <div className="text-6xl mb-4 opacity-30">📋</div>
           <h2 className="text-xl font-semibold text-secondary-700 mb-2">
-            {filter === 'all' ? 'ยังไม่มีคำสั่งซื้อ' : `ไม่มีคำสั่งซื้อ${filter === 'pending' ? 'ที่รอยืนยัน' : ''}`}
+            {filter === 'all' ? 'No orders' : `No orders${filter === 'pending' ? ' that need to be confirmed' : ''}`}
           </h2>
           <p className="text-secondary-500">
-            {filter === 'all' ? 'คำสั่งซื้อจากลูกค้าจะปรากฏที่นี่' : 'ลองเปลี่ยนตัวกรองเพื่อดูคำสั่งซื้ออื่น'}
+            {filter === 'all' ? 'Orders from customers will appear here' : 'Try changing the filter to see other orders'}
           </p>
           
           {filter === 'all' && orders.length === 0 && (
             <div className="mt-6">
               <button
-                onClick={() => setOrders(mockOrders)}
+                onClick={fetchOrders}
                 className="bg-primary-500 text-white px-4 py-2 rounded-lg hover:bg-primary-600"
               >
-                เพิ่มข้อมูลตัวอย่าง
+                Refresh orders
               </button>
             </div>
           )}

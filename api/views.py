@@ -95,33 +95,33 @@ class RestaurantViewSet(viewsets.ModelViewSet):
         """อัปโหลดรูปภาพหน้าร้าน"""
         restaurant = self.get_object()
         
-        # ตรวจสอบสิทธิ์ (เฉพาะเจ้าของร้านหรือ admin)
+        # Check permissions (restaurant owner or admin only)
         if request.user.role == 'admin' or (hasattr(request.user, 'restaurant') and request.user.restaurant == restaurant):
             pass
         else:
-            return Response({'error': 'คุณไม่มีสิทธิ์แก้ไขร้านนี้'}, status=status.HTTP_403_FORBIDDEN)
+            return Response({'error': 'You do not have permission to edit this restaurant'}, status=status.HTTP_403_FORBIDDEN)
         
         if 'image' not in request.FILES:
-            return Response({'error': 'กรุณาเลือกไฟล์รูปภาพ'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'error': 'Please select an image file'}, status=status.HTTP_400_BAD_REQUEST)
         
         image_file = request.FILES['image']
         
-        # ตรวจสอบประเภทไฟล์
+        # Check file type
         allowed_types = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif']
         if image_file.content_type not in allowed_types:
-            return Response({'error': 'รองรับเฉพาะไฟล์ JPG, PNG และ GIF'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'error': 'Only JPG, PNG and GIF files are supported'}, status=status.HTTP_400_BAD_REQUEST)
         
-        # ตรวจสอบขนาดไฟล์ (จำกัดที่ 10MB สำหรับรูปร้าน)
+        # Check file size (limit to 10MB for restaurant images)
         if image_file.size > 10 * 1024 * 1024:
-            return Response({'error': 'ขนาดไฟล์ต้องไม่เกิน 10MB'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'error': 'File size must not exceed 10MB'}, status=status.HTTP_400_BAD_REQUEST)
         
-        # อัปโหลดไฟล์
+        # Upload file
         restaurant.image = image_file
         restaurant.save()
         
         serializer = RestaurantSerializer(restaurant, context={'request': request})
         return Response({
-            'message': 'อัปโหลดรูปภาพร้านสำเร็จ',
+            'message': 'Restaurant image uploaded successfully',
             'restaurant': serializer.data
         })
 
@@ -167,15 +167,15 @@ class CategoryViewSet(viewsets.ModelViewSet):
     def perform_update(self, serializer):
         """จัดการการอัปเดต Category พร้อมรูปภาพ"""
         # Debug: ดูว่า request มีข้อมูลอะไรบ้าง
-        print(f"🔍 Update request data: {dict(self.request.data)}")
-        print(f"🔍 Update request files: {dict(self.request.FILES)}")
+        # print(f"🔍 Update request data: {dict(self.request.data)}")
+        # print(f"🔍 Update request files: {dict(self.request.FILES)}")
         
         # ถ้ามีไฟล์รูปภาพใหม่ใน request ให้เพิ่มเข้าไปใน serializer
         if 'image' in self.request.FILES:
-            print(f"✅ Found new image file: {self.request.FILES['image'].name}")
+            # print(f"✅ Found new image file: {self.request.FILES['image'].name}")
             serializer.save(image=self.request.FILES['image'])
         else:
-            print("ℹ️  No new image file, saving without image update")
+            # print("ℹ️  No new image file, saving without image update")
             serializer.save()
     
     @action(detail=True, methods=['get'], permission_classes=[AllowAny])
@@ -226,10 +226,10 @@ class ProductViewSet(viewsets.ModelViewSet):
         restaurant = serializer.validated_data.get('restaurant')
         
         if category and restaurant:
-            # ตรวจสอบว่าหมวดหมู่เฉพาะร้านพิเศษ ไม่สามารถใช้กับร้านทั่วไปได้
+            # Check if special category can be used with general restaurant
             if category.is_special_only and not restaurant.is_special:
                 raise ValidationError({
-                    'category': 'ร้านทั่วไปไม่สามารถใช้หมวดหมู่เฉพาะร้านพิเศษได้'
+                    'category': 'General restaurants cannot use special-only categories'
                 })
         
         # ถ้ามีไฟล์รูปภาพใน request ให้เพิ่มเข้าไปใน serializer
@@ -245,10 +245,10 @@ class ProductViewSet(viewsets.ModelViewSet):
         restaurant = product.restaurant
         
         if category:
-            # ตรวจสอบว่าหมวดหมู่เฉพาะร้านพิเศษ ไม่สามารถใช้กับร้านทั่วไปได้
+            # Check if special category can be used with general restaurant
             if category.is_special_only and not restaurant.is_special:
                 raise ValidationError({
-                    'category': 'ร้านทั่วไปไม่สามารถใช้หมวดหมู่เฉพาะร้านพิเศษได้'
+                    'category': 'General restaurants cannot use special-only categories'
                 })
         
         serializer.save()
@@ -266,26 +266,26 @@ class ProductViewSet(viewsets.ModelViewSet):
         product = self.get_object()
         
         if 'image' not in request.FILES:
-            return Response({'error': 'กรุณาเลือกไฟล์รูปภาพ'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'error': 'Please select an image file'}, status=status.HTTP_400_BAD_REQUEST)
         
         image_file = request.FILES['image']
         
-        # ตรวจสอบประเภทไฟล์
+        # Check file type
         allowed_types = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif']
         if image_file.content_type not in allowed_types:
-            return Response({'error': 'รองรับเฉพาะไฟล์ JPG, PNG และ GIF'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'error': 'Only JPG, PNG and GIF files are supported'}, status=status.HTTP_400_BAD_REQUEST)
         
-        # ตรวจสอบขนาดไฟล์ (จำกัดที่ 5MB)
+        # Check file size (limit to 5MB)
         if image_file.size > 5 * 1024 * 1024:
-            return Response({'error': 'ขนาดไฟล์ต้องไม่เกิน 5MB'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'error': 'File size must not exceed 5MB'}, status=status.HTTP_400_BAD_REQUEST)
         
-        # อัปโหลดไฟล์
+        # Upload file
         product.image = image_file
         product.save()
         
         serializer = ProductSerializer(product)
         return Response({
-            'message': 'อัปโหลดรูปภาพสำเร็จ',
+            'message': 'Product image uploaded successfully',
             'product': serializer.data
         })
 
@@ -351,7 +351,7 @@ class OrderViewSet(viewsets.ModelViewSet):
                     status=payment_data.get('status', 'pending'),
                     proof_of_payment=proof_of_payment
                 )
-                print(f"✅ Payment record created for single order: {payment.payment_id}")
+                # print(f"✅ Payment record created for single order: {payment.payment_id}")
             
             # ส่ง notification ไปยังลูกค้า
             Notification.objects.create(
@@ -403,7 +403,7 @@ class OrderViewSet(viewsets.ModelViewSet):
                         status=payment_data.get('status', 'pending'),
                         proof_of_payment=proof_of_payment
                     )
-                    print(f"✅ Payment record created: {payment.payment_id}")
+                    # print(f"✅ Payment record created: {payment.payment_id}")
                 
                 # ส่ง notification ไปยังลูกค้า
                 Notification.objects.create(
@@ -477,9 +477,9 @@ class OrderViewSet(viewsets.ModelViewSet):
             channel_layer = get_channel_layer()
             room_group_name = f"orders_user_{order.user.id}"
             
-            print(f"🚀 Sending WebSocket update to room: {room_group_name}")
-            print(f"📦 Order {order.order_id}: {old_status} → {new_status}")
-            print(f"👤 User: {order.user.id} ({order.user.username})")
+            # print(f"🚀 Sending WebSocket update to room: {room_group_name}")
+            # print(f"📦 Order {order.order_id}: {old_status} → {new_status}")
+            # print(f"👤 User: {order.user.id} ({order.user.username})")
             
             try:
                 async_to_sync(channel_layer.group_send)(
@@ -494,9 +494,10 @@ class OrderViewSet(viewsets.ModelViewSet):
                         'user_id': order.user.id
                     }
                 )
-                print(f"✅ WebSocket message sent successfully")
+                # print(f"✅ WebSocket message sent successfully")
             except Exception as e:
-                print(f"❌ Error sending WebSocket message: {str(e)}")
+                # print(f"❌ Error sending WebSocket message: {str(e)}")
+                pass
         
         return Response(OrderSerializer(order).data)
     
@@ -1413,84 +1414,4 @@ class AppSettingsViewSet(viewsets.ModelViewSet):
         return Response(public_data)
 
 
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def create_test_notifications(request):
-    """Create test notifications for admin users (Admin only)"""
-    if request.user.role != 'admin':
-        return Response({
-            'error': 'Admin access required'
-        }, status=status.HTTP_403_FORBIDDEN)
-    
-    try:
-        # หาผู้ใช้แอดมิน
-        admin_users = User.objects.filter(role='admin', is_active=True)
-        
-        if not admin_users.exists():
-            return Response({
-                'error': 'No admin users found'
-            }, status=status.HTTP_404_NOT_FOUND)
-        
-        # ข้อมูล mock notification
-        mock_notifications = [
-            {
-                'title': '🏪 มีร้านอาหารใหม่สมัครเข้าระบบ',
-                'message': 'ผู้ใช้ "test_restaurant_1" (test1@example.com) ได้สมัครเป็นเจ้าของร้านอาหารใหม่ กรุณาตรวจสอบและอนุมัติการสร้างร้านอาหาร',
-                'type': 'new_restaurant_registration'
-            },
-            {
-                'title': '🏪 มีร้านอาหารใหม่สมัครเข้าระบบ',
-                'message': 'ผู้ใช้ "pizza_master" (pizza@example.com) ได้สมัครเป็นเจ้าของร้านอาหารใหม่ กรุณาตรวจสอบและอนุมัติการสร้างร้านอาหาร',
-                'type': 'new_restaurant_registration'
-            },
-            {
-                'title': '🔔 อัปเดตระบบ',
-                'message': 'ระบบได้รับการอัปเดตเวอร์ชันใหม่เรียบร้อยแล้ว มีฟีเจอร์ real-time notification เพิ่มเติม',
-                'type': 'system'
-            },
-            {
-                'title': '⬆️ มีการอัปเกรดบัญชี',
-                'message': 'ผู้ใช้ "premium_restaurant" ได้อัปเกรดเป็นบัญชี Premium เรียบร้อยแล้ว',
-                'type': 'upgrade'
-            },
-            {
-                'title': '📦 คำสั่งซื้อมีปัญหา',
-                'message': 'คำสั่งซื้อ #12345 มีปัญหาในการจัดส่ง กรุณาตรวจสอบ',
-                'type': 'order_update'
-            }
-        ]
-        
-        created_count = 0
-        import random
-        from datetime import timedelta
-        
-        # สร้าง 3 notifications สำหรับแต่ละ admin
-        for admin in admin_users:
-            for i in range(3):
-                notification_data = random.choice(mock_notifications)
-                
-                # สร้าง created_at แบบสุ่มในช่วง 2 ชั่วโมงที่ผ่านมา
-                random_minutes = random.randint(0, 120)
-                created_at = timezone.now() - timedelta(minutes=random_minutes)
-                
-                notification = Notification.objects.create(
-                    user=admin,
-                    title=notification_data['title'],
-                    message=notification_data['message'],
-                    type=notification_data['type'],
-                    is_read=False,  # สร้างเป็น unread เพื่อทดสอบ
-                    created_at=created_at
-                )
-                
-                created_count += 1
-        
-        return Response({
-            'message': f'Successfully created {created_count} test notifications for {len(admin_users)} admin user(s)',
-            'created_count': created_count,
-            'admin_count': len(admin_users)
-        }, status=status.HTTP_201_CREATED)
-        
-    except Exception as e:
-        return Response({
-            'error': f'Failed to create test notifications: {str(e)}'
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+

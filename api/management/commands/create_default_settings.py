@@ -16,25 +16,25 @@ class Command(BaseCommand):
         # Create default settings
         settings = AppSettings.objects.create(
             app_name='Food Delivery',
-            app_description='ระบบสั่งอาหารออนไลน์',
+            app_description='Online Food Delivery System',
             contact_email='support@fooddelivery.com',
             contact_phone='02-xxx-xxxx',
-            contact_address='123 ถนนสุขุมวิท กรุงเทพฯ 10110',
-            hero_title='สั่งอาหารง่ายๆ ส่งถึงบ้านคุณ',
-            hero_subtitle='เลือกจากร้านอาหารชั้นนำ ส่งเร็ว อร่อย ปลอดภัย',
-            feature_1_title='ส่งเร็ว',
-            feature_1_description='ส่งอาหารถึงมือคุณภายใน 30-45 นาที',
+            contact_address='123 Sukhumvit Road, Bangkok 10110',
+            hero_title='Order Food Easily, Delivered to Your Home',
+            hero_subtitle='Choose from premium restaurants, fast, delicious and safe delivery',
+            feature_1_title='Fast Delivery',
+            feature_1_description='Food delivered to you within 30-45 minutes',
             feature_1_icon='🚚',
-            feature_2_title='คุณภาพดี',
-            feature_2_description='ร้านอาหารคุณภาพ ผ่านการคัดเลือก',
+            feature_2_title='Quality Food',
+            feature_2_description='Quality restaurants, carefully selected',
             feature_2_icon='🍽️',
-            feature_3_title='จ่ายง่าย',
-            feature_3_description='รองรับการชำระเงินหลายช่องทาง',
+            feature_3_title='Easy Payment',
+            feature_3_description='Multiple payment methods supported',
             feature_3_icon='💳',
-            meta_keywords='food delivery, ส่งอาหาร, restaurant, อาหารออนไลน์',
-            meta_description='ระบบสั่งอาหารออนไลน์ที่ดีที่สุด ส่งเร็ว ส่งฟรี คุณภาพดี',
+            meta_keywords='food delivery, online food, restaurant, food ordering',
+            meta_description='The best online food delivery system, fast delivery, free shipping, quality guaranteed',
             maintenance_mode=False,
-            maintenance_message='ระบบอยู่ระหว่างการปรับปรุง กรุณาลองใหม่อีกครั้ง'
+            maintenance_message='System is under maintenance, please try again later'
         )
 
         self.stdout.write(

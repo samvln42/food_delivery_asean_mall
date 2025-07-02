@@ -41,42 +41,42 @@ const RestaurantLayout = ({ children }) => {
                 onClick={() => setSidebarOpen(false)}
                 className="flex items-center px-4 py-2 text-secondary-700 rounded-lg hover:bg-primary-50 hover:text-primary-600 transition-colors"
               >
-                📊 แดชบอร์ด
+                📊 Dashboard
               </Link>
               <Link
                 to="/restaurant/orders"
                 onClick={() => setSidebarOpen(false)}
                 className="flex items-center px-4 py-2 text-secondary-700 rounded-lg hover:bg-primary-50 hover:text-primary-600 transition-colors"
               >
-                📦 คำสั่งซื้อ
+                📦 Orders
               </Link>
               <Link
                 to="/restaurant/menu"
                 onClick={() => setSidebarOpen(false)}
                 className="flex items-center px-4 py-2 text-secondary-700 rounded-lg hover:bg-primary-50 hover:text-primary-600 transition-colors"
               >
-                🍽️ จัดการเมนู
+                🍽️ Manage Menu
               </Link>
               <Link
                 to="/restaurant/reviews"
                 onClick={() => setSidebarOpen(false)}
                 className="flex items-center px-4 py-2 text-secondary-700 rounded-lg hover:bg-primary-50 hover:text-primary-600 transition-colors"
               >
-                ⭐ รีวิว
+                ⭐ Reviews
               </Link>
               <Link
                 to="/restaurant/analytics"
                 onClick={() => setSidebarOpen(false)}
                 className="flex items-center px-4 py-2 text-secondary-700 rounded-lg hover:bg-primary-50 hover:text-primary-600 transition-colors"
               >
-                📈 สถิติ
+                📈 Analytics
               </Link>
               <Link
                 to="/restaurant/profile"
                 onClick={() => setSidebarOpen(false)}
                 className="flex items-center px-4 py-2 text-secondary-700 rounded-lg hover:bg-primary-50 hover:text-primary-600 transition-colors"
               >
-                🏪 ข้อมูลร้าน
+                🏪 Restaurant Information
               </Link>
             </div>
           </nav>

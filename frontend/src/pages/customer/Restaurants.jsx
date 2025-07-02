@@ -18,7 +18,7 @@ const Restaurants = () => {
       setRestaurants(response.data.results || response.data);
     } catch (error) {
       console.error('Error fetching restaurants:', error);
-      setError('ไม่สามารถโหลดรายการร้านอาหารได้');
+      setError('Unable to load restaurant list');
     } finally {
       setLoading(false);
     }
@@ -29,7 +29,7 @@ const Restaurants = () => {
       <div className="container mx-auto px-4 py-8">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500 mx-auto"></div>
-          <p className="mt-4 text-secondary-600">กำลังโหลด...</p>
+          <p className="mt-4 text-secondary-600">Loading...</p>
         </div>
       </div>
     );
@@ -44,7 +44,7 @@ const Restaurants = () => {
             onClick={fetchRestaurants}
             className="mt-4 bg-primary-500 text-white px-4 py-2 rounded-lg hover:bg-primary-600"
           >
-            ลองใหม่
+            Try again
           </button>
         </div>
       </div>
@@ -55,8 +55,8 @@ const Restaurants = () => {
     <div className="container mx-auto px-4 py-8">
       {/* Header */}
       <div className="text-center mb-8">
-        <h1 className="text-3xl font-bold text-secondary-800 mb-2">ร้านอาหาร</h1>
-        <p className="text-secondary-600">เลือกสั่งอาหารจากร้านที่คุณชื่นชอบ</p>
+        <h1 className="text-3xl font-bold text-secondary-800 mb-2">Restaurants</h1>
+        <p className="text-secondary-600">Choose your favorite restaurant</p>
       </div>
 
       {/* Restaurants Grid */}
@@ -74,7 +74,7 @@ const Restaurants = () => {
                 if (restaurant.status === 'open') {
                   window.location.href = `/restaurants/${restaurant.restaurant_id}`;
                 } else {
-                  alert('ร้านนี้ปิดทำการอยู่ไม่สามารถสั่งอาหารได้');
+                  alert('This restaurant is closed and cannot order food');
                 }
               }}
             >
@@ -95,13 +95,13 @@ const Restaurants = () => {
                 </div>
                 {restaurant.status === 'closed' && (
                   <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-                    <span className="text-white font-semibold">ปิดทำการ</span>
+                    <span className="text-white font-semibold">Closed</span>
                   </div>
                 )}
                 {restaurant.is_special && (
                   <div className="absolute top-2 right-2">
                     <span className="px-2 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800">
-                      พิเศษ
+                      Special
                     </span>
                   </div>
                 )}
@@ -121,7 +121,7 @@ const Restaurants = () => {
                     </span>
                   </div>
                   <span className="text-secondary-500">
-                    {restaurant.address ? `${restaurant.address.substring(0, 20)}...` : 'ที่อยู่ไม่ระบุ'}
+                    {restaurant.address ? `${restaurant.address.substring(0, 20)}...` : 'Address not specified'}
                   </span>
                 </div>
                 <div className="mt-3 flex items-center justify-between">
@@ -130,10 +130,10 @@ const Restaurants = () => {
                       ? 'bg-green-100 text-green-800'
                       : 'bg-red-100 text-red-800'
                   }`}>
-                    {restaurant.status === 'open' ? 'เปิดทำการ' : 'ปิดทำการ'}
+                    {restaurant.status === 'open' ? 'Open' : 'Closed'}
                   </span>
                   <span className="text-primary-500 font-semibold group-hover:text-primary-600">
-                    ดูเมนู →
+                    View menu →
                   </span>
                 </div>
               </div>
@@ -144,10 +144,10 @@ const Restaurants = () => {
         <div className="text-center py-12">
           <div className="text-6xl mb-4 opacity-30">🏪</div>
           <h3 className="text-xl font-semibold text-secondary-700 mb-2">
-            ไม่พบร้านอาหาร
+            No restaurant found
           </h3>
           <p className="text-secondary-500">
-            ลองรีเฟรชหน้าเว็บใหม่ดูสิ
+            Try refreshing the page
           </p>
         </div>
       )}

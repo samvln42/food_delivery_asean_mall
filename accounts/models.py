@@ -24,7 +24,7 @@ class User(AbstractUser):
         null=False,
         help_text='Required. Enter a valid email address.',
         error_messages={
-            'unique': "อีเมลนี้ถูกใช้งานแล้ว กรุณาใช้อีเมลอื่น",
+            'unique': "This email is already in use. Please use a different email.",
         }
     )
     
@@ -37,17 +37,17 @@ class User(AbstractUser):
     google_id = models.CharField(max_length=255, blank=True, null=True, unique=True)
 
     def save(self, *args, **kwargs):
-        # ถ้าเป็น superuser ให้ตั้ง role เป็น admin และยืนยันอีเมลทันที
+        # If superuser, set role to admin and verify email immediately
         if self.is_superuser:
             self.role = 'admin'
             self.is_email_verified = True
             
-        # ตรวจสอบว่าอีเมลไม่ซ้ำ (สำหรับการปรับปรุงข้อมูลเดิม)
+        # Check for duplicate email (for existing data updates)
         if self.email:
             existing_user = User.objects.filter(email__iexact=self.email).exclude(pk=self.pk).first()
             if existing_user:
                 from django.core.exceptions import ValidationError
-                raise ValidationError({'email': 'อีเมลนี้ถูกใช้งานแล้ว กรุณาใช้อีเมลอื่น'})
+                raise ValidationError({'email': 'This email is already in use. Please use a different email.'})
                 
         super().save(*args, **kwargs)
 
@@ -55,52 +55,86 @@ class User(AbstractUser):
         """Validate model fields"""
         super().clean()
         if self.email:
-            # ตรวจสอบอีเมลซ้ำแบบ case-insensitive
+            # Check for duplicate email (case-insensitive)
             existing_user = User.objects.filter(email__iexact=self.email).exclude(pk=self.pk).first()
             if existing_user:
                 from django.core.exceptions import ValidationError
-                raise ValidationError({'email': 'อีเมลนี้ถูกใช้งานแล้ว กรุณาใช้อีเมลอื่น'})
+                raise ValidationError({'email': 'This email is already in use. Please use a different email.'})
 
     def __str__(self):
         return self.username 
 
-# Signals เพื่อสร้าง token อัตโนมัติ
+# Signals for automatic token creation
 @receiver(post_save, sender=User)
 def create_auth_token(sender, instance=None, created=False, **kwargs):
-    """สร้าง authentication token เมื่อสร้างผู้ใช้ใหม่หรือเมื่อเป็น superuser"""
-    if created or instance.is_superuser:
-        Token.objects.get_or_create(user=instance)
+    """
+    Create authentication token in the following cases:
+    1. New user created by admin (created_by_admin=True)
+    2. Superuser (always)
+    3. User with verified email (is_email_verified=True)
+    """
+    if created:
+        # Check if created by admin
+        created_by_admin = getattr(instance, '_created_by_admin', False)
         
-        # Log การสร้าง token สำหรับ superuser
-        if instance.is_superuser:
-            print(f"🔑 Token created for superuser: {instance.username}")
+        if instance.is_superuser or created_by_admin or instance.is_email_verified:
+            Token.objects.get_or_create(user=instance)
+            
+            # Log token creation
+            if instance.is_superuser:
+                # print(f"🔑 Token created for superuser: {instance.username}")
+                pass
+            elif created_by_admin:
+                # print(f"🔑 Token created for admin-created user: {instance.username}")
+                pass
+            elif instance.is_email_verified:
+                # print(f"🔑 Token created for verified user: {instance.username}")
+                pass
+    
+    # For existing superusers
+    elif instance.is_superuser:
+        Token.objects.get_or_create(user=instance)
 
 @receiver(post_save, sender=User)
 def ensure_superuser_privileges(sender, instance=None, **kwargs):
-    """ตรวจสอบให้แน่ใจว่า superuser มีสิทธิ์และการตั้งค่าที่ถูกต้อง"""
+    """Ensure superuser has correct permissions and settings"""
     if instance.is_superuser:
         updated = False
         
-        # ตั้ง role เป็น admin ถ้ายังไม่ใช่
+        # Set role to admin if not already
         if instance.role != 'admin':
             instance.role = 'admin'
             updated = True
             
-        # ยืนยันอีเมลถ้ายังไม่ได้ยืนยัน
+        # Verify email if not already verified
         if not instance.is_email_verified:
             instance.is_email_verified = True
             updated = True
             
-        # ตั้งให้เป็น staff ถ้ายังไม่ใช่
+        # Set as staff if not already
         if not instance.is_staff:
             instance.is_staff = True
             updated = True
             
-        # บันทึกถ้ามีการเปลี่ยนแปลง (ป้องกัน recursive save)
+        # Save if there are changes (prevent recursive save)
         if updated:
             instance.__class__.objects.filter(pk=instance.pk).update(
                 role=instance.role,
                 is_email_verified=instance.is_email_verified,
                 is_staff=instance.is_staff
             )
-            print(f"👑 Superuser privileges updated for: {instance.username}") 
+            # print(f"👑 Superuser privileges updated for: {instance.username}")
+            pass
+
+@receiver(post_save, sender=User)
+def create_token_after_email_verification(sender, instance=None, created=False, **kwargs):
+    """Create token after successful email verification (for self-registered users)"""
+    if not created and instance.is_email_verified:
+        # Check if token doesn't exist yet
+        if not hasattr(instance, 'auth_token'):
+            try:
+                Token.objects.get(user=instance)
+            except Token.DoesNotExist:
+                Token.objects.create(user=instance)
+                # print(f"🔑 Token created after email verification for: {instance.username}") 
+                pass

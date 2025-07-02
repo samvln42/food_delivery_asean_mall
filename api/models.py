@@ -58,8 +58,8 @@ class Restaurant(models.Model):
     is_special = models.BooleanField(default=False)
     opening_hours = models.CharField(max_length=100, blank=True, null=True)
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='open')
-    image = models.ImageField(upload_to=restaurant_image_upload_path, blank=True, null=True, help_text="รูปภาพหน้าร้าน")
-    image_url = models.CharField(max_length=255, blank=True, null=True, help_text="URL รูปภาพหน้าร้าน")
+    image = models.ImageField(upload_to=restaurant_image_upload_path, blank=True, null=True, help_text="Restaurant front image")
+    image_url = models.CharField(max_length=255, blank=True, null=True, help_text="Restaurant image URL")
     qr_code_image_url = models.CharField(max_length=255, blank=True, null=True)
     bank_account_number = models.CharField(max_length=50, blank=True, null=True)
     bank_name = models.CharField(max_length=100, blank=True, null=True)
@@ -91,9 +91,9 @@ class Restaurant(models.Model):
 class Category(models.Model):
     category_id = models.AutoField(primary_key=True)
     category_name = models.CharField(max_length=50, unique=True)
-    description = models.TextField(blank=True, null=True, help_text="คำอธิบายหมวดหมู่")
-    image = models.ImageField(upload_to=category_image_upload_path, blank=True, null=True, help_text="รูปภาพหมวดหมู่")
-    is_special_only = models.BooleanField(default=False, help_text="เฉพาะร้านพิเศษเท่านั้นที่ใช้หมวดหมู่นี้ได้")
+    description = models.TextField(blank=True, null=True, help_text="Category description")
+    image = models.ImageField(upload_to=category_image_upload_path, blank=True, null=True, help_text="Category image")
+    is_special_only = models.BooleanField(default=False, help_text="Only special restaurants can use this category")
     
     class Meta:
         db_table = 'categories'
@@ -117,7 +117,7 @@ class Product(models.Model):
     description = models.TextField(blank=True, null=True)
     price = models.DecimalField(max_digits=10, decimal_places=2)
     image_url = models.CharField(max_length=255, blank=True, null=True)
-    image = models.ImageField(upload_to=product_image_upload_path, blank=True, null=True, help_text="อัปโหลดรูปภาพสินค้า")
+    image = models.ImageField(upload_to=product_image_upload_path, blank=True, null=True, help_text="Upload product image")
     is_available = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -220,7 +220,7 @@ class Payment(models.Model):
     transaction_id = models.CharField(max_length=100, unique=True, blank=True, null=True)
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending')
     proof_of_payment_url = models.CharField(max_length=255, blank=True, null=True)
-    proof_of_payment = models.ImageField(upload_to=payment_proof_upload_path, null=True, blank=True, help_text='หลักฐานการโอนเงิน')
+    proof_of_payment = models.ImageField(upload_to=payment_proof_upload_path, null=True, blank=True, help_text='Payment proof document')
     
     class Meta:
         db_table = 'payments'
@@ -510,30 +510,30 @@ def update_restaurant_rating_on_delete(sender, instance, **kwargs):
 class AppSettings(models.Model):
     # Basic Information
     app_name = models.CharField(max_length=100, default='Food Delivery')
-    app_description = models.TextField(default='ระบบสั่งอาหารออนไลน์', blank=True)
+    app_description = models.TextField(default='Online Food Delivery System', blank=True)
     app_logo = models.ImageField(upload_to='app/logos/', null=True, blank=True)
     app_banner = models.ImageField(upload_to='app/banners/', null=True, blank=True)
     
     # Contact Information
     contact_email = models.EmailField(default='support@fooddelivery.com', blank=True)
     contact_phone = models.CharField(max_length=20, default='02-xxx-xxxx', blank=True)
-    contact_address = models.TextField(default='กรุงเทพฯ ประเทศไทย', blank=True)
+    contact_address = models.TextField(default='123 Sukhumvit Road, Bangkok 10110', blank=True)
     
     # Hero Section
-    hero_title = models.CharField(max_length=200, default='สั่งอาหารจากร้านโปรด', blank=True)
-    hero_subtitle = models.CharField(max_length=300, default='เลือกจากร้านอาหารชั้นนำ ส่งเร็ว อร่อย ปลอดภัย')
+    hero_title = models.CharField(max_length=200, default='Order Food Easily, Delivered to Your Home', blank=True)
+    hero_subtitle = models.CharField(max_length=300, default='Choose from premium restaurants, fast, delicious and safe delivery')
     
     # Features
-    feature_1_title = models.CharField(max_length=100, default='ส่งเร็ว')
-    feature_1_description = models.CharField(max_length=200, default='ส่งอาหารถึงมือคุณภายใน 30-45 นาที')
+    feature_1_title = models.CharField(max_length=100, default='Fast Delivery')
+    feature_1_description = models.CharField(max_length=200, default='Food delivered to you within 30-45 minutes')
     feature_1_icon = models.CharField(max_length=10, default='🚚')
     
-    feature_2_title = models.CharField(max_length=100, default='คุณภาพดี')
-    feature_2_description = models.CharField(max_length=200, default='ร้านอาหารคุณภาพ ผ่านการคัดเลือก')
+    feature_2_title = models.CharField(max_length=100, default='Quality Food')
+    feature_2_description = models.CharField(max_length=200, default='Quality restaurants, carefully selected')
     feature_2_icon = models.CharField(max_length=10, default='🍽️')
     
-    feature_3_title = models.CharField(max_length=100, default='จ่ายง่าย')
-    feature_3_description = models.CharField(max_length=200, default='รองรับการชำระเงินหลายช่องทาง')
+    feature_3_title = models.CharField(max_length=100, default='Easy Payment')
+    feature_3_description = models.CharField(max_length=200, default='Multiple payment methods supported')
     feature_3_icon = models.CharField(max_length=10, default='💳')
     
     # Social Media
@@ -542,22 +542,22 @@ class AppSettings(models.Model):
     twitter_url = models.URLField(blank=True, null=True)
     
     # SEO
-    meta_keywords = models.TextField(blank=True, help_text='คำค้นหาหลัก (คั่นด้วยจุลภาค)')
-    meta_description = models.TextField(blank=True, help_text='คำอธิบายสำหรับ SEO')
+    meta_keywords = models.TextField(blank=True, help_text='Main search keywords (separated by commas)')
+    meta_description = models.TextField(blank=True, help_text='SEO description')
     
     # System Settings
     maintenance_mode = models.BooleanField(default=False)
-    maintenance_message = models.TextField(default='ระบบอยู่ระหว่างการปรับปรุง กรุณาลองใหม่อีกครั้ง')
+    maintenance_message = models.TextField(default='The system is under maintenance, please try again later')
     
     # Regional Settings
-    timezone = models.CharField(max_length=50, default='Asia/Bangkok', help_text='เขตเวลาของระบบ')
-    currency = models.CharField(max_length=3, default='THB', help_text='สกุลเงินที่ใช้')
+    timezone = models.CharField(max_length=50, default='Asia/Bangkok', help_text='System timezone')
+    currency = models.CharField(max_length=3, default='THB', help_text='Currency used')
     
     # Payment Settings
-    bank_name = models.CharField(max_length=100, blank=True, default='ธนาคารกรุงเทพ', help_text='ชื่อธนาคาร')
-    bank_account_number = models.CharField(max_length=50, blank=True, help_text='เลขบัญชีธนาคาร')
-    bank_account_name = models.CharField(max_length=100, blank=True, help_text='ชื่อบัญชี')
-    qr_code_image = models.ImageField(upload_to='app/payment/', null=True, blank=True, help_text='รูป QR Code สำหรับการชำระเงิน')
+    bank_name = models.CharField(max_length=100, blank=True, default='Bank of Thailand', help_text='Bank name')
+    bank_account_number = models.CharField(max_length=50, blank=True, help_text='Bank account number')
+    bank_account_name = models.CharField(max_length=100, blank=True, help_text='Bank account name')
+    qr_code_image = models.ImageField(upload_to='app/payment/', null=True, blank=True, help_text='QR Code image for payment')
     
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)

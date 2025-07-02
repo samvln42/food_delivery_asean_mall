@@ -26,12 +26,23 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    // Handle authentication errors globally
     if (error.response?.status === 401) {
-      // Token expired or invalid
+      // Token expired or invalid - clear session and redirect
       localStorage.removeItem('token');
       localStorage.removeItem('user');
-      window.location.href = '/login';
+      
+      // Only redirect if not already on login/register pages
+      const currentPath = window.location.pathname;
+      if (!['/login', '/register', '/'].includes(currentPath)) {
+        // Store current path for redirect after login
+        localStorage.setItem('redirectAfterLogin', currentPath);
+        window.location.href = '/login';
+      }
     }
+    
+    // For other errors, let individual components handle them
+    // This allows for context-specific error handling
     return Promise.reject(error);
   }
 );

@@ -22,7 +22,7 @@ def send_verification_email(user):
         }
         
         # สร้างเนื้อหาอีเมล
-        subject = 'ยืนยันอีเมลของคุณ - Food Delivery'
+        subject = 'Verify your email - Food Delivery'
         text_content = render_to_string('accounts/emails/email_verification.txt', context)
         html_content = render_to_string('accounts/emails/email_verification.html', context)
         
@@ -68,20 +68,20 @@ def send_password_reset_email(user, reset_token):
             'site_name': 'Food Delivery',
         }
         
-        subject = 'รีเซ็ตรหัสผ่าน - Food Delivery'
+        subject = 'Reset your password - Food Delivery'
         
         # ในตัวอย่างนี้ใช้ text เท่านั้น (สามารถสร้าง HTML template ได้)
         message = f"""
-สวัสดี {user.username},
+Hello {user.username},
 
-คุณได้ขอรีเซ็ตรหัสผ่านสำหรับบัญชี Food Delivery
+You have requested to reset your password for Food Delivery account
 
-กรุณาคลิกลิงก์ด้านล่างเพื่อรีเซ็ตรหัสผ่าน:
+Please click the link below to reset your password:
 {reset_url}
 
-หมายเหตุ:
-- ลิงก์นี้จะหมดอายุใน 1 ชั่วโมง
-- หากคุณไม่ได้ขอรีเซ็ตรหัสผ่าน กรุณาละเว้นอีเมลนี้
+Note:
+- This link will expire in 1 hour
+- If you did not request a password reset, please ignore this email
 
 © 2025 Food Delivery
 """

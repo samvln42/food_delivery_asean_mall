@@ -4,6 +4,7 @@ import { restaurantService, userService } from '../../services/api';
 const AdminRestaurants = () => {
   const [restaurants, setRestaurants] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [searching, setSearching] = useState(false);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -18,8 +19,23 @@ const AdminRestaurants = () => {
   const [totalPages, setTotalPages] = useState(1);
   const itemsPerPage = 10;
 
+  // Single useEffect with smart debouncing
   useEffect(() => {
-    fetchRestaurants();
+    const isSearchOrFilter = searchTerm.trim() || statusFilter !== 'all' || specialFilter !== 'all';
+    
+    // If searching/filtering and not on page 1, reset to page 1 first
+    if (isSearchOrFilter && currentPage !== 1) {
+      setCurrentPage(1);
+      return; // Don't fetch yet, wait for currentPage to update
+    }
+
+    const debounceTime = searchTerm.trim() ? 500 : 0;
+
+    const timeoutId = setTimeout(() => {
+      fetchRestaurants();
+    }, debounceTime);
+
+    return () => clearTimeout(timeoutId);
   }, [currentPage, searchTerm, statusFilter, specialFilter]);
 
   // เรียก fetchAvailableUsers เฉพาะครั้งแรกเท่านั้น
@@ -29,15 +45,26 @@ const AdminRestaurants = () => {
 
   const fetchRestaurants = async () => {
     try {
-      setLoading(true);
+      const isSearchOrFilter = searchTerm.trim() || statusFilter !== 'all' || specialFilter !== 'all';
+      
+      if (isSearchOrFilter) {
+        setSearching(true);
+      } else {
+        setLoading(true);
+      }
+      
       console.log('🔍 Current filters - Status:', statusFilter, 'Special:', specialFilter, 'Search:', searchTerm);
       
       const params = {
         page: currentPage,
         page_size: itemsPerPage,
-        search: searchTerm,
         ordering: '-created_at'
       };
+
+      // เพิ่ม search parameter เฉพาะเมื่อมีการค้นหา
+      if (searchTerm && searchTerm.trim()) {
+        params.search = searchTerm.trim();
+      }
 
       if (statusFilter !== 'all') {
         params.status = statusFilter;
@@ -66,6 +93,7 @@ const AdminRestaurants = () => {
       setError('ไม่สามารถโหลดข้อมูลร้านอาหารได้');
     } finally {
       setLoading(false);
+      setSearching(false);
     }
   };
 
@@ -164,6 +192,38 @@ const AdminRestaurants = () => {
     }
   };
 
+  const handleDeleteRestaurant = async (restaurantId, restaurantName) => {
+    try {
+      // ยืนยันการลบ
+      const confirmation = window.confirm(
+        `คุณแน่ใจหรือไม่ที่จะลบร้านอาหาร "${restaurantName}"?\n\nการดำเนินการนี้จะลบข้อมูลทั้งหมดของร้าน รวมถึงสินค้า และรีวิว\nการดำเนินการนี้ไม่สามารถกู้คืนได้`
+      );
+      
+      if (!confirmation) {
+        return;
+      }
+
+      console.log(`🗑️ Deleting restaurant ${restaurantId} (${restaurantName})`);
+      await restaurantService.delete(restaurantId);
+      fetchRestaurants(); // Refresh data
+      alert(`ลบร้านอาหาร "${restaurantName}" เรียบร้อยแล้ว`);
+    } catch (err) {
+      console.error('❌ Error deleting restaurant:', err);
+      console.error('Response:', err.response?.data);
+      
+      let errorMessage = 'ไม่สามารถลบร้านอาหารได้';
+      if (err.response?.status === 403) {
+        errorMessage = 'คุณไม่มีสิทธิ์ลบร้านอาหารนี้';
+      } else if (err.response?.status === 404) {
+        errorMessage = 'ไม่พบร้านอาหารที่ต้องการลบ';
+      } else if (err.response?.data?.detail) {
+        errorMessage = err.response.data.detail;
+      }
+      
+      alert(errorMessage);
+    }
+  };
+
   const openModal = (restaurant, type) => {
     setSelectedRestaurant(restaurant);
     setModalType(type);
@@ -187,30 +247,31 @@ const AdminRestaurants = () => {
 
   const handleSearch = (e) => {
     setSearchTerm(e.target.value);
-    setCurrentPage(1);
+  };
+
+  const clearSearch = () => {
+    setSearchTerm('');
   };
 
   const handleStatusFilter = (e) => {
     console.log('🔄 Status filter changed to:', e.target.value);
     setStatusFilter(e.target.value);
-    setCurrentPage(1);
   };
 
   const handleSpecialFilter = (e) => {
     console.log('🔄 Special filter changed to:', e.target.value);
     setSpecialFilter(e.target.value);
-    setCurrentPage(1);
   };
 
   const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('th-TH', {
+    return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'long',
       day: 'numeric'
     });
   };
 
-  if (loading) {
+  if (loading && restaurants.length === 0) {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="flex justify-center items-center h-64">
@@ -255,13 +316,31 @@ const AdminRestaurants = () => {
             <label className="block text-sm font-medium text-secondary-700 mb-2">
               ค้นหาร้านอาหาร
             </label>
-            <input
-              type="text"
-              placeholder="ค้นหาชื่อร้าน, คำอธิบาย, ที่อยู่..."
-              value={searchTerm}
-              onChange={handleSearch}
-              className="w-full p-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-            />
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="ค้นหาชื่อร้าน, คำอธิบาย, ที่อยู่..."
+                value={searchTerm}
+                onChange={handleSearch}
+                className="w-full p-3 pr-10 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              />
+              {searching && (
+                <div className="absolute right-10 top-1/2 transform -translate-y-1/2">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-500"></div>
+                </div>
+              )}
+              {searchTerm && !searching && (
+                <button
+                  onClick={clearSearch}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-secondary-400 hover:text-secondary-600 transition-colors"
+                  title="ล้างการค้นหา"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              )}
+            </div>
           </div>
           <div>
             <label className="block text-sm font-medium text-secondary-700 mb-2">
@@ -437,6 +516,13 @@ const AdminRestaurants = () => {
                       >
                         {restaurant.is_special ? 'ยก Special' : 'ทำ Special'}
                       </button>
+                      <button
+                        onClick={() => handleDeleteRestaurant(restaurant.restaurant_id, restaurant.restaurant_name)}
+                        className="text-red-600 hover:text-red-900 font-medium"
+                        title="ลบร้านอาหาร"
+                      >
+                        ลบ
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -452,12 +538,12 @@ const AdminRestaurants = () => {
               ไม่พบร้านอาหาร
             </h3>
             <p className="text-secondary-500 mb-4">
-              {searchTerm || statusFilter !== 'all' || specialFilter !== 'all' 
+              {searchTerm.trim() || statusFilter !== 'all' || specialFilter !== 'all' 
                 ? 'ลองปรับเปลี่ยนเงื่อนไขการค้นหาหรือตัวกรอง'
                 : 'ยังไม่มีร้านอาหารในระบบ'
               }
             </p>
-            {(!searchTerm && statusFilter === 'all' && specialFilter === 'all') && (
+            {(!searchTerm.trim() && statusFilter === 'all' && specialFilter === 'all') && (
               <button
                 onClick={openCreateModal}
                 className="bg-primary-600 text-white px-6 py-3 rounded-lg hover:bg-primary-700 transition-colors duration-200 inline-flex items-center space-x-2"
@@ -1112,7 +1198,7 @@ const RestaurantModal = ({ restaurant, type, onClose, onUpdate, availableUsers }
                   </label>
                   <input
                     type="text"
-                    value={restaurant?.created_at ? new Date(restaurant.created_at).toLocaleDateString('th-TH') : ''}
+                    value={restaurant?.created_at ? new Date(restaurant.created_at).toLocaleDateString('en-US') : ''}
                     disabled
                     className="w-full p-3 border border-secondary-300 rounded-lg bg-secondary-50"
                   />
@@ -1124,7 +1210,7 @@ const RestaurantModal = ({ restaurant, type, onClose, onUpdate, availableUsers }
                   </label>
                   <input
                     type="text"
-                    value={restaurant?.updated_at ? new Date(restaurant.updated_at).toLocaleDateString('th-TH') : ''}
+                    value={restaurant?.updated_at ? new Date(restaurant.updated_at).toLocaleDateString('en-US') : ''}
                     disabled
                     className="w-full p-3 border border-secondary-300 rounded-lg bg-secondary-50"
                   />
