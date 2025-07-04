@@ -1,0 +1,289 @@
+# Common,,
+common.welcome,Welcome,common
+common.login,Login,common
+common.register,Register,common
+common.logout,Logout,common
+common.profile,Profile,common
+common.settings,Settings,common
+common.save,Save,common
+common.cancel,Cancel,common
+common.delete,Delete,common
+common.edit,Edit,common
+common.search,Search,common
+common.back,Back,common
+common.loading,Loading...,common
+common.error,Error,common
+common.success,Success,common
+common.yes,Yes,common
+common.no,No,common
+common.confirm,Confirm,common
+common.submit,Submit,common
+common.close,Close,common
+common.view,View,common
+common.details,Details,common
+common.status,Status,common
+common.actions,Actions,common
+common.home,Home,common
+common.about,About,common
+common.contact,Contact,common
+,,
+# Authentication,,
+auth.email,Email,auth
+auth.password,Password,auth
+auth.confirm_password,Confirm Password,auth
+auth.forgot_password,Forgot Password?,auth
+auth.reset_password,Reset Password,auth
+auth.change_password,Change Password,auth
+auth.login_success,Login successful,auth
+auth.register_success,Registration successful,auth
+auth.logout_success,Logout successful,auth
+auth.verify_email,Verify Email,auth
+auth.email_verification,Email Verification,auth
+auth.email_verified,Email verified successfully,auth
+auth.google_login,Login with Google,auth
+auth.verification_sent,Verification email sent,auth
+auth.verification_required,Email verification required,auth
+auth.username,Username / Email,auth
+auth.remember_me,Remember me,auth
+auth.or,Or,auth
+auth.register_now,Register now,auth
+auth.login_now,Login now,auth
+auth.verify_email_title,Verify your email,auth
+auth.verify_email_message,We have sent a verification code to {email}. Please check your email and enter the verification code below,auth
+auth.verification_code,Verification Code,auth
+auth.verification_code_placeholder,Enter verification code from email,auth
+auth.verification_code_format,Verification code will be like: XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX,auth
+auth.verifying,Verifying email...,auth
+auth.verify_success,Email verified! You can now login,auth
+auth.resend_code,Resend verification code,auth
+auth.resend_success,Resent verification email to {email},auth
+auth.resend_countdown,You can resend in {seconds} seconds,auth
+auth.agree_terms,I agree to the terms and conditions,auth
+auth.required_field,Required field,auth
+auth.phone,Phone number,auth
+auth.address,Address,auth
+auth.role,Role,auth
+auth.customer,Customer,auth
+auth.restaurant,Restaurant,auth
+,,
+# Validation,,
+validation.required,This field is required,validation
+validation.email_invalid,Invalid email address,validation
+validation.password_mismatch,Passwords do not match,validation
+validation.password_length,Password must be at least 8 characters,validation
+validation.invalid_credentials,Invalid credentials,validation
+,,
+# Restaurant,,
+restaurant.name,Restaurant Name,restaurant
+restaurant.description,Description,restaurant
+restaurant.address,Address,restaurant
+restaurant.phone,Phone Number,restaurant
+restaurant.opening_hours,Opening Hours,restaurant
+restaurant.categories,Categories,restaurant
+restaurant.menu,Menu,restaurant
+restaurant.reviews,Reviews,restaurant
+restaurant.rating,Rating,restaurant
+restaurant.status,Status,restaurant
+restaurant.create,Create Restaurant,restaurant
+restaurant.edit,Edit Restaurant,restaurant
+restaurant.delete,Delete Restaurant,restaurant
+,,
+# Product,,
+product.name,Product Name,product
+product.description,Description,product
+product.price,Price,product
+product.category,Category,product
+product.image,Image,product
+product.quantity,Quantity,product
+product.availability,Availability,product
+product.create,Create Product,product
+product.edit,Edit Product,product
+product.delete,Delete Product,product
+,,
+# Order,,
+order.number,Order Number,order
+order.status,Order Status,order
+order.total,Total Amount,order
+order.items,Order Items,order
+order.date,Order Date,order
+order.delivery_address,Delivery Address,order
+order.payment_method,Payment Method,order
+order.status.pending,Pending,order
+order.status.confirmed,Confirmed,order
+order.status.preparing,Preparing,order
+order.status.ready,Ready for Delivery,order
+order.status.delivering,Out for Delivery,order
+order.status.delivered,Delivered,order
+order.status.cancelled,Cancelled,order
+,,
+# Cart,,
+cart.empty,Your cart is empty,cart
+cart.add,Add to Cart,cart
+cart.remove,Remove from Cart,cart
+cart.clear,Clear Cart,cart
+cart.checkout,Checkout,cart
+cart.total,Total,cart
+cart.items,Items in Cart,cart
+cart.add_items,Add items to cart,cart
+,,
+# Profile,,
+profile.personal_info,Personal Information,profile
+profile.update,Update Profile,profile
+profile.orders,My Orders,profile
+profile.favorites,My Favorites,profile
+profile.addresses,My Addresses,profile
+profile.notifications,My Notifications,profile
+,,
+# Error Messages,,
+error.general,Something went wrong,error
+error.network,Network error,error
+error.unauthorized,Unauthorized access,error
+error.not_found,Not found,error
+error.server_error,Server error,error
+error.forbidden,Access forbidden,error
+,,
+# Notifications,,
+notification.new_order,New Order,notification
+notification.order_status,Order Status Updated,notification
+notification.order_cancelled,Order Cancelled,notification
+notification.profile_updated,Profile Updated,notification
+,,
+# Dashboard,,
+dashboard.overview,Overview,dashboard
+dashboard.sales,Sales,dashboard
+dashboard.orders,Orders,dashboard
+dashboard.customers,Customers,dashboard
+dashboard.popular_items,Popular Items,dashboard
+dashboard.recent_orders,Recent Orders,dashboard
+dashboard.statistics,Statistics,dashboard
+,,
+# Admin,,
+admin.users,Users Management,admin
+admin.restaurants,Restaurants Management,admin
+admin.categories,Categories Management,admin
+admin.orders,Orders Management,admin
+admin.settings,System Settings,admin
+admin.notifications,System Notifications,admin
+
+# Favorites
+favorites.title,Favorite list,favorites
+favorites.empty,No favorite list,favorites
+favorites.add,Add to favorites,favorites
+favorites.remove,Remove from favorites,favorites
+favorites.empty_message,Add your favorite restaurant or menu to the favorite list,favorites
+favorites.search_restaurant,Search for restaurant,favorites
+
+# Address
+address.title,My address,address
+address.empty,No address,address
+address.add,Add new address,address
+address.empty_message,Add your address for convenient delivery,address
+address.development_notice,Feature to manage address is under development,address
+
+# Settings
+settings.general,General Settings,settings
+settings.account,Account Settings,settings
+settings.privacy,Privacy Settings,settings
+settings.notifications,Notification Settings,settings
+settings.language,Language Settings,settings
+settings.appearance,Appearance Settings,settings
+
+# About,,
+about.title,About Us,about
+about.mission,Our Mission,about
+about.mission_text,We are a leading online food ordering platform that connects customers with high-quality restaurants to enjoy delicious food from their favorite places,about
+about.mission_text2,With advanced technology and friendly service we will provide a food ordering experience that is convenient fast and satisfying for you,about
+about.popularity,Our Popularity,about
+about.best_quality,Best food quality,about
+about.fast,Fast,about
+about.safe_delivery,Safe delivery,about
+about.local_support,Local restaurant support,about
+about.vision,Vision,about
+about.vision_text,We are a leading online food ordering platform that connects customers with high-quality restaurants to enjoy delicious food from their favorite places,about
+about.services,Our Services,about
+about.service_fast,Fast,about
+about.service_fast_text,Deliver food to your hand within 30-45 minutes,about
+about.service_quality,Good quality,about
+about.service_quality_text,Restaurant with good quality through selection,about
+about.service_payment,Easy payment,about
+about.service_payment_text,Support multiple payment methods,about
+
+# Contact,,
+contact.title,Contact us,contact
+contact.phone,Phone,contact
+contact.email,Email,contact
+contact.address,Address,contact
+contact.hours,Operating hours,contact
+contact.hours_text,Monday-Sunday 8:00-22:00,contact
+contact.form_title,Send us a message,contact
+contact.name,Name,contact
+contact.name_placeholder,Enter your name,contact
+contact.email_placeholder,Enter your email,contact
+contact.subject,Subject,contact
+contact.subject_placeholder,Enter the subject of your message,contact
+contact.message,Message,contact
+contact.message_placeholder,Enter your message,contact
+contact.send,Send message,contact
+contact.sending,Sending...,contact
+contact.success,Message sent successfully. We will contact you within 24 hours,contact
+contact.error,Error sending message. Please try again,contact
+contact.fill_all,Please fill in all the information,contact
+contact.other_ways,Other ways,contact
+
+# Help,,
+help.title,Help Center,help
+help.faq,Frequently Asked Questions (FAQ),help
+help.how_to_order,How to order food,help
+help.how_to_order_text,1. Select a restaurant\n2. Select a menu and add to cart\n3. Check the list and fill in the delivery address\n4. Select a payment method and confirm the order,help
+help.how_to_pay,How to pay,help
+help.how_to_pay_text,We accept payment via credit card debit card bank transfer and cash on delivery (for some areas),help
+help.delivery_time,Delivery time,help
+help.delivery_time_text,Normally it takes 30-45 minutes depending on the distance and the complexity of the order,help
+help.track_order,How to track the order,help
+help.track_order_text,You can track the order status in the "Order History" page or via email and SMS,help
+help.cancel_order,How to cancel the order,help
+help.cancel_order_text,You can cancel the order within 5 minutes after placing the order. If you exceed this time please contact the customer service,help
+help.delivery_fee,Delivery fee,help
+help.delivery_fee_text,The delivery fee is 15 baht and may vary depending on the distance. For orders over 200 baht delivery is free,help
+help.contact_us,Contact us,help
+help.contact_us_text,If you don't find the answer you're looking for please contact us at:\nPhone: {phone} | Email: {email},help 
+
+# Terms,,
+terms.title,Terms of Service,terms
+terms.acceptance,1. Acceptance of Terms,terms
+terms.acceptance_text,By using our service you agree to comply with all terms and conditions outlined here,terms
+terms.account,2. Account Creation,terms
+terms.account_text,• You must be at least 18 years old or have parental consent\n• The information provided must be accurate and up-to-date\n• You are responsible for maintaining the security of your password,terms
+terms.ordering,3. Ordering and Payment,terms
+terms.ordering_text,• The price shown includes tax\n• Payment must be made through the channels we have set up\n• You can cancel the order within 5 minutes after placing the order,terms
+terms.delivery,4. Delivery,terms
+terms.delivery_text,• We try to deliver on time but there may be delays\n• The recipient must be at least 18 years old or have parental consent\n• If there is no one to receive we will contact you within 15 minutes,terms
+terms.refund,5. Refund and Guarantee,terms
+terms.refund_text,• If the food has quality issues we will refund or replace it\n• You must report the problem within 1 hour after receiving the food\n• Refunds will be processed within 7-14 business days,terms
+terms.liability,6. Limitation of Liability,terms
+terms.liability_text,We are not responsible for any damage caused by the use of our service except in cases of our negligence,terms
+terms.modification,7. Modification of Terms,terms
+terms.modification_text,We reserve the right to modify these terms at any time with advance notice of 30 days,terms
+terms.effective_date,Effective date,terms
+terms.contact_us,Contact us,terms
+
+# Privacy,,
+privacy.title,Privacy Policy,privacy
+privacy.intro,Introduction,privacy
+privacy.intro_text,This Privacy Policy explains how we collect use and protect your personal information,privacy
+privacy.collection,Information We Collect,privacy
+privacy.collection_text,• Personal information (name email phone number)\n• Delivery information (address delivery instructions)\n• Payment information\n• Device and usage information,privacy
+privacy.use,How We Use Your Information,privacy
+privacy.use_text,• To process and deliver your orders\n• To communicate with you about your orders\n• To improve our services\n• To send promotional materials (with your consent),privacy
+privacy.sharing,Information Sharing,privacy
+privacy.sharing_text,We do not sell your personal information. We share your information only with:\n• Restaurants to fulfill your orders\n• Delivery partners to deliver your orders\n• Payment processors to process payments,privacy
+privacy.security,Security,privacy
+privacy.security_text,We implement appropriate security measures to protect your personal information,privacy
+privacy.cookies,Cookies,privacy
+privacy.cookies_text,We use cookies to improve your experience and analyze website traffic,privacy
+privacy.rights,Your Rights,privacy
+privacy.rights_text,You have the right to:\n• Access your personal information\n• Correct your personal information\n• Delete your personal information\n• Object to processing of your personal information,privacy
+privacy.contact,Contact Us About Privacy,privacy
+privacy.contact_text,If you have any questions about this Privacy Policy contact us at: {email},privacy
+privacy.updates,Updates to This Policy,privacy
+privacy.updates_text,We may update this policy from time to time. We will notify you of any significant changes,privacy 

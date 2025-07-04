@@ -4,7 +4,7 @@ from .models import (
     Restaurant, Category, Product, Order, OrderDetail,
     Payment, Review, ProductReview, DeliveryStatusLog, Notification,
     SearchHistory, PopularSearch, UserFavorite, AnalyticsDaily,
-    RestaurantAnalytics, ProductAnalytics, AppSettings
+    RestaurantAnalytics, ProductAnalytics, AppSettings, Language, Translation
 )
 
 
@@ -523,4 +523,20 @@ class AppSettingsSerializer(serializers.ModelSerializer):
             if request:
                 return request.build_absolute_uri(obj.qr_code_image.url)
             return obj.qr_code_image.url
-        return None 
+        return None
+
+
+class LanguageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Language
+        fields = ['id', 'code', 'name', 'is_default', 'is_active', 'created_at', 'updated_at']
+        read_only_fields = ['created_at', 'updated_at']
+
+
+class TranslationSerializer(serializers.ModelSerializer):
+    language_code = serializers.CharField(source='language.code', read_only=True)
+    
+    class Meta:
+        model = Translation
+        fields = ['id', 'language', 'language_code', 'key', 'value', 'group', 'created_at', 'updated_at']
+        read_only_fields = ['created_at', 'updated_at'] 

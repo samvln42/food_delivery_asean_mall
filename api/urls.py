@@ -17,6 +17,8 @@ router.register(r'favorites', views.UserFavoriteViewSet, basename='favorite')
 router.register(r'search-history', views.SearchHistoryViewSet, basename='search-history')
 router.register(r'popular-searches', views.PopularSearchViewSet)
 router.register(r'app-settings', views.AppSettingsViewSet, basename='app-settings')
+router.register(r'languages', views.LanguageViewSet)
+router.register(r'translations', views.TranslationViewSet)
 
 urlpatterns = [
     path('', include(router.urls)),
@@ -31,5 +33,4 @@ urlpatterns = [
     path('dashboard/customer/', views.DashboardViewSet.as_view({'get': 'customer'}), name='dashboard-customer'),
     path('reports/sales/', views.ReportViewSet.as_view({'get': 'sales'}), name='report-sales'),
     path('reports/products/', views.ReportViewSet.as_view({'get': 'products'}), name='report-products'),
-
 ] 

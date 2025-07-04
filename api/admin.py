@@ -4,7 +4,7 @@ from .models import (
     Restaurant, Category, Product, Order, OrderDetail,
     Payment, Review, ProductReview, DeliveryStatusLog, Notification,
     SearchHistory, PopularSearch, UserFavorite, AnalyticsDaily,
-    RestaurantAnalytics, ProductAnalytics
+    RestaurantAnalytics, ProductAnalytics, Language, Translation
 )
 
 
@@ -140,3 +140,19 @@ class ProductAnalyticsAdmin(admin.ModelAdmin):
     search_fields = ['product__product_name', 'restaurant__restaurant_name']
     ordering = ['-date']
     readonly_fields = ['created_at']
+
+
+@admin.register(Language)
+class LanguageAdmin(admin.ModelAdmin):
+    list_display = ('code', 'name', 'is_default', 'is_active')
+    list_filter = ('is_default', 'is_active')
+    search_fields = ('code', 'name')
+    ordering = ('code',)
+
+
+@admin.register(Translation)
+class TranslationAdmin(admin.ModelAdmin):
+    list_display = ('key', 'language', 'group', 'value')
+    list_filter = ('language', 'group')
+    search_fields = ('key', 'value')
+    ordering = ('language', 'group', 'key')

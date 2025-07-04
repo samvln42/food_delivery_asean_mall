@@ -569,34 +569,74 @@ class AppSettings(models.Model):
         verbose_name_plural = 'App Settings'
         
     def __str__(self):
-        return f"App Settings - {self.app_name}"
+        return self.app_name
     
     def save(self, *args, **kwargs):
         # Ensure only one settings record exists
         if not self.pk and AppSettings.objects.exists():
-            raise ValidationError('Only one app settings record is allowed')
+            raise ValidationError('Only one settings record can exist')
         super().save(*args, **kwargs)
     
     @classmethod
     def get_settings(cls):
-        """Get the app settings instance, create if doesn't exist"""
-        settings, created = cls.objects.get_or_create(pk=1)
-        return settings
+        return cls.objects.first()
     
     def get_logo_url(self):
-        """Get logo URL with fallback"""
         if self.app_logo:
             return self.app_logo.url
         return None
     
     def get_banner_url(self):
-        """Get banner URL with fallback"""
         if self.app_banner:
             return self.app_banner.url
         return None
     
     def get_qr_code_url(self):
-        """Get QR code URL with fallback"""
         if self.qr_code_image:
             return self.qr_code_image.url
         return None
+
+class Language(models.Model):
+    code = models.CharField(max_length=10, unique=True)
+    name = models.CharField(max_length=100)
+    is_default = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True, null=True)
+
+    class Meta:
+        db_table = 'languages'
+        indexes = [
+            models.Index(fields=['code']),
+        ]
+
+    def __str__(self):
+        return f"{self.name} ({self.code})"
+
+    def save(self, *args, **kwargs):
+        if self.is_default:
+            Language.objects.filter(is_default=True).exclude(id=self.id).update(is_default=False)
+        elif not Language.objects.filter(is_default=True).exists():
+            self.is_default = True
+        super().save(*args, **kwargs)
+
+
+class Translation(models.Model):
+    language = models.ForeignKey(Language, on_delete=models.CASCADE, related_name='translations')
+    key = models.CharField(max_length=255)
+    value = models.TextField()
+    group = models.CharField(max_length=100)
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True, null=True)
+
+    class Meta:
+        db_table = 'translations'
+        unique_together = ['language', 'key']
+        indexes = [
+            models.Index(fields=['key']),
+            models.Index(fields=['group']),
+        ]
+
+    def __str__(self):
+        return f"{self.language.code}: {self.key}"
+

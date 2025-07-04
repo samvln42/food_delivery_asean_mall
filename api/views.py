@@ -18,7 +18,7 @@ from .models import (
     Restaurant, Category, Product, Order, OrderDetail,
     Payment, Review, ProductReview, DeliveryStatusLog, Notification,
     SearchHistory, PopularSearch, UserFavorite, AnalyticsDaily,
-    RestaurantAnalytics, ProductAnalytics, AppSettings
+    RestaurantAnalytics, ProductAnalytics, AppSettings, Language, Translation
 )
 from .serializers import (
     RestaurantSerializer, CategorySerializer, ProductSerializer,
@@ -26,7 +26,8 @@ from .serializers import (
     ReviewSerializer, ProductReviewSerializer, DeliveryStatusLogSerializer,
     NotificationSerializer, SearchHistorySerializer, PopularSearchSerializer,
     UserFavoriteSerializer, AnalyticsDailySerializer, RestaurantAnalyticsSerializer,
-    ProductAnalyticsSerializer, MultiRestaurantOrderSerializer, AppSettingsSerializer
+    ProductAnalyticsSerializer, MultiRestaurantOrderSerializer, AppSettingsSerializer,
+    LanguageSerializer, TranslationSerializer
 )
 
 
@@ -1412,6 +1413,76 @@ class AppSettingsViewSet(viewsets.ModelViewSet):
             public_data['qr_code_url'] = request.build_absolute_uri(settings.qr_code_image.url)
             
         return Response(public_data)
+
+
+class LanguageViewSet(viewsets.ModelViewSet):
+    queryset = Language.objects.all()
+    serializer_class = LanguageSerializer
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['code', 'name']
+    ordering_fields = ['code', 'name', 'created_at']
+    ordering = ['code']
+
+    def get_permissions(self):
+        if self.action in ['list', 'retrieve']:
+            permission_classes = [AllowAny]
+        else:
+            permission_classes = [IsAdminUser]  # เฉพาะ admin เท่านั้นที่สามารถแก้ไขข้อมูลภาษาได้
+        return [permission() for permission in permission_classes]
+
+    @action(detail=False, methods=['get'])
+    def default(self, request):
+        """Get default language"""
+        try:
+            default_lang = Language.objects.get(is_default=True)
+            serializer = self.get_serializer(default_lang)
+            return Response(serializer.data)
+        except Language.DoesNotExist:
+            return Response({'error': 'No default language set'}, status=status.HTTP_404_NOT_FOUND)
+
+
+class TranslationViewSet(viewsets.ModelViewSet):
+    queryset = Translation.objects.all()
+    serializer_class = TranslationSerializer
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter, DjangoFilterBackend]
+    search_fields = ['key', 'value']
+    ordering_fields = ['key', 'group', 'created_at']
+    ordering = ['key']
+    filterset_fields = ['language', 'group']
+
+    def get_permissions(self):
+        if self.action in ['list', 'retrieve', 'by_language']:
+            permission_classes = [AllowAny]
+        else:
+            permission_classes = [IsAdminUser]  # เฉพาะ admin เท่านั้นที่สามารถแก้ไขข้อมูลแปลได้
+        return [permission() for permission in permission_classes]
+
+    @action(detail=False, methods=['get'])
+    def by_language(self, request):
+        """Get translations for a specific language"""
+        lang_code = request.query_params.get('lang', None)
+        if not lang_code:
+            return Response({'error': 'Language code is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            language = Language.objects.get(code=lang_code, is_active=True)
+        except Language.DoesNotExist:
+            return Response({'error': 'Language not found or not active'}, status=status.HTTP_404_NOT_FOUND)
+
+        translations = self.get_queryset().filter(language=language)
+        
+        # Group translations if requested
+        group_by = request.query_params.get('group_by', None)
+        if group_by == 'group':
+            grouped_translations = {}
+            for trans in translations:
+                if trans.group not in grouped_translations:
+                    grouped_translations[trans.group] = {}
+                grouped_translations[trans.group][trans.key] = trans.value
+            return Response(grouped_translations)
+        
+        serializer = self.get_serializer(translations, many=True)
+        return Response(serializer.data)
 
 
 

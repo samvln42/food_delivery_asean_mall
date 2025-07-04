@@ -1,8 +1,8 @@
-# 🚀 Working API Endpoints (47 endpoints)
+# 🚀 Working API Endpoints (55 endpoints)
 
-เอกสารนี้รวบรวม **47 endpoints ที่ทำงานได้จริง** ในระบบ Food Delivery API พร้อมข้อมูลการใช้งาน ตัวอย่าง และบทบาทผู้ใช้
+เอกสารนี้รวบรวม **55 endpoints ที่ทำงานได้จริง** ในระบบ Food Delivery API พร้อมข้อมูลการใช้งาน ตัวอย่าง และบทบาทผู้ใช้
 
-**📊 Success Rate: 100% (47/47 endpoints)**
+**📊 Success Rate: 100% (55/55 endpoints)**
 
 ---
 
@@ -20,6 +20,8 @@
 10. [❤️ Favorite Endpoints (4)](#️-favorite-endpoints-4)
 11. [📊 Dashboard Endpoints (1)](#-dashboard-endpoints-1)
 12. [🗂️ Search History Endpoints (2)](#️-search-history-endpoints-2)
+13. [🌐 Language Endpoints (4)](#-language-endpoints-4)
+14. [📝 Translation Endpoints (4)](#-translation-endpoints-4)
 
 ---
 
@@ -1140,6 +1142,252 @@ curl -X DELETE http://localhost:8000/api/search-history/clear/ \
   "message": "Search history cleared"
 }
 ```
+
+---
+
+## 🌐 Language Endpoints (4)
+
+### 1. GET `/api/languages/`
+**👤 ใครใช้:** ทุกคน  
+**🎯 ทำอะไร:** ดูรายการภาษาทั้งหมดที่มีในระบบ  
+**🔒 Permission:** Public (ไม่ต้อง login)
+
+```bash
+# ตัวอย่างการใช้งาน
+curl -X GET http://localhost:8000/api/languages/
+```
+
+**📤 Response:**
+```json
+{
+  "count": 3,
+  "results": [
+    {
+      "id": 1,
+      "code": "en",
+      "name": "English",
+      "is_default": true,
+      "is_active": true,
+      "created_at": "2024-03-20T10:00:00Z",
+      "updated_at": "2024-03-20T10:00:00Z"
+    },
+    {
+      "id": 2,
+      "code": "th",
+      "name": "Thai",
+      "is_default": false,
+      "is_active": true,
+      "created_at": "2024-03-20T10:00:00Z",
+      "updated_at": "2024-03-20T10:00:00Z"
+    }
+  ]
+}
+```
+
+### 2. GET `/api/languages/{id}/`
+**👤 ใครใช้:** ทุกคน  
+**🎯 ทำอะไร:** ดูข้อมูลภาษาเฉพาะ  
+**🔒 Permission:** Public (ไม่ต้อง login)
+
+```bash
+# ตัวอย่างการใช้งาน
+curl -X GET http://localhost:8000/api/languages/1/
+```
+
+**📤 Response:**
+```json
+{
+  "id": 1,
+  "code": "en",
+  "name": "English",
+  "is_default": true,
+  "is_active": true,
+  "created_at": "2024-03-20T10:00:00Z",
+  "updated_at": "2024-03-20T10:00:00Z"
+}
+```
+
+### 3. GET `/api/languages/default/`
+**👤 ใครใช้:** ทุกคน  
+**🎯 ทำอะไร:** ดูข้อมูลภาษาเริ่มต้นของระบบ  
+**🔒 Permission:** Public (ไม่ต้อง login)
+
+```bash
+# ตัวอย่างการใช้งาน
+curl -X GET http://localhost:8000/api/languages/default/
+```
+
+**📤 Response:**
+```json
+{
+  "id": 1,
+  "code": "en",
+  "name": "English",
+  "is_default": true,
+  "is_active": true,
+  "created_at": "2024-03-20T10:00:00Z",
+  "updated_at": "2024-03-20T10:00:00Z"
+}
+```
+
+### 4. POST `/api/languages/`
+**👤 ใครใช้:** แอดมิน  
+**🎯 ทำอะไร:** เพิ่มภาษาใหม่  
+**🔒 Permission:** Admin only
+
+```bash
+# ตัวอย่างการใช้งาน
+curl -X POST http://localhost:8000/api/languages/ \
+  -H "Authorization: Bearer {token}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "code": "ko",
+    "name": "Korean",
+    "is_default": false,
+    "is_active": true
+  }'
+```
+
+**📤 Response:**
+```json
+{
+  "id": 3,
+  "code": "ko",
+  "name": "Korean",
+  "is_default": false,
+  "is_active": true,
+  "created_at": "2024-03-20T10:00:00Z",
+  "updated_at": "2024-03-20T10:00:00Z"
+}
+```
+
+## 📝 Translation Endpoints (4)
+
+### 1. GET `/api/translations/`
+**👤 ใครใช้:** ทุกคน  
+**🎯 ทำอะไร:** ดูรายการแปลทั้งหมด  
+**🔒 Permission:** Public (ไม่ต้อง login)
+
+```bash
+# ตัวอย่างการใช้งาน
+curl -X GET http://localhost:8000/api/translations/
+```
+
+**📤 Response:**
+```json
+{
+  "count": 2,
+  "results": [
+    {
+      "id": 1,
+      "language": 1,
+      "language_code": "en",
+      "key": "common.welcome",
+      "value": "Welcome",
+      "group": "common",
+      "created_at": "2024-03-20T10:00:00Z",
+      "updated_at": "2024-03-20T10:00:00Z"
+    },
+    {
+      "id": 2,
+      "language": 2,
+      "language_code": "th",
+      "key": "common.welcome",
+      "value": "ยินดีต้อนรับ",
+      "group": "common",
+      "created_at": "2024-03-20T10:00:00Z",
+      "updated_at": "2024-03-20T10:00:00Z"
+    }
+  ]
+}
+```
+
+### 2. GET `/api/translations/by_language/?lang=en`
+**👤 ใครใช้:** ทุกคน  
+**🎯 ทำอะไร:** ดูรายการแปลตามภาษา  
+**🔒 Permission:** Public (ไม่ต้อง login)
+
+```bash
+# ตัวอย่างการใช้งาน
+curl -X GET "http://localhost:8000/api/translations/by_language/?lang=en"
+```
+
+**📤 Response:**
+```json
+{
+  "language": "en",
+  "translations": {
+    "common.welcome": "Welcome",
+    "common.login": "Login",
+    "common.register": "Register"
+  }
+}
+```
+
+### 3. GET `/api/translations/by_language/?lang=en&group_by=group`
+**👤 ใครใช้:** ทุกคน  
+**🎯 ทำอะไร:** ดูรายการแปลตามภาษา จัดกลุ่มตาม group  
+**🔒 Permission:** Public (ไม่ต้อง login)
+
+```bash
+# ตัวอย่างการใช้งาน
+curl -X GET "http://localhost:8000/api/translations/by_language/?lang=en&group_by=group"
+```
+
+**📤 Response:**
+```json
+{
+  "language": "en",
+  "translations": {
+    "common": {
+      "welcome": "Welcome",
+      "login": "Login",
+      "register": "Register"
+    },
+    "auth": {
+      "email": "Email",
+      "password": "Password"
+    }
+  }
+}
+```
+
+### 4. POST `/api/translations/`
+**👤 ใครใช้:** แอดมิน  
+**🎯 ทำอะไร:** เพิ่มการแปลใหม่  
+**🔒 Permission:** Admin only
+
+```bash
+# ตัวอย่างการใช้งาน
+curl -X POST http://localhost:8000/api/translations/ \
+  -H "Authorization: Bearer {token}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "language": 1,
+    "key": "common.logout",
+    "value": "Logout",
+    "group": "common"
+  }'
+```
+
+**📤 Response:**
+```json
+{
+  "id": 3,
+  "language": 1,
+  "language_code": "en",
+  "key": "common.logout",
+  "value": "Logout",
+  "group": "common",
+  "created_at": "2024-03-20T10:00:00Z",
+  "updated_at": "2024-03-20T10:00:00Z"
+}
+```
+
+**📝 หมายเหตุ:** 
+- Group ที่แนะนำ: `common`, `auth`, `validation`, `menu`, `order`, `profile`, `error`
+- Key ควรใช้รูปแบบ `group.subgroup.name` เช่น `common.button.save`
+- ควรเพิ่มการแปลให้ครบทุกภาษาที่รองรับ
 
 ---
 

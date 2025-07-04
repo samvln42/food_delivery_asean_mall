@@ -17,9 +17,9 @@ class Command(BaseCommand):
         settings = AppSettings.objects.create(
             app_name='Food Delivery',
             app_description='Online Food Delivery System',
-            contact_email='support@fooddelivery.com',
-            contact_phone='02-xxx-xxxx',
-            contact_address='123 Sukhumvit Road, Bangkok 10110',
+            contact_email='lcs7397@gmail.com',
+            contact_phone='020-5239-7676',
+            contact_address='123 vientiane Road, Vientiane 10110',
             hero_title='Order Food Easily, Delivered to Your Home',
             hero_subtitle='Choose from premium restaurants, fast, delicious and safe delivery',
             feature_1_title='Fast Delivery',

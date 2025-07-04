@@ -345,3 +345,35 @@ SET
         FROM Reviews rev 
         WHERE rev.restaurant_id = r.restaurant_id
     );
+
+-- ตาราง Languages (ภาษา)
+CREATE TABLE Languages (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    code VARCHAR(10) NOT NULL UNIQUE,
+    name VARCHAR(100) NOT NULL,
+    is_default BOOLEAN DEFAULT FALSE,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- ตาราง Translations (การแปลภาษา)
+CREATE TABLE Translations (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    language_id INT NOT NULL,
+    `key` VARCHAR(255) NOT NULL,
+    value TEXT NOT NULL,
+    `group` VARCHAR(100) NOT NULL COMMENT 'Group/category of the translation (e.g., common, menu, error)',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (language_id) REFERENCES Languages(id),
+    UNIQUE KEY unique_translation (language_id, `key`)
+);
+
+-- สร้าง Index สำหรับการค้นหา
+CREATE INDEX idx_translations_key ON Translations(`key`);
+CREATE INDEX idx_translations_group ON Translations(`group`);
+CREATE INDEX idx_languages_code ON Languages(code);
+
+-- เพิ่มข้อมูลภาษาอังกฤษเป็นภาษาเริ่มต้น
+INSERT INTO Languages (code, name, is_default, is_active) VALUES ('en', 'English', TRUE, TRUE);
