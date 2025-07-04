@@ -74,6 +74,9 @@ python manage.py migrate
 7. Create superuser:
 ```bash
 python manage.py createsuperuser
+
+# สร้าง Default Settings
+python manage.py create_default_settings
 ```
 
 8. Run the development server:
@@ -231,3 +234,4 @@ For questions or issues:
 - ✅ Added comprehensive troubleshooting documentation
 - ✅ Added user role specifications to all API endpoints
 - ✅ Enhanced documentation with clear permission guidelines # food_delivery_asean_mall
+# asean_mall_food_delivery
