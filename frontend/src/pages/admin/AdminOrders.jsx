@@ -11,8 +11,12 @@ const AdminOrders = () => {
   const [error, setError] = useState(null);
   const [filter, setFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
-  const [sortBy, setSortBy] = useState('-order_date');
+  const [sortBy, setSortBy] = useState('current_status');
   const [updatingOrders, setUpdatingOrders] = useState(new Set());
+
+  // Pagination
+  const pageSize = 5; // แสดง 10 รายการต่อหน้า (ปรับได้)
+  const [page, setPage] = useState(1);
 
   // สถานะที่ใช้ได้ (ตรงกับ Backend)
   const orderStatuses = [
@@ -34,11 +38,39 @@ const AdminOrders = () => {
       setLoading(true);
       setError(null);
 
-      // Admin สามารถดูคำสั่งซื้อทั้งหมด
-      const response = await api.get(`/orders/?ordering=${sortBy}`);
-      const apiOrders = response.data.results || response.data;
-      
-      console.log('Admin Orders from API:', apiOrders);
+      // กำหนด URL ตาม sortBy (ใช้ backend ordering สำหรับฟิลด์อื่น ยกเว้น current_status)
+      let url = '/orders/';
+      if (sortBy && sortBy !== 'current_status') {
+        url += `?ordering=${sortBy}`;
+      }
+
+      const response = await api.get(url);
+      let apiOrders = response.data.results || response.data;
+
+      // ถ้าเรียงตามสถานะ ให้จัดเรียง client-side ตามลำดับ workflow
+      if (sortBy === 'current_status') {
+        const statusOrder = [
+          'pending',
+          'paid',
+          'preparing',
+          'ready_for_pickup',
+          'delivering',
+          'completed',
+          'cancelled',
+        ];
+        const rank = (s) => {
+          const idx = statusOrder.indexOf(s ?? '');
+          return idx === -1 ? statusOrder.length : idx;
+        };
+        apiOrders = [...apiOrders].sort((a, b) => {
+          const diff = rank(a.current_status || a.status) - rank(b.current_status || b.status);
+          if (diff !== 0) return diff;
+          // ถ้าอยู่สถานะเดียวกัน เรียงตามวันที่ (เก่า -> ใหม่)
+          return new Date(a.order_date) - new Date(b.order_date);
+        });
+      }
+
+      console.log('Admin Orders after sort:', apiOrders);
       setOrders(apiOrders);
     } catch (error) {
       console.error('Error fetching admin orders:', error);
@@ -126,6 +158,14 @@ const AdminOrders = () => {
   };
 
   const filteredOrders = getFilteredAndSearchedOrders();
+
+  // รีคำนวณหน้าทั้งหมดและรีเซ็ตหน้าปัจจุบันเมื่อข้อมูลหรือเงื่อนไขเปลี่ยน
+  useEffect(() => {
+    setPage(1);
+  }, [filter, searchTerm, orders]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredOrders.length / pageSize));
+  const displayOrders = filteredOrders.slice((page - 1) * pageSize, page * pageSize);
 
   if (loading) {
     return (
@@ -242,7 +282,7 @@ const AdminOrders = () => {
       {/* Orders List */}
       {filteredOrders.length > 0 ? (
         <div className="space-y-4">
-          {filteredOrders.map((order) => (
+          {displayOrders.map((order) => (
             <OrderCard 
               key={order.order_id} 
               order={order} 
@@ -263,6 +303,54 @@ const AdminOrders = () => {
           <p className="text-secondary-500">
             {searchTerm ? 'ลองใช้คำค้นหาอื่น' : 'คำสั่งซื้อจะปรากฏที่นี่เมื่อมีลูกค้าสั่งซื้อ'}
           </p>
+        </div>
+      )}
+
+      {/* Pagination Controls */}
+      {totalPages > 1 && (
+        <div className="flex justify-center items-center mt-8 gap-1 select-none">
+          {/* Prev */}
+          <button
+            disabled={page === 1}
+            onClick={() => setPage(page - 1)}
+            className="px-3 py-1 rounded bg-secondary-100 hover:bg-secondary-200 disabled:opacity-50"
+          >‹</button>
+
+          {/* Page Numbers */}
+          {(() => {
+            const pages = [];
+            if (totalPages <= 5) {
+              for (let i = 1; i <= totalPages; i++) pages.push(i);
+            } else {
+              pages.push(1);
+              if (page > 3) pages.push('ellipsis-prev');
+              const start = Math.max(2, page - 1);
+              const end = Math.min(totalPages - 1, page + 1);
+              for (let i = start; i <= end; i++) pages.push(i);
+              if (page < totalPages - 2) pages.push('ellipsis-next');
+              pages.push(totalPages);
+            }
+
+            return pages.map((p, idx) => {
+              if (p === 'ellipsis-prev' || p === 'ellipsis-next') {
+                return <span key={`e${idx}`} className="px-2 py-1">…</span>;
+              }
+              return (
+                <button
+                  key={p}
+                  onClick={() => setPage(p)}
+                  className={`px-3 py-1 rounded ${page === p ? 'bg-primary-600 text-white' : 'bg-secondary-100 hover:bg-secondary-200'}`}
+                >{p}</button>
+              );
+            });
+          })()}
+
+          {/* Next */}
+          <button
+            disabled={page === totalPages}
+            onClick={() => setPage(page + 1)}
+            className="px-3 py-1 rounded bg-secondary-100 hover:bg-secondary-200 disabled:opacity-50"
+          >›</button>
         </div>
       )}
     </div>

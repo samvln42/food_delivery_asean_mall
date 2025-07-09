@@ -243,6 +243,10 @@ order.status.completed,Completed,order
 order.status.completed_desc,Delivery completed,order
 order.status.cancelled_desc,This order has been cancelled,order
 order.status_change_notification,Order #{orderId} changed to "{status}",order
+order.successful,Order placed successfully!,order
+order.order_id,Order ID: {id},order
+order.restaurant_count,Number of restaurants: {count},order
+order.total_amount,Total: {total},order 
 ,,
 # Cart,,
 cart.empty,Your cart is empty,cart

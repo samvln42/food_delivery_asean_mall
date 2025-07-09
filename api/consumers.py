@@ -32,19 +32,27 @@ class OrderConsumer(AsyncWebsocketConsumer):
                 return
             
             logger.info(f"✅ User authenticated: {self.user.id} ({self.user.username})")
-            
+
             # Add user to their personal room
             self.room_name = f"user_{self.user.id}"
             self.room_group_name = f"orders_{self.room_name}"
-            
+
             logger.info(f"🏠 Adding user to room: {self.room_group_name}")
-            
-            # Join room group
+
+            # Join personal room group
             await self.channel_layer.group_add(
                 self.room_group_name,
                 self.channel_name
             )
-            
+
+            # If admin, also join the global admin room to receive new order notifications
+            if getattr(self.user, 'role', '') == 'admin':
+                await self.channel_layer.group_add(
+                    "orders_admin",
+                    self.channel_name
+                )
+                logger.info(f"👑 Admin user added to global admin room: orders_admin")
+
             # Accept connection
             await self.accept()
             logger.info(f"🎉 WebSocket connected successfully for user: {self.user.id}")
@@ -66,6 +74,12 @@ class OrderConsumer(AsyncWebsocketConsumer):
         if hasattr(self, 'room_group_name'):
             await self.channel_layer.group_discard(
                 self.room_group_name,
+                self.channel_name
+            )
+        # If user was admin, also leave the admin room
+        if hasattr(self, 'user') and getattr(self.user, 'role', '') == 'admin':
+            await self.channel_layer.group_discard(
+                "orders_admin",
                 self.channel_name
             )
         user_id = getattr(self, 'user', None)

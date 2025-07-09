@@ -244,6 +244,10 @@ order.start_ordering,เริ่มสั่งอาหาร,order
 order.choose_by_category,เลือกตามหมวดหมู่,order
 order.status_updated,อัพเดทสถานะคำสั่งซื้อแล้ว!,order
 order.status_change_notification,คำสั่งซื้อ #{orderId} เปลี่ยนเป็น "{status}",order
+order.successful,สั่งซื้อสำเร็จ!,order
+order.order_id,รหัสคำสั่งซื้อ: {id},order
+order.restaurant_count,จำนวนร้านอาหาร: {count},order
+order.total_amount,ยอดรวม: {total},order 
 ,,
 # Notification,,
 notification.success,สำเร็จ,notification

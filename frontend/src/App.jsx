@@ -6,6 +6,7 @@ import { LanguageProvider } from './contexts/LanguageContext';
 import ProtectedRoute from './utils/ProtectedRoute';
 import Header from './components/common/Header';
 import ErrorBoundary from './components/common/ErrorBoundary';
+import AdminNotificationBridge from './components/admin/AdminNotificationBridge';
 
 
 // Auth Pages

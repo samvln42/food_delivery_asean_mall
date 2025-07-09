@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import Header from '../components/common/Header';
 import { notificationService } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
+import websocketService from '../services/websocket';
+import AdminNotificationBridge from '../components/admin/AdminNotificationBridge';
 
 // Create context for notification count
 const NotificationContext = createContext();
@@ -23,12 +25,18 @@ const AdminLayout = ({ children }) => {
   // Fetch unread notifications count for admin
   useEffect(() => {
     if (user?.role === 'admin' && token) {
-      fetchUnreadCount();
-      
-      // Poll for unread count every minute
-      const interval = setInterval(fetchUnreadCount, 60000);
-      
-      return () => clearInterval(interval);
+      // ฟังก์ชันเมื่อได้รับออเดอร์ใหม่ → อัปเดตตัวเลข unread เฉย ๆ (toast & sound ทำโดย AdminNotificationBridge)
+      const handleNewOrder = (data) => {
+        setUnreadCount(prev => prev + 1);
+      };
+
+      // ลงทะเบียน listener (ไม่ต้องเชื่อมต่อ WebSocket ที่นี่ เพราะเชื่อมจาก AdminNotificationBridge แล้ว)
+      websocketService.on('new_order', handleNewOrder);
+
+      // cleanup เมื่อ component unmount หรือ token เปลี่ยน
+      return () => {
+        websocketService.off('new_order', handleNewOrder);
+      };
     }
   }, [user?.role, token]);
 
@@ -75,6 +83,7 @@ const AdminLayout = ({ children }) => {
 
   return (
     <NotificationContext.Provider value={notificationContextValue}>
+      <AdminNotificationBridge />
       <div className="min-h-screen bg-secondary-50">
         {/* Fixed Header */}
         <div className="fixed top-0 left-0 right-0 z-30">

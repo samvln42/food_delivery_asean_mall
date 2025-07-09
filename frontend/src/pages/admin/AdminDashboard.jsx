@@ -44,9 +44,12 @@ const AdminDashboard = () => {
 
   // Polling system สำหรับ real-time notifications
   useEffect(() => {
+    const handleUpdate = () => fetchNotificationsQuietly();
+    window.addEventListener('notification_update', handleUpdate);
+
     if (!user?.id || !token || user.role !== 'admin') {
       console.log('⚠️ User not admin or not authenticated, stopping notification polling');
-      return;
+      return () => window.removeEventListener('notification_update', handleUpdate);
     }
 
     console.log('🔔 Starting notification polling for admin...');
@@ -63,6 +66,7 @@ const AdminDashboard = () => {
     return () => {
       console.log('🛑 Stopping notification polling...');
       clearInterval(pollingInterval);
+      window.removeEventListener('notification_update', handleUpdate);
     };
   }, [user?.id, token, user?.role]);
 
@@ -233,7 +237,6 @@ const AdminDashboard = () => {
       // ลด unread count ใน sidebar ทันที
       decreaseUnreadCount();
       
-      console.log(`✅ Marked notification ${notificationId} as read and removed from display`);
     } catch (error) {
       console.error('Error marking notification as read:', error);
     }
@@ -266,6 +269,13 @@ const AdminDashboard = () => {
     );
   }
 
+  const handleNotificationClick = (notification) => {
+    markAsRead(notification.notification_id);
+    if (notification.type === 'order_update') {
+      window.location.href = `/admin/orders`;
+    }
+  };
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-6">
@@ -277,7 +287,6 @@ const AdminDashboard = () => {
             onClick={() => {
               // Reset unread count เมื่อคลิกปุ่ม notifications
               setUnreadCount(0);
-              console.log('🔗 Clicked notifications button - reset unread count');
             }}
           >
             <span>🔔</span>
@@ -301,8 +310,8 @@ const AdminDashboard = () => {
         </div>
       </div>
 
-      {/* Notification Update Badge */}
-      {notificationUpdateBadge && (
+      {/* Notification Update Badge (ยกเว้น order_update เพราะมี modal แสดงแล้ว) */}
+      {notificationUpdateBadge && notificationUpdateBadge.type !== 'order_update' && (
         <div className="fixed top-20 right-4 z-50 bg-primary-500 text-white px-6 py-3 rounded-lg shadow-lg flex items-center gap-3 animate-pulse">
           <span className="text-xl">{getTypeIcon(notificationUpdateBadge.type)}</span>
           <div>
@@ -329,7 +338,6 @@ const AdminDashboard = () => {
               onClick={() => {
                 // Reset unread count เมื่อคลิกไปหน้า notifications
                 setUnreadCount(0);
-                console.log('🔗 Clicked "View All" - reset unread count');
               }}
             >
               ดูทั้งหมด →
@@ -341,7 +349,7 @@ const AdminDashboard = () => {
                 <div
                   key={notification.notification_id}
                   className="flex items-start space-x-3 p-3 rounded-lg transition-all hover:bg-secondary-50 cursor-pointer bg-primary-50 border-l-4 border-primary-500"
-                  onClick={() => markAsRead(notification.notification_id)}
+                  onClick={() => handleNotificationClick(notification)}
                 >
                   <div className="flex-shrink-0">
                     <span className="text-lg">{getTypeIcon(notification.type)}</span>
@@ -379,7 +387,6 @@ const AdminDashboard = () => {
                   onClick={() => {
                     // Reset unread count เมื่อคลิกไปหน้า notifications
                     setUnreadCount(0);
-                    console.log('🔗 Clicked "View All Notifications" - reset unread count');
                   }}
                 >
                   ดูการแจ้งเตือนทั้งหมด ({notifications.length} รายการ)

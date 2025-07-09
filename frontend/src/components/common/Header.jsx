@@ -119,12 +119,13 @@ const Header = () => {
       ];
     } else if (user.role === 'admin') {
       return [
-        ...baseItems,
-        { name: translate('admin.users'), href: '/admin/users', current: location.pathname === '/admin/users' },
-        { name: translate('admin.restaurants'), href: '/admin/restaurants', current: location.pathname === '/admin/restaurants' },
-        { name: translate('admin.categories'), href: '/admin/categories', current: location.pathname === '/admin/categories' },
-        { name: translate('admin.orders'), href: '/admin/orders', current: location.pathname === '/admin/orders' },
-        { name: translate('admin.settings'), href: '/admin/settings', current: location.pathname === '/admin/settings' },
+        // ...baseItems,
+        { name: "Admin", href: '/admin', current: location.pathname === '/admin' },
+        // { name: translate('admin.users'), href: '/admin/users', current: location.pathname === '/admin/users' },
+        // { name: translate('admin.restaurants'), href: '/admin/restaurants', current: location.pathname === '/admin/restaurants' },
+        // { name: translate('admin.categories'), href: '/admin/categories', current: location.pathname === '/admin/categories' },
+        // { name: translate('admin.orders'), href: '/admin/orders', current: location.pathname === '/admin/orders' },
+        // { name: translate('admin.settings'), href: '/admin/settings', current: location.pathname === '/admin/settings' },
       ];
     } else if (user.role === 'special_restaurant' || user.role === 'general_restaurant') {
       return [

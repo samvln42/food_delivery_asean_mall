@@ -271,6 +271,9 @@ const Orders = () => {
   const [statusUpdateNotification, setStatusUpdateNotification] =
     useState(null);
   const [pollingActive, setPollingActive] = useState(false);
+  const [page, setPage] = useState(1);
+  const pageSize = 3;
+  const [totalPages, setTotalPages] = useState(1);
 
   // เรียกใช้ข้อมูล orders เมื่อ component โหลดครั้งแรก
   useEffect(() => {
@@ -282,7 +285,7 @@ const Orders = () => {
         console.log("Notification permission:", permission);
       });
     }
-  }, []);
+  }, [page]);
 
   // Polling system สำหรับ real-time updates
   useEffect(() => {
@@ -364,10 +367,14 @@ const Orders = () => {
       // เรียก API จริง
       const response = await api.get(import.meta.env.VITE_API_URL + "/orders/");
       const apiOrders = response.data.results || response.data;
-
-
-
-      setOrders(apiOrders);
+      // เรียงตาม order_date (ใหม่ -> เก่า)
+      const sortedOrders = [...apiOrders].sort(
+        (a, b) => new Date(b.order_date) - new Date(a.order_date)
+      );
+      setOrders(sortedOrders);
+      // compute pages client side
+      const filtered = getFilteredOrders(apiOrders);
+      setTotalPages(Math.max(1, Math.ceil(filtered.length / pageSize)));
     } catch (error) {
       console.error("❌ Error fetching orders:", error);
       setError(translate("order.unable_to_load_history"));
@@ -382,13 +389,16 @@ const Orders = () => {
     try {
       const response = await api.get(import.meta.env.VITE_API_URL + "/orders/");
       const apiOrders = response.data.results || response.data;
+      const sortedNew = [...apiOrders].sort(
+        (a, b) => new Date(b.order_date) - new Date(a.order_date)
+      );
 
       // Compare with current orders to detect changes
       setOrders((prevOrders) => {
         // Check for status changes
         const statusChanges = [];
 
-        apiOrders.forEach((newOrder) => {
+        sortedNew.forEach((newOrder) => {
           const oldOrder = prevOrders.find(
             (o) => o.order_id === newOrder.order_id
           );
@@ -439,7 +449,7 @@ const Orders = () => {
           }
         }
 
-        return apiOrders;
+        return sortedNew;
       });
     } catch (error) {
       console.error("❌ Error polling orders:", error);
@@ -486,9 +496,9 @@ const Orders = () => {
     },
   ];
 
-  const getFilteredOrders = () => {
-    if (filter === "all") return orders;
-    return orders.filter(
+  const getFilteredOrders = (ordersArr = orders) => {
+    if (filter === "all") return ordersArr;
+    return ordersArr.filter(
       (order) => (order.current_status || order.status || "pending") === filter
     );
   };
@@ -548,7 +558,9 @@ const Orders = () => {
     }, 0);
   };
 
-  const filteredOrders = getFilteredOrders();
+  // Pre-calculate paginated orders
+  const filteredOrdersLocal = getFilteredOrders();
+  const displayOrders = filteredOrdersLocal.slice((page - 1) * pageSize, page * pageSize);
 
   if (loading) {
     return (
@@ -724,9 +736,9 @@ const Orders = () => {
       </div>
 
       {/* Orders List */}
-      {filteredOrders.length > 0 ? (
+      {filteredOrdersLocal.length > 0 ? (
         <div className="space-y-6">
-          {filteredOrders.map((order) => {
+          {displayOrders.map((order) => {
             const statusInfo = getStatusDisplay(
               order.current_status || order.status
             );
@@ -1011,6 +1023,55 @@ const Orders = () => {
               {translate("order.choose_by_category")}
             </a>
           </div>
+        </div>
+      )}
+      {/* Pagination Controls */}
+      {totalPages > 1 && (
+        <div className="flex justify-center items-center mt-6 gap-1 select-none">
+          {/* Prev */}
+          <button
+            disabled={page === 1}
+            onClick={() => setPage(page - 1)}
+            className="px-3 py-1 rounded bg-secondary-100 hover:bg-secondary-200 disabled:opacity-50"
+          >‹</button>
+
+          {/* Page Numbers */}
+          {(() => {
+            const pages = [];
+            if (totalPages <= 5) {
+              for (let i = 1; i <= totalPages; i++) pages.push(i);
+            } else {
+              pages.push(1);
+              if (page > 3) pages.push('ellipsis-prev');
+              const start = Math.max(2, page - 1);
+              const end = Math.min(totalPages - 1, page + 1);
+              for (let i = start; i <= end; i++) pages.push(i);
+              if (page < totalPages - 2) pages.push('ellipsis-next');
+              pages.push(totalPages);
+            }
+
+            return pages.map((p, idx) => {
+              if (p === 'ellipsis-prev' || p === 'ellipsis-next') {
+                return (
+                  <span key={`e${idx}`} className="px-2 py-1">…</span>
+                );
+              }
+              return (
+                <button
+                  key={p}
+                  onClick={() => setPage(p)}
+                  className={`px-3 py-1 rounded ${page===p ? 'bg-primary-600 text-white' : 'bg-secondary-100 hover:bg-secondary-200'}`}
+                >{p}</button>
+              );
+            });
+          })()}
+
+          {/* Next */}
+          <button
+            disabled={page === totalPages}
+            onClick={() => setPage(page + 1)}
+            className="px-3 py-1 rounded bg-secondary-100 hover:bg-secondary-200 disabled:opacity-50"
+          >›</button>
         </div>
       )}
     </div>

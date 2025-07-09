@@ -137,7 +137,7 @@ const Cart = () => {
     try {
       for (const restaurantId of restaurantIds) {
         const response = await fetch(
-          import.meta.env.VITE_API_URL + "/restaurants/${restaurantId}/"
+          import.meta.env.VITE_API_URL + `/restaurants/${restaurantId}/`
         );
         if (response.ok) {
           const restaurant = await response.json();
@@ -214,12 +214,13 @@ const Cart = () => {
         const orderResult = JSON.parse(result);
         clearCart();
 
-        let successMessage = `Order successful!\n`;
+        // สร้างข้อความแจ้งเตือนความสำเร็จแบบหลายภาษา
+        let successMessage = `${translate('order.successful')}`;
         if (orderResult.order_id) {
-          successMessage += `Order ID: ${orderResult.order_id}\n`;
+          successMessage += `\n${translate('order.order_id', { id: orderResult.order_id })}`;
         }
-        successMessage += `Number of restaurants: ${restaurantCount}\n`;
-        successMessage += `Total: ฿${total}`;
+        successMessage += `\n${translate('order.restaurant_count', { count: restaurantCount })}`;
+        successMessage += `\n${translate('order.total_amount', { total: formatCurrency(total) })}`;
 
         toast.success(successMessage);
         navigate("/orders");

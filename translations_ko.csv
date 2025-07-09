@@ -243,6 +243,10 @@ order.start_ordering,주문 시작,order
 order.choose_by_category,카테고리별로 선택,order
 order.status_updated,주문 상태가 업데이트되었습니다!,order
 order.status_change_notification,주문 #{orderId}이(가) "{status}"으로 변경되었습니다,order
+order.successful,주문이 성공적으로 완료되었습니다!,order
+order.order_id,주문 ID: {id},order
+order.restaurant_count,레스토랑 수: {count},order
+order.total_amount,총액: {total},order 
 
 ,,
 # Cart,,

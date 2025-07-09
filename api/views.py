@@ -362,6 +362,31 @@ class OrderViewSet(viewsets.ModelViewSet):
                 type='order_update',
                 related_order=order
             )
+
+            # ส่ง notification ไปยังแอดมินทุกคน
+            admin_users = User.objects.filter(role='admin')
+            for admin_user in admin_users:
+                Notification.objects.create(
+                    user=admin_user,
+                    title='New Order Received',
+                    message=f'Order #{order.order_id} was placed by {order.user.username}',
+                    type='order_update',
+                    related_order=order
+                )
+
+            # ส่ง WebSocket notification ไปยังกลุ่มแอดมิน
+            channel_layer = get_channel_layer()
+            async_to_sync(channel_layer.group_send)(
+                "orders_admin",
+                {
+                    'type': 'new_order',
+                    'order_id': order.order_id,
+                    'customer_name': order.user.username,
+                    'restaurant_name': order.restaurant.restaurant_name if order.restaurant else '',
+                    'total_amount': str(order.total_amount),
+                    'timestamp': timezone.now().isoformat()
+                }
+            )
             
             headers = self.get_success_headers(serializer.data)
             return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
@@ -413,6 +438,31 @@ class OrderViewSet(viewsets.ModelViewSet):
                     message=f'Your multi-restaurant order #{order.order_id} has been created successfully',
                     type='order_update',
                     related_order=order
+                )
+
+                # ส่ง notification ไปยังแอดมินทุกคน
+                admin_users = User.objects.filter(role='admin')
+                for admin_user in admin_users:
+                    Notification.objects.create(
+                        user=admin_user,
+                        title='New Order Received',
+                        message=f'Order #{order.order_id} was placed by {order.user.username}',
+                        type='order_update',
+                        related_order=order
+                    )
+
+                # ส่ง WebSocket notification ไปยังกลุ่มแอดมิน
+                channel_layer = get_channel_layer()
+                async_to_sync(channel_layer.group_send)(
+                    "orders_admin",
+                    {
+                        'type': 'new_order',
+                        'order_id': order.order_id,
+                        'customer_name': order.user.username,
+                        'restaurant_name': 'Multi-Restaurant Order',
+                        'total_amount': str(order.total_amount),
+                        'timestamp': timezone.now().isoformat()
+                    }
                 )
                 
                 # ส่ง WebSocket notification
