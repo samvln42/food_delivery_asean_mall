@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import api from '../../services/api';
+import api from '../../services/api'; 
+import { useLanguage } from '../../contexts/LanguageContext';
 
 const Categories = () => {
+  const { translate } = useLanguage();
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -29,7 +31,7 @@ const Categories = () => {
       <div className="container mx-auto px-4 py-8">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500 mx-auto"></div>
-          <p className="mt-4 text-secondary-600">Loading...</p>
+          <p className="mt-4 text-secondary-600">{translate('common.loading')}</p>
         </div>
       </div>
     );
@@ -39,12 +41,12 @@ const Categories = () => {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="text-center">
-          <p className="text-red-500">{error}</p>
+          <p className="text-red-500">{translate('common.unable_to_load_categories')}</p>
           <button
             onClick={fetchCategories}
             className="mt-4 bg-primary-500 text-white px-4 py-2 rounded-lg hover:bg-primary-600"
           >
-            Try again
+            {translate('common.try_again')}
           </button>
         </div>
       </div>
@@ -54,8 +56,8 @@ const Categories = () => {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="text-center mb-8">
-        <h1 className="text-3xl font-bold text-secondary-800 mb-2">Categories</h1>
-        <p className="text-secondary-600">Choose your favorite categories</p>
+        <h1 className="text-3xl font-bold text-secondary-800 mb-2">{translate('common.categories')}</h1>
+        <p className="text-secondary-600">{translate('common.choose_your_favorite_categories')}</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -86,14 +88,14 @@ const Categories = () => {
             </div>
             <div className="p-4">
               <p className="text-secondary-600 text-sm">
-                {category.description || 'Explore food in this category'}
+                {category.description || translate('common.explore_food_in_this_category')}
               </p>
               <div className="mt-2 flex items-center justify-between">
                 <span className="text-primary-500 font-semibold group-hover:text-primary-600">
-                  View menu →
+                  {translate('common.view_menu')} →
                 </span>
                 <span className="text-xs text-secondary-500">
-                  {category.products_count || 0} items
+                  {category.products_count || 0} {translate('order.items_count')}
                 </span>
               </div>
             </div>
@@ -105,10 +107,10 @@ const Categories = () => {
         <div className="text-center py-12">
           <div className="text-6xl mb-4 opacity-30">🍽️</div>
           <h3 className="text-xl font-semibold text-secondary-700 mb-2">
-            No categories found
+            {translate('common.no_categories_found')}
           </h3>
           <p className="text-secondary-500">
-            Please try again later
+            {translate('common.please_try_again_later')}
           </p>
         </div>
       )}

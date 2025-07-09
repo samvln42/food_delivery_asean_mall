@@ -1,3 +1,4 @@
+Key,Translation,Category
 # Common,,
 common.welcome,Welcome,common
 common.login,Login,common
@@ -18,7 +19,7 @@ common.yes,Yes,common
 common.no,No,common
 common.confirm,Confirm,common
 common.submit,Submit,common
-common.close,Close,common
+common.closed,Closed,common
 common.view,View,common
 common.details,Details,common
 common.status,Status,common
@@ -26,6 +27,94 @@ common.actions,Actions,common
 common.home,Home,common
 common.about,About,common
 common.contact,Contact,common
+common.order_now,Order now,common
+common.follow_us,Follow us,common
+common.popular_categories,Popular categories,common
+common.recommended_restaurants,Recommended restaurants,common
+common.special_restaurant,Special restaurant,common
+common.special,Special,common
+common.popular_restaurants,Popular restaurants,common
+common.view_all,View all,common
+common.why_choose_us,Why choose us,common
+common.open,Open,common
+common.delivery_time,30-45 min,common
+common.help,Help,common
+common.terms_of_service,Terms of service,common
+common.privacy_policy,Privacy policy,common
+common.quick_links,Quick links,common
+common.categories,Categories,common
+common.choose_your_favorite_restaurant,Choose your favorite restaurant,common
+common.choose_your_favorite_categories,Choose your favorite categories,common
+common.view_menu,View menu,common
+common.no_categories_found,No categories found,common
+common.please_try_again_later,Please try again later,common
+common.menu_in_this_category,Menu in this category,common
+common.out_of_stock,Out of stock,common
+common.view_this_restaurant,View this restaurant,common
+common.login_to_order,Login to order,common
+common.no_menu_in_this_category,No menu in this category,common
+common.try_choosing_another_category,Try choosing another category,common
+common.view_other_categories,View other categories,common
+common.no_restaurant_found,No restaurant found,common
+common.try_refreshing_the_page,Try refreshing the page,common
+common.dollars,Dollars,common
+common.not_specified,Not specified,common
+common.delivery,Delivery,common
+common.restaurants,restaurants,common
+common.address_not_specified,Address not specified,common
+common.is_closed,is closed,common
+common.no_menu,No menu,common
+common.no_reviews,No reviews,common
+common.restaurant_is_closed,Restaurant is closed,common
+common.all_products,All products,common
+common.choose_food_from_different_restaurants,Choose your favorite food from different restaurants,common
+common.search_for_products,Search for products,common
+common.all_categories,All categories,common
+common.all_restaurants,All restaurants,common
+common.clear_filters,Clear filters,common
+common.not_available,Not available,common
+common.previous,Previous,common
+common.next,Next,common
+common.no_products_found,No products found,common
+common.try_changing_the_search_or_filter,Try changing the search or filter,common
+common.unable_to_load_restaurant_list,Unable to load restaurant list,common
+common.unable_to_load_categories,Unable to load categories,common
+common.explore_food_in_this_category,Explore food in this category,common
+common.back_to_categories,Back to categories,common
+common.error_adding_to_cart,Error adding product to cart,common
+common.added_to_cart,Added "{product}" to cart!,common
+common.loading_restaurant_data,Loading restaurant data...,common
+common.back_to_restaurant_list,Back to restaurant list,common
+common.failed_to_load_data,Failed to load data,common
+common.failed_to_load_products,Failed to load products,common
+common.no_description,No description,common
+common.restaurant,Restaurant,common
+common.error_searching,Error searching,common
+common.all,All,common
+common.try_again,Try again,common
+common.refresh,Refresh,common 
+,,
+# Search,,
+search.search_for_restaurant_or_menu,Search for restaurant or menu,search
+search.enter_search_term,Enter search...,search
+search.search,Search,search
+search.search_type,Search type,search
+search.menu,Menu,search
+search.searching,Searching...,search
+search.search_results,Search results "{query}" ({count} results),search
+search.restaurants_results,Restaurant ({count} restaurants),search
+search.view_menu,View menu →,search
+search.menu_results,Menu ({count} results),search
+search.no_search_results,No search results,search
+search.try_different_search_or_change_type,Try a different search or change the search type,search
+search.enter_search_above_to_start,Enter a search above to start,search
+,,
+# Navigation,,
+nav.restaurants,Restaurants,navigation
+nav.categories,Categories,navigation
+nav.all_products,All Products,navigation
+nav.orders,Orders,navigation
+nav.favorites,Favorites,navigation
 ,,
 # Authentication,,
 auth.email,Email,auth
@@ -65,6 +154,11 @@ auth.address,Address,auth
 auth.role,Role,auth
 auth.customer,Customer,auth
 auth.restaurant,Restaurant,auth
+auth.not_logged_in,Not Logged In,auth
+auth.please_login,Please login,auth
+auth.user_id,User ID,auth
+auth.token,Token,auth
+auth.confirm_logout,Are you sure you want to log out?,auth
 ,,
 # Validation,,
 validation.required,This field is required,validation
@@ -87,6 +181,7 @@ restaurant.status,Status,restaurant
 restaurant.create,Create Restaurant,restaurant
 restaurant.edit,Edit Restaurant,restaurant
 restaurant.delete,Delete Restaurant,restaurant
+restaurant.orders,Restaurant Orders,restaurant
 ,,
 # Product,,
 product.name,Product Name,product
@@ -115,6 +210,39 @@ order.status.ready,Ready for Delivery,order
 order.status.delivering,Out for Delivery,order
 order.status.delivered,Delivered,order
 order.status.cancelled,Cancelled,order
+order.unable_to_load_history,Unable to load order history,order
+order.order_number,Order #{id},order
+order.history,Order History,order
+order.estimated_time,Estimated time:,order
+order.minutes,minutes,order
+order.tracking,Tracking,order
+order.next_step,Next step:,order
+order.completed_message,Order completed! Thank you for using our service!,order
+order.realtime_active,Real-time Active,order
+order.realtime_inactive,Real-time Inactive,order
+order.login_required_message,You need to log in to view order history and receive real-time updates (every 10 seconds),order
+order.from_multiple_restaurants,Order from {count} restaurants,order
+order.multi_restaurant_delivery,Order from multiple restaurants - items will be delivered together,order
+order.items_count,items,order
+order.subtotal,Subtotal,order
+order.delivery_fee,Delivery fee,order
+order.delivery_from_multiple,Delivery from {count} restaurants,order
+order.no_history,No order history,order
+order.no_history_message,You have not ordered food or there is no order in this category,order
+order.start_ordering,Start ordering,order
+order.choose_by_category,Choose by category,order
+order.status_updated,Order status updated!,order
+order.status.pending_desc,Order received,order
+order.status.paid,Paid,order
+order.status.paid_desc,Payment successful,order
+order.status.preparing_desc,Restaurant is preparing food,order
+order.status.ready_for_pickup,Ready for pickup,order
+order.status.ready_for_pickup_desc,Food is ready for pickup,order
+order.status.delivering_desc,Driver is delivering,order
+order.status.completed,Completed,order
+order.status.completed_desc,Delivery completed,order
+order.status.cancelled_desc,This order has been cancelled,order
+order.status_change_notification,Order #{orderId} changed to "{status}",order
 ,,
 # Cart,,
 cart.empty,Your cart is empty,cart
@@ -125,6 +253,48 @@ cart.checkout,Checkout,cart
 cart.total,Total,cart
 cart.items,Items in Cart,cart
 cart.add_items,Add items to cart,cart
+cart.cart,Cart,cart
+cart.order_from_multiple_restaurants,Order from multiple restaurants,cart
+cart.restaurants,Restaurants,cart
+cart.you_are_ordering_food_from,You are ordering food from,cart
+cart.there_are_closed_restaurants_in_the_cart,There are closed restaurants in the cart,cart
+cart.please_remove_the_items_from_the_closed_restaurants_before_ordering,Please remove the items from the closed restaurants before ordering,cart
+cart.clear_all,Clear all,cart
+cart.delivery_address,Delivery address,cart
+cart.special_instructions,Special instructions,cart
+cart.enter_the_delivery_address_in_detail,"Enter the delivery address in detail, such as house number, street, district, province, postal code",cart
+cart.special_instructions_detail,"For example, not spicy, no vegetables, add a spoon",cart
+cart.payment_information,Payment information,cart
+cart.select_payment_method,Select payment method,cart
+cart.bank_transfer,Bank transfer,cart
+cart.qr_payment,Qr payment,cart
+cart.bank_account_information,Bank account information,cart
+cart.bank,Bank,cart
+cart.bank_account_number,Bank account number,cart
+cart.qr_code_for_payment,Qr code for payment,cart
+cart.scan_qr_code_to_pay,Scan qr code to pay,cart
+cart.proof_of_payment,Proof of payment,cart
+cart.click_to_change_file,Click to change file,cart
+cart.click_to_attach_proof_of_payment,Click to attach proof of payment,cart
+cart.supports_files_up_to_5mb,"Supports jpg, png files up to 5MB",cart
+cart.note,Note,cart
+cart.attach_proof,Please attach proof of payment after payment,cart
+cart.confirmed_after_check_the_payment,The order will be confirmed after we check the payment,cart
+cart.order_summary,Order summary,cart
+cart.delivery_fee_is,and the delivery fee is,cart
+cart.delivery_fee,Delivery fee,cart
+cart.cannot_order_closed_restaurants,Cannot order (closed restaurants),cart
+cart.please_enter_the_delivery_address,Please enter the delivery address,cart
+cart.processing,Processing….,cart
+cart.please_attach_proof_of_payment,Please attach proof of payment,cart
+cart.order_from_restaurants,Order from restaurants,cart
+cart.back_to_choose_restaurant,Back to choose restaurant,cart
+cart.start_ordering_from_favorite_restaurants,Start ordering from your favorite restaurants,cart
+cart.choose_restaurant,Choose restaurant,cart
+cart.restaurant,Restaurant,cart
+cart.bank_account_name,Bank Account Name,cart
+cart.first_restaurant,First restaurant,cart
+cart.additional_restaurant,Additional restaurant,cart
 ,,
 # Profile,,
 profile.personal_info,Personal Information,profile
@@ -164,30 +334,37 @@ admin.categories,Categories Management,admin
 admin.orders,Orders Management,admin
 admin.settings,System Settings,admin
 admin.notifications,System Notifications,admin
-
-# Favorites
+,,
+# Payment Methods,,
+payment.cash,Cash,payment
+payment.credit_card,Credit Card,payment
+payment.debit_card,Debit Card,payment
+payment.promptpay,PromptPay,payment
+payment.bank_transfer,Bank Transfer,payment
+,,
+# Favorites,,
 favorites.title,Favorite list,favorites
 favorites.empty,No favorite list,favorites
 favorites.add,Add to favorites,favorites
 favorites.remove,Remove from favorites,favorites
 favorites.empty_message,Add your favorite restaurant or menu to the favorite list,favorites
 favorites.search_restaurant,Search for restaurant,favorites
-
-# Address
+,,
+# Address,,
 address.title,My address,address
 address.empty,No address,address
 address.add,Add new address,address
 address.empty_message,Add your address for convenient delivery,address
 address.development_notice,Feature to manage address is under development,address
-
-# Settings
+,,
+# Settings,,
 settings.general,General Settings,settings
 settings.account,Account Settings,settings
 settings.privacy,Privacy Settings,settings
 settings.notifications,Notification Settings,settings
 settings.language,Language Settings,settings
 settings.appearance,Appearance Settings,settings
-
+,,
 # About,,
 about.title,About Us,about
 about.mission,Our Mission,about
@@ -207,7 +384,7 @@ about.service_quality,Good quality,about
 about.service_quality_text,Restaurant with good quality through selection,about
 about.service_payment,Easy payment,about
 about.service_payment_text,Support multiple payment methods,about
-
+,,
 # Contact,,
 contact.title,Contact us,contact
 contact.phone,Phone,contact
@@ -229,7 +406,7 @@ contact.success,Message sent successfully. We will contact you within 24 hours,c
 contact.error,Error sending message. Please try again,contact
 contact.fill_all,Please fill in all the information,contact
 contact.other_ways,Other ways,contact
-
+,,
 # Help,,
 help.title,Help Center,help
 help.faq,Frequently Asked Questions (FAQ),help
@@ -240,14 +417,14 @@ help.how_to_pay_text,We accept payment via credit card debit card bank transfer 
 help.delivery_time,Delivery time,help
 help.delivery_time_text,Normally it takes 30-45 minutes depending on the distance and the complexity of the order,help
 help.track_order,How to track the order,help
-help.track_order_text,You can track the order status in the "Order History" page or via email and SMS,help
+help.track_order_text,"You can track the order status in the ""Order History"" page or via email and SMS",help
 help.cancel_order,How to cancel the order,help
 help.cancel_order_text,You can cancel the order within 5 minutes after placing the order. If you exceed this time please contact the customer service,help
 help.delivery_fee,Delivery fee,help
 help.delivery_fee_text,The delivery fee is 15 baht and may vary depending on the distance. For orders over 200 baht delivery is free,help
 help.contact_us,Contact us,help
 help.contact_us_text,If you don't find the answer you're looking for please contact us at:\nPhone: {phone} | Email: {email},help 
-
+,,
 # Terms,,
 terms.title,Terms of Service,terms
 terms.acceptance,1. Acceptance of Terms,terms
@@ -266,7 +443,7 @@ terms.modification,7. Modification of Terms,terms
 terms.modification_text,We reserve the right to modify these terms at any time with advance notice of 30 days,terms
 terms.effective_date,Effective date,terms
 terms.contact_us,Contact us,terms
-
+,,
 # Privacy,,
 privacy.title,Privacy Policy,privacy
 privacy.intro,Introduction,privacy

@@ -1,7 +1,9 @@
 import { useState, useCallback } from 'react';
+import { useLanguage } from '../contexts/LanguageContext';
 
 export const useNotification = () => {
   const [notifications, setNotifications] = useState([]);
+  const { translate } = useLanguage();
 
   const addNotification = useCallback((notification) => {
     const id = Date.now();
@@ -28,39 +30,39 @@ export const useNotification = () => {
   const success = useCallback((message, options = {}) => {
     return addNotification({
       type: 'success',
-      title: options.title || 'Success',
+      title: options.title || translate('notification.success'),
       message,
       ...options
     });
-  }, [addNotification]);
+  }, [addNotification, translate]);
 
   const error = useCallback((message, options = {}) => {
     return addNotification({
       type: 'error',
-      title: options.title || 'Error',
+      title: options.title || translate('notification.error'),
       message,
       duration: options.duration || 8000, // Error shows longer
       ...options
     });
-  }, [addNotification]);
+  }, [addNotification, translate]);
 
   const warning = useCallback((message, options = {}) => {
     return addNotification({
       type: 'warning',
-      title: options.title || 'Warning',
+      title: options.title || translate('notification.warning'),
       message,
       ...options
     });
-  }, [addNotification]);
+  }, [addNotification, translate]);
 
   const info = useCallback((message, options = {}) => {
     return addNotification({
       type: 'info',
-      title: options.title || 'Information',
+      title: options.title || translate('notification.info'),
       message,
       ...options
     });
-  }, [addNotification]);
+  }, [addNotification, translate]);
 
   return {
     notifications,
@@ -72,7 +74,7 @@ export const useNotification = () => {
   };
 };
 
-// Updated toast object for better UX with English messages
+// Updated toast object for better UX with translation support
 export const toast = {
   success: (message, options = {}) => {
     // Use proper toast notification if available
@@ -80,32 +82,36 @@ export const toast = {
       return window.showNotification('success', message, options);
     }
     
-    // Fallback for better UX
     console.log('✅ Success:', message);
     
     // Create temporary visual notification
     const notification = document.createElement('div');
-    notification.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 transform transition-all duration-300';
+    notification.className = 'fixed top-0 left-0 right-0 bg-green-500 text-white p-4 flex items-center justify-between z-50';
     notification.innerHTML = `
       <div class="flex items-center">
-        <span class="mr-2">✅</span>
-        <div>
-          <div class="font-semibold">Success</div>
-          <div class="text-sm">${message}</div>
-        </div>
+        <span class="mr-2">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
+          </svg>
+        </span>
+        <span>${message}</span>
       </div>
+      <button class="ml-4 text-white hover:text-gray-200" onclick="this.parentElement.remove()">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+        </svg>
+      </button>
     `;
     
     document.body.appendChild(notification);
     
-    setTimeout(() => {
-      notification.style.transform = 'translateX(100%)';
+    if (options.duration !== 0) {
       setTimeout(() => {
         if (notification.parentNode) {
-          notification.parentNode.removeChild(notification);
+          notification.remove();
         }
-      }, 300);
-    }, options.duration || 3000);
+      }, options.duration || 5000);
+    }
   },
 
   error: (message, options = {}) => {
@@ -116,27 +122,32 @@ export const toast = {
     console.error('❌ Error:', message);
     
     const notification = document.createElement('div');
-    notification.className = 'fixed top-4 right-4 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 transform transition-all duration-300';
+    notification.className = 'fixed top-0 left-0 right-0 bg-red-500 text-white p-4 flex items-center justify-between z-50';
     notification.innerHTML = `
       <div class="flex items-center">
-        <span class="mr-2">❌</span>
-        <div>
-          <div class="font-semibold">Error</div>
-          <div class="text-sm">${message}</div>
-        </div>
+        <span class="mr-2">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
+          </svg>
+        </span>
+        <span>${message}</span>
       </div>
+      <button class="ml-4 text-white hover:text-gray-200" onclick="this.parentElement.remove()">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+        </svg>
+      </button>
     `;
     
     document.body.appendChild(notification);
     
-    setTimeout(() => {
-      notification.style.transform = 'translateX(100%)';
+    if (options.duration !== 0) {
       setTimeout(() => {
         if (notification.parentNode) {
-          notification.parentNode.removeChild(notification);
+          notification.remove();
         }
-      }, 300);
-    }, options.duration || 5000);
+      }, options.duration || 5000);
+    }
   },
 
   warning: (message, options = {}) => {
@@ -147,27 +158,32 @@ export const toast = {
     console.warn('⚠️ Warning:', message);
     
     const notification = document.createElement('div');
-    notification.className = 'fixed top-4 right-4 bg-yellow-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 transform transition-all duration-300';
+    notification.className = 'fixed top-0 left-0 right-0 bg-yellow-500 text-white p-4 flex items-center justify-between z-50';
     notification.innerHTML = `
       <div class="flex items-center">
-        <span class="mr-2">⚠️</span>
-        <div>
-          <div class="font-semibold">Warning</div>
-          <div class="text-sm">${message}</div>
-        </div>
+        <span class="mr-2">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
+          </svg>
+        </span>
+        <span>${message}</span>
       </div>
+      <button class="ml-4 text-white hover:text-gray-200" onclick="this.parentElement.remove()">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+        </svg>
+      </button>
     `;
     
     document.body.appendChild(notification);
     
-    setTimeout(() => {
-      notification.style.transform = 'translateX(100%)';
+    if (options.duration !== 0) {
       setTimeout(() => {
         if (notification.parentNode) {
-          notification.parentNode.removeChild(notification);
+          notification.remove();
         }
-      }, 300);
-    }, options.duration || 4000);
+      }, options.duration || 5000);
+    }
   },
 
   info: (message, options = {}) => {
@@ -178,33 +194,38 @@ export const toast = {
     console.info('ℹ️ Information:', message);
     
     const notification = document.createElement('div');
-    notification.className = 'fixed top-4 right-4 bg-blue-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 transform transition-all duration-300';
+    notification.className = 'fixed top-0 left-0 right-0 bg-blue-500 text-white p-4 flex items-center justify-between z-50';
     notification.innerHTML = `
       <div class="flex items-center">
-        <span class="mr-2">ℹ️</span>
-        <div>
-          <div class="font-semibold">Information</div>
-          <div class="text-sm">${message}</div>
-        </div>
+        <span class="mr-2">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
+          </svg>
+        </span>
+        <span>${message}</span>
       </div>
+      <button class="ml-4 text-white hover:text-gray-200" onclick="this.parentElement.remove()">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+        </svg>
+      </button>
     `;
     
     document.body.appendChild(notification);
     
-    setTimeout(() => {
-      notification.style.transform = 'translateX(100%)';
+    if (options.duration !== 0) {
       setTimeout(() => {
         if (notification.parentNode) {
-          notification.parentNode.removeChild(notification);
+          notification.remove();
         }
-      }, 300);
-    }, options.duration || 3000);
+      }, options.duration || 5000);
+    }
   }
 };
 
-// Helper function to parse API errors with English messages
-export const parseApiError = (error) => {
-  let message = 'An unknown error occurred';
+// Helper function to parse API errors with translation support
+export const parseApiError = (error, translate) => {
+  let message = translate ? translate('error.unknown') : 'An unknown error occurred';
   let details = null;
 
   if (error.response?.data) {
@@ -237,38 +258,29 @@ export const parseApiError = (error) => {
         }
       });
       if (errors.length > 0) {
-        message = `Invalid data:\n${errors.join('\n')}`;
+        message = translate 
+          ? translate('error.invalid_data') + `:\n${errors.join('\n')}`
+          : `Invalid data:\n${errors.join('\n')}`;
       }
     }
   }
   // Network errors
   else if (error.code === 'NETWORK_ERROR' || !error.response) {
-    message = 'Unable to connect to server. Please check your internet connection';
+    message = translate ? translate('error.network') : 'Unable to connect to server. Please check your internet connection';
   }
   // HTTP status error messages
   else if (error.response?.status) {
-    switch (error.response.status) {
-      case 400:
-        message = 'Invalid request data';
-        break;
-      case 401:
-        message = 'Unauthorized access. Please login again';
-        break;
-      case 403:
-        message = 'You do not have permission to perform this action';
-        break;
-      case 404:
-        message = 'Requested resource not found';
-        break;
-      case 409:
-        message = 'Data already exists in the system';
-        break;
-      case 500:
-        message = 'Internal server error occurred';
-        break;
-      default:
-        message = `Error occurred (${error.response.status})`;
-    }
+    const statusMessages = {
+      400: translate ? translate('error.bad_request') : 'Invalid request data',
+      401: translate ? translate('error.unauthorized') : 'Unauthorized access. Please login again',
+      403: translate ? translate('error.forbidden') : 'You do not have permission to perform this action',
+      404: translate ? translate('error.not_found') : 'Requested resource not found',
+      409: translate ? translate('error.conflict') : 'Data already exists in the system',
+      500: translate ? translate('error.server_error') : 'Internal server error occurred'
+    };
+    
+    message = statusMessages[error.response.status] || 
+              (translate ? translate('error.http_error', { status: error.response.status }) : `Error occurred (${error.response.status})`);
   }
 
   return { message, details, statusCode: error.response?.status };

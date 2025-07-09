@@ -242,7 +242,11 @@ export const appSettingsService = {
       });
     }
     return api.patch(`/app-settings/${id}/`, data);
-  }
+  },
+
+  getLanguages: async () => {
+    return await api.get('/api/languages/');
+  },
 };
 
 export default api; 

@@ -158,8 +158,8 @@ const cartReducer = (state, action) => {
 const calculateMultiRestaurantDeliveryFee = (restaurants) => {
   const restaurantCount = Object.keys(restaurants).length;
   if (restaurantCount === 0) return 0;
-  if (restaurantCount === 1) return 30; // ร้านเดียว
-  return 30 + ((restaurantCount - 1) * 20); // ร้านแรก 30 บาท, ร้านถัดไป 20 บาทต่อร้าน
+  if (restaurantCount === 1) return 2; // ร้านเดียว
+  return 2 + ((restaurantCount - 1) * 1); // ร้านแรก 2 ดอลลาร์, ร้านถัดไป 1 ดอลลาร์ต่อร้าน
 };
 
 // คำนวณยอดรวม

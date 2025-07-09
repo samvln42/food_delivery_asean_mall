@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
+import { useLanguage } from '../../contexts/LanguageContext';
+import { toast } from '../../hooks/useNotification';
 
 const RestaurantOrders = () => {
   const { user } = useAuth();
+  const { translate } = useLanguage();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
@@ -54,10 +57,17 @@ const RestaurantOrders = () => {
             : order
         )
       );
-      alert(`Updated order ${orderId} status to ${getStatusDisplay(newStatus).text}`);
+      
+      // แสดงการแจ้งเตือนสำเร็จ
+      const statusText = translate(`order.status.${newStatus}`);
+      const successMessage = translate("order.status_change_notification", {
+        orderId: orderId,
+        status: statusText
+      });
+      toast.success(successMessage);
     } catch (error) {
       console.error('Error updating order status:', error);
-      alert('Failed to update order status');
+      toast.error(translate('order.update_status_failed'));
     }
   };
 

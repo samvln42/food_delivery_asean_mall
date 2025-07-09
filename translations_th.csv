@@ -1,0 +1,485 @@
+Key,Translation,Category
+# Common,,
+common.welcome,ยินดีต้อนรับ,common
+common.login,เข้าสู่ระบบ,common
+common.register,ลงทะเบียน,common
+common.logout,ออกจากระบบ,common
+common.profile,โปรไฟล์,common
+common.settings,ตั้งค่า,common
+common.save,บันทึก,common
+common.cancel,ยกเลิก,common
+common.delete,ลบ,common
+common.edit,แก้ไข,common
+common.search,ค้นหา,common
+common.back,ย้อนกลับ,common
+common.loading,กำลังโหลด...,common
+common.error,ข้อผิดพลาด,common
+common.success,สำเร็จ,common
+common.yes,ใช่,common
+common.no,ไม่,common
+common.confirm,ยืนยัน,common
+common.submit,ส่ง,common
+common.closed,ปิด,common
+common.view,ดู,common
+common.details,รายละเอียด,common
+common.status,สถานะ,common
+common.actions,การดำเนินการ,common
+common.home,หน้าแรก,common
+common.about,เกี่ยวกับเรา,common
+common.contact,ติดต่อ,common
+common.order_now,สั่งอาหารเลย,common
+common.follow_us,ติดตามเรา,common
+common.popular_categories,หมวดหมู่ยอดนิยม,common
+common.recommended_restaurants,ร้านอาหารแนะนำ,common
+common.special_restaurant,ร้านอาหารพิเศษ,common
+common.special,พิเศษ,common
+common.popular_restaurants,ร้านอาหารยอดนิยม,common
+common.view_all,ดูทั้งหมด,common
+common.why_choose_us,ทำไมต้องเลือกเรา,common
+common.open,เปิด,common
+common.delivery_time,30-45 นาที,common
+common.help,ช่วยเหลือ,common
+common.terms_of_service,เงื่อนไขการให้บริการ,common
+common.privacy_policy,นโยบายความเป็นส่วนตัว,common
+common.quick_links,ลิงก์ด่วน,common
+common.categories,หมวดหมู่,common
+common.choose_your_favorite_restaurant,เลือกร้านอาหารที่คุณชื่นชอบ,common
+common.choose_your_favorite_categories,เลือกหมวดหมู่ที่คุณชื่นชอบ,common
+common.view_menu,ดูเมนู,common
+common.no_categories_found,ไม่พบหมวดหมู่,common
+common.please_try_again_later,กรุณาลองใหม่อีกครั้งในภายหลัง,common
+common.menu_in_this_category,เมนูในหมวดหมู่นี้,common
+common.out_of_stock,สินค้าหมด,common
+common.view_this_restaurant,ดูร้านอาหารนี้,common
+common.login_to_order,เข้าสู่ระบบเพื่อสั่งอาหาร,common
+common.no_menu_in_this_category,ไม่มีเมนูในหมวดหมู่นี้,common
+common.try_choosing_another_category,ลองเลือกหมวดหมู่อื่น,common
+common.view_other_categories,ดูหมวดหมู่อื่น,common
+common.no_restaurant_found,ไม่พบร้านอาหาร,common
+common.try_refreshing_the_page,ลองรีเฟรชหน้านี้,common
+common.dollars,บาท,common
+common.not_specified,ไม่ระบุ,common
+common.delivery,จัดส่ง,common
+common.restaurants,ร้านอาหาร,common
+common.address_not_specified,ไม่ระบุที่อยู่,common
+common.is_closed,ปิดแล้ว,common
+common.no_menu,ไม่มีเมนู,common
+common.no_reviews,ไม่มีรีวิว,common
+common.restaurant_is_closed,ร้านอาหารปิดแล้ว,common
+common.all_products,สินค้าทั้งหมด,common
+common.choose_food_from_different_restaurants,เลือกอาหารที่คุณชื่นชอบจากร้านอาหารต่างๆ,common
+common.search_for_products,ค้นหาสินค้า,common
+common.all_categories,หมวดหมู่ทั้งหมด,common
+common.all_restaurants,ร้านอาหารทั้งหมด,common
+common.clear_filters,ล้างตัวกรอง,common
+common.not_available,ไม่พร้อมใช้งาน,common
+common.previous,ก่อนหน้า,common
+common.next,ถัดไป,common
+common.no_products_found,ไม่พบสินค้า,common
+common.try_changing_the_search_or_filter,ลองเปลี่ยนการค้นหาหรือตัวกรอง,common
+common.unable_to_load_restaurant_list,ไม่สามารถโหลดรายการร้านอาหารได้,common
+common.unable_to_load_categories,ไม่สามารถโหลดหมวดหมู่ได้,common
+common.explore_food_in_this_category,สำรวจอาหารในหมวดหมู่นี้,common
+common.back_to_categories,กลับไปยังหมวดหมู่,common
+common.error_adding_to_cart,เกิดข้อผิดพลาดในการเพิ่มสินค้าลงตะกร้า,common
+common.added_to_cart,เพิ่ม "{product}" ลงในตะกร้าแล้ว!,common
+common.loading_restaurant_data,กำลังโหลดข้อมูลร้านอาหาร...,common
+common.back_to_restaurant_list,กลับไปยังรายการร้านอาหาร,common
+common.failed_to_load_data,ไม่สามารถโหลดข้อมูลได้,common
+common.failed_to_load_products,ไม่สามารถโหลดสินค้าได้,common
+common.no_description,ไม่มีคำอธิบาย,common
+common.restaurant,ร้านอาหาร,common
+common.error_searching,เกิดข้อผิดพลาดในการค้นหา,common
+common.all,ทั้งหมด,common
+common.try_again,ลองใหม่อีกครั้ง,common
+common.refresh,รีเฟรช,common 
+,,
+# Search,,
+search.search_for_restaurant_or_menu,ค้นหาร้านอาหารหรือเมนู,search
+search.enter_search_term,ป้อนคำค้นหา...,search
+search.search,ค้นหา,search
+search.search_type,ประเภทการค้นหา,search
+search.menu,เมนู,search
+search.searching,กำลังค้นหา...,search
+search.search_results,ผลการค้นหา "{query}" ({count} ผลลัพธ์),search
+search.restaurants_results,ร้านอาหาร ({count} ร้าน),search
+search.view_menu,ดูเมนู →,search
+search.menu_results,เมนู ({count} รายการ),search
+search.no_search_results,ไม่พบผลการค้นหา,search
+search.try_different_search_or_change_type,ลองค้นหาด้วยคำอื่นหรือเปลี่ยนประเภทการค้นหา,search
+search.enter_search_above_to_start,ป้อนคำค้นหาด้านบนเพื่อเริ่มต้น,search
+,,
+# Navigation,,
+nav.restaurants,ร้านอาหาร,navigation
+nav.categories,หมวดหมู่,navigation
+nav.all_products,สินค้าทั้งหมด,navigation
+nav.orders,คำสั่งซื้อ,navigation
+nav.favorites,รายการโปรด,navigation 
+,,
+# Authentication,,
+auth.email,อีเมล,auth
+auth.password,รหัสผ่าน,auth
+auth.confirm_password,ยืนยันรหัสผ่าน,auth
+auth.forgot_password,ลืมรหัสผ่าน?,auth
+auth.reset_password,รีเซ็ตรหัสผ่าน,auth
+auth.change_password,เปลี่ยนรหัสผ่าน,auth
+auth.login_success,เข้าสู่ระบบสำเร็จ,auth
+auth.register_success,ลงทะเบียนสำเร็จ,auth
+auth.logout_success,ออกจากระบบสำเร็จ,auth
+auth.verify_email,ยืนยันอีเมล,auth
+auth.email_verification,การยืนยันอีเมล,auth
+auth.email_verified,ยืนยันอีเมลสำเร็จ,auth
+auth.google_login,เข้าสู่ระบบด้วย Google,auth
+auth.verification_sent,ส่งอีเมลยืนยันแล้ว,auth
+auth.verification_required,ต้องยืนยันอีเมล,auth
+auth.username,ชื่อผู้ใช้ / อีเมล,auth
+auth.remember_me,จดจำการเข้าสู่ระบบ,auth
+auth.or,หรือ,auth
+auth.register_now,ลงทะเบียนเลย,auth
+auth.login_now,เข้าสู่ระบบเลย,auth
+auth.verify_email_title,ยืนยันอีเมลของคุณ,auth
+auth.verify_email_message,เราได้ส่งรหัสยืนยันไปที่ {email} กรุณาตรวจสอบอีเมลและป้อนรหัสยืนยันด้านล่าง,auth
+auth.verification_code,รหัสยืนยัน,auth
+auth.verification_code_placeholder,ป้อนรหัสยืนยันจากอีเมล,auth
+auth.verification_code_format,รหัสยืนยันจะมีรูปแบบดังนี้: XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX,auth
+auth.verifying,กำลังยืนยันอีเมล...,auth
+auth.verify_success,ยืนยันอีเมลสำเร็จ! คุณสามารถเข้าสู่ระบบได้แล้ว,auth
+auth.resend_code,ส่งรหัสยืนยันอีกครั้ง,auth
+auth.resend_success,ส่งอีเมลยืนยันไปที่ {email} อีกครั้งแล้ว,auth
+auth.resend_countdown,คุณสามารถส่งอีกครั้งได้ใน {seconds} วินาที,auth
+auth.agree_terms,ฉันยอมรับข้อกำหนดและเงื่อนไข,auth
+auth.required_field,ฟิลด์ที่จำเป็น,auth
+auth.phone,เบอร์โทรศัพท์,auth
+auth.address,ที่อยู่,auth
+auth.role,บทบาท,auth
+auth.customer,ลูกค้า,auth
+auth.restaurant,ร้านอาหาร,auth
+auth.not_logged_in,ไม่ได้เข้าสู่ระบบ,auth
+auth.please_login,กรุณาเข้าสู่ระบบ,auth
+auth.user_id,รหัสผู้ใช้,auth
+auth.token,โทเค็น,auth 
+auth.confirm_logout,คุณต้องการออกจากระบบหรือไม่?,auth
+,,
+# Validation,,
+validation.required,ฟิลด์นี้จำเป็น,validation
+validation.email_invalid,อีเมลไม่ถูกต้อง,validation
+validation.password_mismatch,รหัสผ่านไม่ตรงกัน,validation
+validation.password_length,รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร,validation
+validation.invalid_credentials,ข้อมูลเข้าสู่ระบบไม่ถูกต้อง,validation
+,,
+# Restaurant,,
+restaurant.name,ชื่อร้านอาหาร,restaurant
+restaurant.description,คำอธิบาย,restaurant
+restaurant.address,ที่อยู่,restaurant
+restaurant.phone,เบอร์โทรศัพท์,restaurant
+restaurant.opening_hours,เวลาเปิดทำการ,restaurant
+restaurant.categories,หมวดหมู่,restaurant
+restaurant.menu,เมนู,restaurant
+restaurant.reviews,รีวิว,restaurant
+restaurant.rating,คะแนน,restaurant
+restaurant.status,สถานะ,restaurant
+restaurant.create,สร้างร้านอาหาร,restaurant
+restaurant.edit,แก้ไขร้านอาหาร,restaurant
+restaurant.delete,ลบร้านอาหาร,restaurant
+restaurant.orders,คำสั่งซื้อของร้านอาหาร,restaurant 
+,,
+# Product,,
+product.name,ชื่อสินค้า,product
+product.description,คำอธิบาย,product
+product.price,ราคา,product
+product.category,หมวดหมู่,product
+product.image,รูปภาพ,product
+product.quantity,จำนวน,product
+product.availability,ความพร้อมใช้งาน,product
+product.create,สร้างสินค้า,product
+product.edit,แก้ไขสินค้า,product
+product.delete,ลบสินค้า,product
+,,
+# Order,,
+order.number,หมายเลขคำสั่งซื้อ,order
+order.status,สถานะคำสั่งซื้อ,order
+order.total,ยอดรวม,order
+order.items,รายการสินค้า,order
+order.date,วันที่สั่งซื้อ,order
+order.delivery_address,ที่อยู่จัดส่ง,order
+order.payment_method,วิธีการชำระเงิน,order
+order.status.pending,รอดำเนินการ,order
+order.status.pending_desc,ได้รับคำสั่งซื้อแล้ว,order
+order.status.confirmed,ยืนยันแล้ว,order
+order.status.paid,ชำระเงินแล้ว,order
+order.status.paid_desc,การชำระเงินสำเร็จ,order
+order.status.preparing,กำลังเตรียมอาหาร,order
+order.status.preparing_desc,ร้านอาหารกำลังเตรียมอาหาร,order
+order.status.ready,พร้อมจัดส่ง,order
+order.status.ready_for_pickup,พร้อมรับสินค้า,order
+order.status.ready_for_pickup_desc,อาหารพร้อมให้รับแล้ว,order
+order.status.delivering,กำลังจัดส่ง,order
+order.status.delivering_desc,คนขับกำลังจัดส่ง,order
+order.status.delivered,จัดส่งแล้ว,order
+order.status.completed,เสร็จสมบูรณ์,order
+order.status.completed_desc,จัดส่งเสร็จสมบูรณ์,order
+order.status.cancelled,ยกเลิกแล้ว,order
+order.status.cancelled_desc,คำสั่งซื้อนี้ถูกยกเลิก,order
+order.update_status_failed,ไม่สามารถอัปเดตสถานะคำสั่งซื้อได้,order
+order.unable_to_load_history,ไม่สามารถโหลดประวัติคำสั่งซื้อได้,order
+order.order_number,คำสั่งซื้อ #{id},order
+order.history,ประวัติคำสั่งซื้อ,order
+order.estimated_time,เวลาโดยประมาณ:,order
+order.minutes,นาที,order
+order.tracking,ติดตามสถานะ,order
+order.next_step,ขั้นตอนถัดไป:,order
+order.completed_message,คำสั่งซื้อเสร็จสมบูรณ์! ขอบคุณที่ใช้บริการของเรา!,order
+order.realtime_active,การอัพเดทแบบเรียลไทม์เปิดใช้งาน,order
+order.realtime_inactive,การอัพเดทแบบเรียลไทม์ปิดใช้งาน,order
+order.login_required_message,คุณต้องเข้าสู่ระบบเพื่อดูประวัติคำสั่งซื้อและรับการอัพเดทแบบเรียลไทม์ (ทุก 10 วินาที),order
+order.from_multiple_restaurants,คำสั่งซื้อจาก {count} ร้านอาหาร,order
+order.multi_restaurant_delivery,คำสั่งซื้อจากหลายร้านอาหาร - สินค้าจะถูกจัดส่งพร้อมกัน,order
+order.items_count,รายการ,order
+order.subtotal,ยอดรวมย่อย,order
+order.delivery_fee,ค่าจัดส่ง,order
+order.delivery_from_multiple,จัดส่งจาก {count} ร้านอาหาร,order
+order.no_history,ไม่มีประวัติคำสั่งซื้อ,order
+order.no_history_message,คุณยังไม่เคยสั่งอาหารหรือไม่มีคำสั่งซื้อในหมวดหมู่นี้,order
+order.start_ordering,เริ่มสั่งอาหาร,order
+order.choose_by_category,เลือกตามหมวดหมู่,order
+order.status_updated,อัพเดทสถานะคำสั่งซื้อแล้ว!,order
+order.status_change_notification,คำสั่งซื้อ #{orderId} เปลี่ยนเป็น "{status}",order
+,,
+# Notification,,
+notification.success,สำเร็จ,notification
+notification.error,ข้อผิดพลาด,notification
+notification.warning,คำเตือน,notification
+notification.info,ข้อมูล,notification
+,,
+# Error Messages,,
+error.unknown,เกิดข้อผิดพลาดที่ไม่ทราบสาเหตุ,error
+error.invalid_data,ข้อมูลไม่ถูกต้อง,error
+error.network,ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้ กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ต,error
+error.bad_request,ข้อมูลคำขอไม่ถูกต้อง,error
+error.unauthorized,ไม่มีสิทธิ์เข้าถึง กรุณาเข้าสู่ระบบอีกครั้ง,error
+error.forbidden,คุณไม่มีสิทธิ์ดำเนินการนี้,error
+error.not_found,ไม่พบข้อมูลที่ต้องการ,error
+error.conflict,ข้อมูลนี้มีอยู่ในระบบแล้ว,error
+error.server_error,เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์,error
+error.http_error,เกิดข้อผิดพลาด ({status}),error
+,,
+# Cart,,
+cart.empty,ตะกร้าของคุณว่างเปล่า,cart
+cart.add,เพิ่มลงตะกร้า,cart
+cart.remove,นำออกจากตะกร้า,cart
+cart.clear,ล้างตะกร้า,cart
+cart.checkout,ชำระเงิน,cart
+cart.total,ยอดรวม,cart
+cart.items,สินค้าในตะกร้า,cart
+cart.add_items,เพิ่มสินค้าลงตะกร้า,cart
+cart.cart,ตะกร้า,cart
+cart.order_from_multiple_restaurants,สั่งอาหารจากหลายร้าน,cart
+cart.restaurants,ร้านอาหาร,cart
+cart.you_are_ordering_food_from,คุณกำลังสั่งอาหารจาก,cart
+cart.there_are_closed_restaurants_in_the_cart,มีร้านอาหารที่ปิดในตะกร้า,cart
+cart.please_remove_the_items_from_the_closed_restaurants_before_ordering,กรุณานำสินค้าจากร้านอาหารที่ปิดออกก่อนสั่งซื้อ,cart
+cart.clear_all,ล้างทั้งหมด,cart
+cart.delivery_address,ที่อยู่จัดส่ง,cart
+cart.special_instructions,คำแนะนำพิเศษ,cart
+cart.enter_the_delivery_address_in_detail,"กรุณากรอกที่อยู่จัดส่งโดยละเอียด เช่น บ้านเลขที่ ถนน เขต จังหวัด รหัสไปรษณีย์",cart
+cart.special_instructions_detail,"เช่น ไม่เผ็ด ไม่ใส่ผัก เพิ่มช้อน",cart
+cart.payment_information,ข้อมูลการชำระเงิน,cart
+cart.select_payment_method,เลือกวิธีการชำระเงิน,cart
+cart.bank_transfer,โอนเงินผ่านธนาคาร,cart
+cart.qr_payment,ชำระเงินผ่าน QR,cart
+cart.bank_account_information,ข้อมูลบัญชีธนาคาร,cart
+cart.bank,ธนาคาร,cart
+cart.bank_account_number,เลขที่บัญชี,cart
+cart.qr_code_for_payment,QR code สำหรับชำระเงิน,cart
+cart.scan_qr_code_to_pay,สแกน QR code เพื่อชำระเงิน,cart
+cart.proof_of_payment,หลักฐานการชำระเงิน,cart
+cart.click_to_change_file,คลิกเพื่อเปลี่ยนไฟล์,cart
+cart.click_to_attach_proof_of_payment,คลิกเพื่อแนบหลักฐานการชำระเงิน,cart
+cart.supports_files_up_to_5mb,"รองรับไฟล์ jpg, png ขนาดไม่เกิน 5MB",cart
+cart.note,หมายเหตุ,cart
+cart.attach_proof,กรุณาแนบหลักฐานการชำระเงินหลังจากชำระเงินแล้ว,cart
+cart.confirmed_after_check_the_payment,คำสั่งซื้อจะได้รับการยืนยันหลังจากที่เราตรวจสอบการชำระเงินแล้ว,cart
+cart.order_summary,สรุปคำสั่งซื้อ,cart
+cart.delivery_fee_is,และค่าจัดส่งคือ,cart
+cart.delivery_fee,ค่าจัดส่ง,cart
+cart.cannot_order_closed_restaurants,ไม่สามารถสั่งซื้อได้ (ร้านปิด),cart
+cart.please_enter_the_delivery_address,กรุณากรอกที่อยู่จัดส่ง,cart
+cart.processing,กำลังดำเนินการ....,cart
+cart.please_attach_proof_of_payment,กรุณาแนบหลักฐานการชำระเงิน,cart
+cart.order_from_restaurants,สั่งอาหารจากร้านอาหาร,cart
+cart.back_to_choose_restaurant,กลับไปเลือกร้านอาหาร,cart
+cart.start_ordering_from_favorite_restaurants,เริ่มสั่งอาหารจากร้านอาหารที่คุณชื่นชอบ,cart
+cart.choose_restaurant,เลือกร้านอาหาร,cart
+cart.restaurant,ร้านอาหาร,cart
+cart.bank_account_name,ชื่อบัญชีธนาคาร,cart
+cart.first_restaurant,ร้านอาหารแรก,cart
+cart.additional_restaurant,ร้านอาหารเพิ่มเติม,cart
+,,
+# Profile,,
+profile.personal_info,ข้อมูลส่วนตัว,profile
+profile.update,อัพเดทโปรไฟล์,profile
+profile.orders,คำสั่งซื้อของฉัน,profile
+profile.favorites,รายการโปรดของฉัน,profile
+profile.addresses,ที่อยู่ของฉัน,profile
+profile.notifications,การแจ้งเตือนของฉัน,profile 
+,,
+# Error Messages,,
+error.general,เกิดข้อผิดพลาดบางอย่าง,error
+error.network,ข้อผิดพลาดเครือข่าย,error
+error.unauthorized,ไม่มีสิทธิ์เข้าถึง,error
+error.not_found,ไม่พบข้อมูล,error
+error.server_error,ข้อผิดพลาดเซิร์ฟเวอร์,error
+error.forbidden,ไม่อนุญาตให้เข้าถึง,error
+,,
+# Notifications,,
+notification.new_order,คำสั่งซื้อใหม่,notification
+notification.order_status,อัพเดทสถานะคำสั่งซื้อ,notification
+notification.order_cancelled,ยกเลิกคำสั่งซื้อ,notification
+notification.profile_updated,อัพเดทโปรไฟล์แล้ว,notification 
+,,
+# Dashboard,,
+dashboard.overview,ภาพรวม,dashboard
+dashboard.sales,ยอดขาย,dashboard
+dashboard.orders,คำสั่งซื้อ,dashboard
+dashboard.customers,ลูกค้า,dashboard
+dashboard.popular_items,สินค้ายอดนิยม,dashboard
+dashboard.recent_orders,คำสั่งซื้อล่าสุด,dashboard
+dashboard.statistics,สถิติ,dashboard
+,,
+# Admin,,
+admin.users,จัดการผู้ใช้,admin
+admin.restaurants,จัดการร้านอาหาร,admin
+admin.categories,จัดการหมวดหมู่,admin
+admin.orders,จัดการคำสั่งซื้อ,admin
+admin.settings,ตั้งค่าระบบ,admin
+admin.notifications,การแจ้งเตือนระบบ,admin 
+,,
+# Payment Methods,,
+payment.cash,เงินสด,payment
+payment.credit_card,บัตรเครดิต,payment
+payment.debit_card,บัตรเดบิต,payment
+payment.promptpay,พร้อมเพย์,payment
+payment.bank_transfer,โอนเงินผ่านธนาคาร,payment
+,,
+# Favorites,,
+favorites.title,รายการโปรด,favorites
+favorites.empty,ไม่มีรายการโปรด,favorites
+favorites.add,เพิ่มในรายการโปรด,favorites
+favorites.remove,นำออกจากรายการโปรด,favorites
+favorites.empty_message,เพิ่มร้านอาหารหรือเมนูที่คุณชื่นชอบลงในรายการโปรด,favorites
+favorites.search_restaurant,ค้นหาร้านอาหาร,favorites 
+,,
+# Address,,
+address.title,ที่อยู่ของฉัน,address
+address.empty,ไม่มีที่อยู่,address
+address.add,เพิ่มที่อยู่ใหม่,address
+address.empty_message,เพิ่มที่อยู่ของคุณเพื่อความสะดวกในการจัดส่ง,address
+address.development_notice,ฟีเจอร์การจัดการที่อยู่อยู่ระหว่างการพัฒนา,address
+,,
+# Settings,,
+settings.general,ตั้งค่าทั่วไป,settings
+settings.account,ตั้งค่าบัญชี,settings
+settings.privacy,ตั้งค่าความเป็นส่วนตัว,settings
+settings.notifications,ตั้งค่าการแจ้งเตือน,settings
+settings.language,ตั้งค่าภาษา,settings
+settings.appearance,ตั้งค่าการแสดงผล,settings 
+,,
+# About,,
+about.title,เกี่ยวกับเรา,about
+about.mission,พันธกิจของเรา,about
+about.mission_text,เราเป็นแพลตฟอร์มสั่งอาหารออนไลน์ชั้นนำที่เชื่อมต่อลูกค้ากับร้านอาหารคุณภาพสูงเพื่อให้คุณได้เพลิดเพลินกับอาหารจากร้านที่คุณชื่นชอบ,about
+about.mission_text2,ด้วยเทคโนโลยีที่ทันสมัยและบริการที่เป็นมิตร เราจะมอบประสบการณ์การสั่งอาหารที่สะดวก รวดเร็ว และน่าพึงพอใจให้กับคุณ,about
+about.popularity,ความนิยมของเรา,about
+about.best_quality,คุณภาพอาหารที่ดีที่สุด,about
+about.fast,รวดเร็ว,about
+about.safe_delivery,จัดส่งปลอดภัย,about
+about.local_support,สนับสนุนร้านอาหารท้องถิ่น,about
+about.vision,วิสัยทัศน์,about
+about.vision_text,เราเป็นแพลตฟอร์มสั่งอาหารออนไลน์ชั้นนำที่เชื่อมต่อลูกค้ากับร้านอาหารคุณภาพสูงเพื่อให้คุณได้เพลิดเพลินกับอาหารจากร้านที่คุณชื่นชอบ,about
+about.services,บริการของเรา,about
+about.service_fast,รวดเร็ว,about
+about.service_fast_text,จัดส่งอาหารถึงมือคุณภายใน 30-45 นาที,about
+about.service_quality,คุณภาพดี,about
+about.service_quality_text,ร้านอาหารคุณภาพดีผ่านการคัดเลือก,about
+about.service_payment,ชำระเงินง่าย,about
+about.service_payment_text,รองรับการชำระเงินหลายช่องทาง,about
+,,
+# Contact,,
+contact.title,ติดต่อเรา,contact
+contact.phone,โทรศัพท์,contact
+contact.email,อีเมล,contact
+contact.address,ที่อยู่,contact
+contact.hours,เวลาทำการ,contact
+contact.hours_text,จันทร์-อาทิตย์ 8:00-22:00,contact
+contact.form_title,ส่งข้อความถึงเรา,contact
+contact.name,ชื่อ,contact
+contact.name_placeholder,กรอกชื่อของคุณ,contact
+contact.email_placeholder,กรอกอีเมลของคุณ,contact
+contact.subject,หัวข้อ,contact
+contact.subject_placeholder,กรอกหัวข้อข้อความของคุณ,contact
+contact.message,ข้อความ,contact
+contact.message_placeholder,กรอกข้อความของคุณ,contact
+contact.send,ส่งข้อความ,contact
+contact.sending,กำลังส่ง...,contact
+contact.success,ส่งข้อความสำเร็จ เราจะติดต่อกลับภายใน 24 ชั่วโมง,contact
+contact.error,เกิดข้อผิดพลาดในการส่งข้อความ กรุณาลองใหม่อีกครั้ง,contact
+contact.fill_all,กรุณากรอกข้อมูลให้ครบถ้วน,contact
+contact.other_ways,ช่องทางอื่นๆ,contact 
+,,
+# Help,,
+help.title,ศูนย์ช่วยเหลือ,help
+help.faq,คำถามที่พบบ่อย (FAQ),help
+help.how_to_order,วิธีการสั่งอาหาร,help
+help.how_to_order_text,1. เลือกร้านอาหาร\n2. เลือกเมนูและเพิ่มลงตะกร้า\n3. ตรวจสอบรายการและกรอกที่อยู่จัดส่ง\n4. เลือกวิธีการชำระเงินและยืนยันคำสั่งซื้อ,help
+help.how_to_pay,วิธีการชำระเงิน,help
+help.how_to_pay_text,เรารับชำระเงินผ่านบัตรเครดิต บัตรเดบิต การโอนเงินผ่านธนาคาร และเงินสดปลายทาง (บางพื้นที่),help
+help.delivery_time,เวลาในการจัดส่ง,help
+help.delivery_time_text,โดยปกติใช้เวลา 30-45 นาที ขึ้นอยู่กับระยะทางและความซับซ้อนของคำสั่งซื้อ,help
+help.track_order,วิธีการติดตามคำสั่งซื้อ,help
+help.track_order_text,"คุณสามารถติดตามสถานะคำสั่งซื้อได้ในหน้า ""ประวัติคำสั่งซื้อ"" หรือผ่านทางอีเมลและ SMS",help
+help.cancel_order,วิธีการยกเลิกคำสั่งซื้อ,help
+help.cancel_order_text,คุณสามารถยกเลิกคำสั่งซื้อได้ภายใน 5 นาทีหลังจากสั่งซื้อ หากเกินเวลานี้กรุณาติดต่อฝ่ายบริการลูกค้า,help
+help.delivery_fee,ค่าจัดส่ง,help
+help.delivery_fee_text,ค่าจัดส่งคือ 15 บาท และอาจแตกต่างกันตามระยะทาง สำหรับคำสั่งซื้อที่มียอดเกิน 200 บาท จัดส่งฟรี,help
+help.contact_us,ติดต่อเรา,help
+help.contact_us_text,หากคุณไม่พบคำตอบที่ต้องการ กรุณาติดต่อเราที่:\nโทรศัพท์: {phone} | อีเมล: {email},help
+,,
+# Terms,,
+terms.title,เงื่อนไขการให้บริการ,terms
+terms.acceptance,1. การยอมรับเงื่อนไข,terms
+terms.acceptance_text,การใช้บริการของเราถือว่าคุณยอมรับและปฏิบัติตามเงื่อนไขทั้งหมดที่ระบุไว้,terms
+terms.account,2. การสร้างบัญชี,terms
+terms.account_text,• คุณต้องมีอายุอย่างน้อย 18 ปีหรือได้รับความยินยอมจากผู้ปกครอง\n• ข้อมูลที่ให้ต้องถูกต้องและเป็นปัจจุบัน\n• คุณมีหน้าที่รักษาความปลอดภัยของรหัสผ่าน,terms
+terms.ordering,3. การสั่งซื้อและการชำระเงิน,terms
+terms.ordering_text,• ราคาที่แสดงรวมภาษีแล้ว\n• การชำระเงินต้องทำผ่านช่องทางที่เราจัดเตรียมไว้\n• คุณสามารถยกเลิกคำสั่งซื้อได้ภายใน 5 นาทีหลังจากสั่งซื้อ,terms
+terms.delivery,4. การจัดส่ง,terms
+terms.delivery_text,• เราพยายามจัดส่งตรงเวลาแต่อาจมีความล่าช้า\n• ผู้รับต้องมีอายุอย่างน้อย 18 ปีหรือได้รับความยินยอมจากผู้ปกครอง\n• หากไม่มีผู้รับเราจะติดต่อคุณภายใน 15 นาที,terms
+terms.refund,5. การคืนเงินและการรับประกัน,terms
+terms.refund_text,• หากอาหารมีปัญหาด้านคุณภาพเราจะคืนเงินหรือเปลี่ยนให้\n• คุณต้องแจ้งปัญหาภายใน 1 ชั่วโมงหลังจากได้รับอาหาร\n• การคืนเงินจะดำเนินการภายใน 7-14 วันทำการ,terms
+terms.liability,6. ข้อจำกัดความรับผิดชอบ,terms
+terms.liability_text,เราไม่รับผิดชอบต่อความเสียหายที่เกิดจากการใช้บริการของเรายกเว้นกรณีที่เกิดจากความประมาทเลินเล่อของเรา,terms
+terms.modification,7. การแก้ไขเงื่อนไข,terms
+terms.modification_text,เราขอสงวนสิทธิ์ในการแก้ไขเงื่อนไขเหล่านี้ได้ทุกเมื่อโดยจะแจ้งให้ทราบล่วงหน้า 30 วัน,terms
+terms.effective_date,วันที่มีผลบังคับใช้,terms
+terms.contact_us,ติดต่อเรา,terms
+,,
+# Privacy,,
+privacy.title,นโยบายความเป็นส่วนตัว,privacy
+privacy.intro,บทนำ,privacy
+privacy.intro_text,นโยบายความเป็นส่วนตัวนี้อธิบายวิธีการที่เราเก็บรวบรวม ใช้ และปกป้องข้อมูลส่วนบุคคลของคุณ,privacy
+privacy.collection,ข้อมูลที่เราเก็บรวบรวม,privacy
+privacy.collection_text,• ข้อมูลส่วนบุคคล (ชื่อ อีเมล เบอร์โทรศัพท์)\n• ข้อมูลการจัดส่ง (ที่อยู่ คำแนะนำในการจัดส่ง)\n• ข้อมูลการชำระเงิน\n• ข้อมูลอุปกรณ์และการใช้งาน,privacy
+privacy.use,วิธีการใช้ข้อมูลของคุณ,privacy
+privacy.use_text,• เพื่อดำเนินการและจัดส่งคำสั่งซื้อของคุณ\n• เพื่อติดต่อสื่อสารเกี่ยวกับคำสั่งซื้อของคุณ\n• เพื่อปรับปรุงบริการของเรา\n• เพื่อส่งข้อมูลโปรโมชัน (เมื่อได้รับความยินยอมจากคุณ),privacy
+privacy.sharing,การแบ่งปันข้อมูล,privacy
+privacy.sharing_text,เราไม่ขายข้อมูลส่วนบุคคลของคุณ เราแบ่งปันข้อมูลของคุณเฉพาะกับ:\n• ร้านอาหารเพื่อจัดการคำสั่งซื้อของคุณ\n• พาร์ทเนอร์การจัดส่งเพื่อจัดส่งคำสั่งซื้อของคุณ\n• ผู้ประมวลผลการชำระเงินเพื่อดำเนินการชำระเงิน,privacy
+privacy.security,ความปลอดภัย,privacy
+privacy.security_text,เราใช้มาตรการรักษาความปลอดภัยที่เหมาะสมเพื่อปกป้องข้อมูลส่วนบุคคลของคุณ,privacy
+privacy.cookies,คุกกี้,privacy
+privacy.cookies_text,เราใช้คุกกี้เพื่อปรับปรุงประสบการณ์ของคุณและวิเคราะห์การเข้าชมเว็บไซต์,privacy
+privacy.rights,สิทธิของคุณ,privacy
+privacy.rights_text,คุณมีสิทธิ์:\n• เข้าถึงข้อมูลส่วนบุคคลของคุณ\n• แก้ไขข้อมูลส่วนบุคคลของคุณ\n• ลบข้อมูลส่วนบุคคลของคุณ\n• คัดค้านการประมวลผลข้อมูลส่วนบุคคลของคุณ,privacy
+privacy.contact,ติดต่อเราเกี่ยวกับความเป็นส่วนตัว,privacy
+privacy.contact_text,หากคุณมีคำถามเกี่ยวกับนโยบายความเป็นส่วนตัวนี้ กรุณาติดต่อเราที่: {email},privacy
+privacy.updates,การอัพเดทนโยบายนี้,privacy
+privacy.updates_text,เราอาจอัพเดทนโยบายนี้เป็นครั้งคราว เราจะแจ้งให้คุณทราบถึงการเปลี่ยนแปลงที่สำคัญ,privacy 

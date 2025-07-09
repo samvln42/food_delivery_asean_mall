@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import Header from '../components/common/Header';
 import { appSettingsService } from '../services/api';
+import { useLanguage } from '../contexts/LanguageContext';
 
 const CustomerLayout = ({ children }) => {
+  const { translate } = useLanguage();
 
   const [appSettings, setAppSettings] = useState(null);
 
@@ -47,33 +49,33 @@ const CustomerLayout = ({ children }) => {
                 {appSettings?.app_name || 'FoodDelivery'}
               </h3>
               <p className="text-secondary-300 text-sm">
-                {appSettings?.app_description || 'สั่งอาหารออนไลน์ ส่งถึงบ้านคุณ ง่าย เร็ว อร่อย'}
+                {appSettings?.app_description || 'Order food online, delivered to your home, easy, fast, delicious.'}
               </p>
             </div>
             
             <div>
-              <h4 className="font-medium mb-4">Quick Links</h4>
+              <h4 className="font-medium mb-4">{translate('common.quick_links')}</h4>
               <ul className="space-y-2 text-sm text-secondary-300">
-                <li><a href="/" className="hover:text-white">Home</a></li>
-                <li><a href="/products" className="hover:text-white">Products</a></li>
-                <li><a href="/restaurants" className="hover:text-white">Restaurants</a></li>
-                <li><a href="/categories" className="hover:text-white">Categories</a></li>
-                <li><a href="/about" className="hover:text-white">About Us</a></li>
+                <li><a href="/" className="hover:text-white">{translate('common.home')}</a></li>
+                <li><a href="/products" className="hover:text-white">{translate('nav.all_products')}</a></li>
+                <li><a href="/restaurants" className="hover:text-white">{translate('nav.restaurants')}</a></li>
+                <li><a href="/categories" className="hover:text-white">{translate('nav.categories')}</a></li>
+                <li><a href="/about" className="hover:text-white">{translate('common.about')}</a></li>
               </ul>
             </div>
             
             <div>
-              <h4 className="font-medium mb-4">Services</h4>
+              <h4 className="font-medium mb-4">{translate('about.services')}</h4>
               <ul className="space-y-2 text-sm text-secondary-300">
-                <li><a href="/help" className="hover:text-white">Help</a></li>
-                <li><a href="/contact" className="hover:text-white">Contact Us</a></li>
-                <li><a href="/terms" className="hover:text-white">Terms of Service</a></li>
-                <li><a href="/privacy" className="hover:text-white">Privacy Policy</a></li>
+                <li><a href="/help" className="hover:text-white">{translate('common.help')}</a></li>
+                <li><a href="/contact" className="hover:text-white">{translate('common.contact')}</a></li>
+                <li><a href="/terms" className="hover:text-white">{translate('common.terms_of_service')}</a></li>
+                <li><a href="/privacy" className="hover:text-white">{translate('common.privacy_policy')}</a></li>
               </ul>
             </div>
             
             <div>
-              <h4 className="font-medium mb-4">Follow Us</h4>
+              <h4 className="font-medium mb-4">{translate('common.follow_us')}</h4>
               <div className="flex space-x-4">
                 <a href="#" className="text-secondary-300 hover:text-white">
                   📘 Facebook

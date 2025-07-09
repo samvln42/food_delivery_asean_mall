@@ -2,45 +2,55 @@ import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import api from "../../services/api";
 import { useAuth } from "../../contexts/AuthContext";
+import { useLanguage } from "../../contexts/LanguageContext";
+import websocketService from "../../services/websocket";
+import { toast } from "../../hooks/useNotification";
 
 // Order Status Tracker Component
-const OrderStatusTracker = ({ currentStatus, orderDate }) => {
+const OrderStatusTracker = ({ currentStatus, orderDate, translate }) => {
+  const { currentLanguage } = useLanguage();
+  const localeMap = {
+    en: "en-US",
+    th: "th-TH",
+    ko: "ko-KR",
+  };
+
   const statusSteps = [
     {
       key: "pending",
-      label: "Pending",
+      label: translate("order.status.pending"),
       icon: "🕐",
-      description: "Order received",
+      description: translate("order.status.pending_desc"),
     },
     {
       key: "paid",
-      label: "Paid",
+      label: translate("order.status.paid"),
       icon: "💳",
-      description: "Payment successful",
+      description: translate("order.status.paid_desc"),
     },
     {
       key: "preparing",
-      label: "Preparing",
+      label: translate("order.status.preparing"),
       icon: "👨‍🍳",
-      description: "Restaurant is preparing food",
+      description: translate("order.status.preparing_desc"),
     },
     {
       key: "ready_for_pickup",
-      label: "Ready for pickup",
+      label: translate("order.status.ready_for_pickup"),
       icon: "📦",
-      description: "Food is ready for pickup",
+      description: translate("order.status.ready_for_pickup_desc"),
     },
     {
       key: "delivering",
-      label: "Delivering",
+      label: translate("order.status.delivering"),
       icon: "🚗",
-      description: "Driver is delivering",
+      description: translate("order.status.delivering_desc"),
     },
     {
       key: "completed",
-      label: "Completed",
+      label: translate("order.status.completed"),
       icon: "✅",
-      description: "Delivery completed",
+      description: translate("order.status.completed_desc"),
     },
   ];
 
@@ -64,9 +74,11 @@ const OrderStatusTracker = ({ currentStatus, orderDate }) => {
             ❌
           </div>
           <div className="ml-3">
-            <p className="text-red-800 font-semibold">Order cancelled</p>
+            <p className="text-red-800 font-semibold">
+              {translate("order.status.cancelled")}
+            </p>
             <p className="text-red-600 text-sm">
-              This order has been cancelled
+              {translate("order.status.cancelled_desc")}
             </p>
           </div>
         </div>
@@ -77,7 +89,7 @@ const OrderStatusTracker = ({ currentStatus, orderDate }) => {
   return (
     <div className="bg-white border border-secondary-200 rounded-lg p-4 mb-4">
       <h4 className="text-md font-semibold text-secondary-700 mb-4">
-        Order status
+        {translate("order.status")}
       </h4>
 
       <div className="relative">
@@ -167,12 +179,15 @@ const OrderStatusTracker = ({ currentStatus, orderDate }) => {
                   {/* Show timestamp for completed steps */}
                   {isCompleted && isCurrent && (
                     <p className="text-xs text-secondary-400 mt-1 hidden sm:block">
-                      {new Date(orderDate).toLocaleString("en-US", {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                        day: "numeric",
-                        month: "short",
-                      })}
+                      {new Date(orderDate).toLocaleString(
+                        localeMap[currentLanguage] || "en-US",
+                        {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                          day: "numeric",
+                          month: "short",
+                        }
+                      )}
                     </p>
                   )}
                 </div>
@@ -190,23 +205,25 @@ const OrderStatusTracker = ({ currentStatus, orderDate }) => {
                 <div className="flex items-center">
                   <span className="text-blue-500 mr-2">⏱️</span>
                   <span className="text-blue-700 text-sm font-medium">
-                    Estimated time:{" "}
+                    {translate("order.estimated_time")}{" "}
                     {currentStatus === "pending"
-                      ? "5 minutes"
+                      ? `5 ${translate("order.minutes")}`
                       : currentStatus === "paid"
-                      ? "10 minutes"
+                      ? `10 ${translate("order.minutes")}`
                       : currentStatus === "preparing"
-                      ? "15-20 minutes"
+                      ? `15-20 ${translate("order.minutes")}`
                       : currentStatus === "ready_for_pickup"
-                      ? "5 minutes"
+                      ? `5 ${translate("order.minutes")}`
                       : currentStatus === "delivering"
-                      ? "10-15 minutes"
-                      : "Completed"}
+                      ? `10-15 ${translate("order.minutes")}`
+                      : translate("order.status.completed")}
                   </span>
                 </div>
                 <div className="flex items-center">
                   <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-                  <span className="text-xs text-blue-600 ml-2">Tracking</span>
+                  <span className="text-xs text-blue-600 ml-2">
+                    {translate("order.tracking")}
+                  </span>
                 </div>
               </div>
             </div>
@@ -217,7 +234,7 @@ const OrderStatusTracker = ({ currentStatus, orderDate }) => {
                 <div className="flex items-center">
                   <span className="text-gray-500 mr-2">📋</span>
                   <span className="text-gray-700 text-sm">
-                    Next step:{" "}
+                    {translate("order.next_step")}{" "}
                     <span className="font-medium">
                       {statusSteps[currentStepIndex + 1]?.label}
                     </span>
@@ -234,7 +251,7 @@ const OrderStatusTracker = ({ currentStatus, orderDate }) => {
             <div className="flex items-center justify-center">
               <span className="text-green-500 mr-2">🎉</span>
               <span className="text-green-700 text-sm font-medium">
-                Order completed! Thank you for using our service!
+                {translate("order.completed_message")}
               </span>
             </div>
           </div>
@@ -246,6 +263,7 @@ const OrderStatusTracker = ({ currentStatus, orderDate }) => {
 
 const Orders = () => {
   const { user, token } = useAuth();
+  const { translate, currentLanguage } = useLanguage();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -282,16 +300,61 @@ const Orders = () => {
 
     // Set up polling interval (ทุก 10 วินาที)
     const pollingInterval = setInterval(() => {
-      console.log("🔄 Polling for order updates...");
       fetchOrdersQuietly(); // Fetch without loading states
     }, 10000);
 
     return () => {
-      console.log("🛑 Stopping polling...");
       setPollingActive(false);
       clearInterval(pollingInterval);
     };
   }, [user?.id, token]);
+
+  useEffect(() => {
+    // Set translate function for WebSocket service
+    websocketService.setTranslateFunction(translate);
+    
+    // Listen for order status updates
+    const handleOrderStatusUpdate = (data) => {
+      // Refresh orders list
+      fetchOrdersQuietly();
+      
+      // Show toast notification with translated message from WebSocket service
+      toast.success(data.payload.new_status_display, { duration: 5000 });
+      
+      // Show UI notification popup
+      const translatedStatus = translate(`order.status.${data.payload.new_status}`);
+      setStatusUpdateNotification({
+        orderId: data.payload.order_id,
+        statusLabel: translatedStatus,
+        oldStatus: data.payload.old_status,
+        newStatus: data.payload.new_status,
+      });
+
+      // Auto-hide notification after 5 seconds
+      setTimeout(() => {
+        setStatusUpdateNotification(null);
+      }, 5000);
+
+      // Browser notification (if permission granted)
+      if (Notification.permission === "granted") {
+        const notificationTitle = translate("order.status_updated");
+        // ใช้ข้อความที่แปลแล้วจาก WebSocket service โดยตรง
+        const notificationBody = data.payload.new_status_display;
+        
+        new Notification(notificationTitle, {
+          body: notificationBody,
+          icon: "/favicon.ico",
+          badge: "/favicon.ico",
+        });
+      }
+    };
+    
+    websocketService.on('order_status_update', handleOrderStatusUpdate);
+    
+    return () => {
+      websocketService.off('order_status_update', handleOrderStatusUpdate);
+    };
+  }, [translate]);
 
   const fetchOrders = async () => {
     try {
@@ -302,17 +365,12 @@ const Orders = () => {
       const response = await api.get(import.meta.env.VITE_API_URL + "/orders/");
       const apiOrders = response.data.results || response.data;
 
-      // Debug: ดูข้อมูลจาก API
-      console.log("📋 Orders from API:", apiOrders);
-      if (apiOrders.length > 0) {
-        console.log("📦 First order structure:", apiOrders[0]);
-        console.log("📋 First order details:", apiOrders[0].order_details);
-      }
+
 
       setOrders(apiOrders);
     } catch (error) {
       console.error("❌ Error fetching orders:", error);
-      setError("Unable to load order history");
+      setError(translate("order.unable_to_load_history"));
       setOrders([]);
     } finally {
       setLoading(false);
@@ -344,33 +402,40 @@ const Orders = () => {
           }
         });
 
-        // Show notifications for status changes
+        // Show notifications for status changes (Only if WebSocket is not connected)
         if (statusChanges.length > 0) {
           const latestChange = statusChanges[0];
           const statusInfo = getStatusDisplay(latestChange.newStatus);
 
-          console.log("🔔 Status update detected:", latestChange);
-
-          // Show notification
-          setStatusUpdateNotification({
-            orderId: latestChange.orderId,
-            statusLabel: statusInfo.text,
-            oldStatus: latestChange.oldStatus,
-            newStatus: latestChange.newStatus,
-          });
-
-          // Auto-hide notification after 5 seconds
-          setTimeout(() => {
-            setStatusUpdateNotification(null);
-          }, 5000);
-
-          // Browser notification (if permission granted)
-          if (Notification.permission === "granted") {
-            new Notification("สถานะคำสั่งซื้อมีการอัปเดท!", {
-              body: `คำสั่งซื้อ #${latestChange.orderId} เปลี่ยนเป็น "${statusInfo.text}"`,
-              icon: "/favicon.ico",
-              badge: "/favicon.ico",
+          // Only show notification if WebSocket is not connected (fallback)
+          if (!websocketService.ws || websocketService.ws.readyState !== WebSocket.OPEN) {
+            // Show notification
+            setStatusUpdateNotification({
+              orderId: latestChange.orderId,
+              statusLabel: statusInfo.text,
+              oldStatus: latestChange.oldStatus,
+              newStatus: latestChange.newStatus,
             });
+
+            // Auto-hide notification after 5 seconds
+            setTimeout(() => {
+              setStatusUpdateNotification(null);
+            }, 5000);
+
+            // Browser notification (if permission granted)
+            if (Notification.permission === "granted") {
+              const notificationTitle = translate("order.status_updated");
+              const notificationBody = translate("order.status_change_notification", {
+                orderId: latestChange.orderId,
+                status: statusInfo.text,
+              });
+              
+              new Notification(notificationTitle, {
+                body: notificationBody,
+                icon: "/favicon.ico",
+                badge: "/favicon.ico",
+              });
+            }
           }
         }
 
@@ -383,36 +448,40 @@ const Orders = () => {
   };
 
   // ใช้ orderStatuses เดียวกันกับที่ใช้ในการแสดงผล
-  const orderStatuses = [
+  const getOrderStatuses = () => [
     {
       value: "pending",
-      label: "Pending",
+      label: translate("order.status.pending"),
       color: "bg-yellow-100 text-yellow-800",
     },
-    { value: "paid", label: "Paid", color: "bg-blue-100 text-blue-800" },
+    {
+      value: "paid",
+      label: translate("order.status.paid"),
+      color: "bg-blue-100 text-blue-800",
+    },
     {
       value: "preparing",
-      label: "Preparing",
+      label: translate("order.status.preparing"),
       color: "bg-orange-100 text-orange-800",
     },
     {
       value: "ready_for_pickup",
-      label: "Ready for pickup",
+      label: translate("order.status.ready_for_pickup"),
       color: "bg-purple-100 text-purple-800",
     },
     {
       value: "delivering",
-      label: "Delivering",
+      label: translate("order.status.delivering"),
       color: "bg-indigo-100 text-indigo-800",
     },
     {
       value: "completed",
-      label: "Completed",
+      label: translate("order.status.completed"),
       color: "bg-green-100 text-green-800",
     },
     {
       value: "cancelled",
-      label: "Cancelled",
+      label: translate("order.status.cancelled"),
       color: "bg-red-100 text-red-800",
     },
   ];
@@ -425,7 +494,7 @@ const Orders = () => {
   };
 
   const getStatusDisplay = (status) => {
-    const statusObj = orderStatuses.find((s) => s.value === status);
+    const statusObj = getOrderStatuses().find((s) => s.value === status);
     return statusObj
       ? { text: statusObj.label, color: statusObj.color }
       : { text: status, color: "bg-gray-100 text-gray-800" };
@@ -433,24 +502,34 @@ const Orders = () => {
 
   const getPaymentMethodDisplay = (method) => {
     const methodMap = {
-      cash: "เงินสด",
-      credit_card: "บัตรเครดิต",
-      debit_card: "บัตรเดบิต",
-      promptpay: "พร้อมเพย์",
-      bank_transfer: "โอนเงิน",
+      cash: translate("payment.cash"),
+      credit_card: translate("payment.credit_card"),
+      debit_card: translate("payment.debit_card"),
+      promptpay: translate("payment.promptpay"),
+      bank_transfer: translate("payment.bank_transfer"),
     };
     return methodMap[method] || method;
   };
 
   const formatDateTime = (dateString) => {
     const date = new Date(dateString);
-    return date.toLocaleString("en-US", {
+    const localeMap = {
+      en: "en-US",
+      th: "th-TH",
+      ko: "ko-KR",
+    };
+    
+    // สร้าง options สำหรับ toLocaleString
+    const options = {
       year: "numeric",
       month: "long",
       day: "numeric",
       hour: "2-digit",
       minute: "2-digit",
-    });
+      calendar: "gregory" // บังคับให้ใช้ปฏิทินแบบ Gregorian (ค.ศ.)
+    };
+
+    return date.toLocaleString(localeMap[currentLanguage] || "en-US", options);
   };
 
   const calculateSubtotal = (orderDetails) => {
@@ -476,7 +555,9 @@ const Orders = () => {
       <div className="container mx-auto px-4 py-8">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500 mx-auto"></div>
-          <p className="mt-4 text-secondary-600">กำลังโหลด...</p>
+          <p className="mt-4 text-secondary-600">
+            {translate("common.loading")}
+          </p>
         </div>
       </div>
     );
@@ -491,7 +572,7 @@ const Orders = () => {
             onClick={fetchOrders}
             className="mt-4 bg-primary-500 text-white px-4 py-2 rounded-lg hover:bg-primary-600"
           >
-            ลองใหม่
+            {translate("common.try_again")}
           </button>
         </div>
       </div>
@@ -506,10 +587,14 @@ const Orders = () => {
           <div className="flex items-center">
             <span className="text-xl mr-3">🔔</span>
             <div>
-              <p className="font-semibold">สถานะคำสั่งซื้อมีการอัปเดท!</p>
+              <p className="font-semibold">
+                {translate("order.status_updated")}
+              </p>
               <p className="text-sm">
-                คำสั่งซื้อ #{statusUpdateNotification.orderId} เปลี่ยนเป็น "
-                {statusUpdateNotification.statusLabel}"
+                {translate("order.status_change_notification", {
+                  orderId: statusUpdateNotification.orderId,
+                  status: translate(statusUpdateNotification.statusLabel),
+                })}
               </p>
             </div>
             <button
@@ -525,14 +610,16 @@ const Orders = () => {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-3xl font-bold text-secondary-800">
-          ประวัติการสั่งซื้อ
+          {translate("order.history")}
         </h1>
         <div className="flex items-center space-x-4">
           {/* Authentication Status */}
           {!user ? (
             <div className="flex items-center space-x-2">
               <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
-              <span className="text-xs text-red-600">Not Logged In</span>
+              <span className="text-xs text-red-600">
+                {translate("auth.not_logged_in")}
+              </span>
             </div>
           ) : (
             <>
@@ -548,24 +635,30 @@ const Orders = () => {
                     pollingActive ? "text-green-600" : "text-red-600"
                   }`}
                 >
-                  {pollingActive ? "Real-time Active" : "Real-time Inactive"}
+                  {pollingActive
+                    ? translate("order.realtime_active")
+                    : translate("order.realtime_inactive")}
                 </span>
               </div>
 
               {/* Debug User Info */}
               <div className="text-xs text-gray-500 space-x-2">
-                <span>User ID: {user.id}</span>
+                <span>
+                  {translate("auth.user_id")}: {user.id}
+                </span>
                 <span>|</span>
-                <span>Token: {token ? "✓" : "✗"}</span>
+                <span>
+                  {translate("auth.token")}: {token ? "✓" : "✗"}
+                </span>
                 <button
                   onClick={() => {
-                    console.log("🔄 Force refresh orders");
                     fetchOrders();
                   }}
                   className="text-blue-500 hover:text-blue-700 underline"
                 >
-                  Refresh
+                  {translate("common.refresh")}
                 </button>
+
               </div>
             </>
           )}
@@ -578,17 +671,18 @@ const Orders = () => {
           <div className="flex items-center">
             <span className="text-yellow-500 mr-3">⚠️</span>
             <div>
-              <p className="text-yellow-800 font-semibold">Please login</p>
+              <p className="text-yellow-800 font-semibold">
+                {translate("auth.please_login")}
+              </p>
               <p className="text-yellow-700 text-sm">
-                คุณต้องเข้าสู่ระบบเพื่อดูประวัติการสั่งซื้อและรับการอัปเดทแบบ
-                real-time (ทุก 10 วินาที)
+                {translate("order.login_required_message")}
               </p>
               <div className="mt-2">
                 <a
                   href="/login"
                   className="inline-flex items-center px-3 py-1 bg-yellow-500 text-white rounded text-sm hover:bg-yellow-600"
                 >
-                  เข้าสู่ระบบ
+                  {translate("common.login")}
                 </a>
               </div>
             </div>
@@ -600,14 +694,11 @@ const Orders = () => {
       <div className="bg-white rounded-lg shadow-md mb-6">
         <div className="flex overflow-x-auto border-b">
           {[
-            { key: "all", label: "All" },
-            { key: "pending", label: "Pending" },
-            { key: "paid", label: "Paid" },
-            { key: "preparing", label: "Preparing" },
-            { key: "ready_for_pickup", label: "Ready for pickup" },
-            { key: "delivering", label: "Delivering" },
-            { key: "completed", label: "Completed" },
-            { key: "cancelled", label: "Cancelled" },
+            { key: "all", label: translate("common.all") },
+            ...getOrderStatuses().map(status => ({
+              key: status.value,
+              label: status.label
+            }))
           ].map((tab) => (
             <button
               key={tab.key}
@@ -659,13 +750,16 @@ const Orders = () => {
                 <div className="flex items-center justify-between mb-4">
                   <div>
                     <h3 className="text-lg font-semibold text-secondary-800">
-                      Order #{order.order_id}
+                      {translate("order.order_number", { id: order.order_id })}
                     </h3>
                     <div className="flex items-center space-x-4 mt-1">
                       {isMultiRestaurant ? (
                         <p className="text-sm text-secondary-600 flex items-center">
                           <span className="text-lg mr-1">🏪</span>
-                          Order from {restaurantCount} restaurants
+                          {translate("order.from_multiple_restaurants", {
+                            count: restaurantCount,
+                          })}
+
                         </p>
                       ) : (
                         <p className="text-sm text-secondary-600">
@@ -696,8 +790,7 @@ const Orders = () => {
                     <div className="flex items-center">
                       <span className="text-blue-500 mr-2">🏪</span>
                       <span className="text-blue-800 text-sm font-medium">
-                        Order from multiple restaurants - items will be
-                        delivered together
+                        {translate("order.multi_restaurant_delivery")}
                       </span>
                     </div>
                   </div>
@@ -733,7 +826,8 @@ const Orders = () => {
                                 {restaurantGroup.subtotal?.toFixed(2)}
                               </p>
                               <p className="text-xs text-secondary-500">
-                                {restaurantGroup.items?.length || 0} items
+                                {restaurantGroup.items?.length || 0}{" "}
+                                {translate("order.items_count")}
                               </p>
                             </div>
                           </div>
@@ -838,24 +932,33 @@ const Orders = () => {
                 <div className="mt-4 pt-4 border-t">
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
-                      <span className="text-secondary-600">Total:</span>
+                      <span className="text-secondary-600">
+                        {translate("order.subtotal")}:
+                      </span>
                       <span className="text-secondary-800">
                         {subtotal.toFixed(2)}
                       </span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-secondary-600">Delivery fee:</span>
+                      <span className="text-secondary-600">
+                        {translate("order.delivery_fee")}:
+                      </span>
                       <span className="text-secondary-800">
                         {parseFloat(order.delivery_fee || 0).toFixed(2)}
                       </span>
                     </div>
                     {isMultiRestaurant && (
                       <div className="text-xs text-secondary-500 pl-4">
-                        • Delivery from {restaurantCount} restaurants
+                        •{" "}
+                        {translate("order.delivery_from_multiple", {
+                          count: restaurantCount,
+                        })}
                       </div>
                     )}
                     <div className="flex justify-between text-lg font-semibold border-t pt-2">
-                      <span className="text-secondary-800">Total:</span>
+                      <span className="text-secondary-800">
+                        {translate("cart.total")}:
+                      </span>
                       <span className="text-primary-600">
                         {parseFloat(order.total_amount).toFixed(2)}
                       </span>
@@ -868,13 +971,14 @@ const Orders = () => {
                   <OrderStatusTracker
                     currentStatus={order.current_status || order.status}
                     orderDate={order.order_date}
+                    translate={translate}
                   />
                 </div>
 
                 {/* Delivery Address */}
                 <div className="mt-4 pt-4 border-t">
                   <h4 className="text-sm font-semibold text-secondary-700 mb-2">
-                    📍 Delivery address
+                    📍 {translate("order.delivery_address")}
                   </h4>
                   <p className="text-sm text-secondary-600">
                     {order.delivery_address}
@@ -888,23 +992,23 @@ const Orders = () => {
         <div className="bg-white rounded-lg shadow-md p-8 text-center">
           <div className="text-6xl mb-4 opacity-30">📦</div>
           <h2 className="text-xl font-semibold text-secondary-700 mb-2">
-            No order history
+            {translate("order.no_history")}
           </h2>
           <p className="text-secondary-500 mb-6">
-            You have not ordered food or there is no order in this category
+            {translate("order.no_history_message")}
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <a
               href="/restaurants"
               className="bg-primary-500 text-white px-6 py-3 rounded-lg hover:bg-primary-600 transition-colors"
             >
-              Start ordering
+              {translate("order.start_ordering")}
             </a>
             <a
               href="/categories"
               className="bg-secondary-200 text-secondary-700 px-6 py-3 rounded-lg hover:bg-secondary-300 transition-colors"
             >
-              Choose by category
+              {translate("order.choose_by_category")}
             </a>
           </div>
         </div>

@@ -1,24 +1,26 @@
-import React, { useState, useEffect } from 'react';
-import { useSearchParams, Link } from 'react-router-dom';
-import api from '../../services/api';
-import { useCart } from '../../contexts/CartContext';
-import { useAuth } from '../../contexts/AuthContext';
+import React, { useState, useEffect } from "react";
+import { useSearchParams, Link } from "react-router-dom";
+import api from "../../services/api";
+import { useCart } from "../../contexts/CartContext";
+import { useAuth } from "../../contexts/AuthContext";
+import { useLanguage } from "../../contexts/LanguageContext";
 
 const Search = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { addItem } = useCart();
   const { isAuthenticated } = useAuth();
-  const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '');
-  const [searchType, setSearchType] = useState('all');
+  const { translate } = useLanguage();
+  const [searchQuery, setSearchQuery] = useState(searchParams.get("q") || "");
+  const [searchType, setSearchType] = useState("all");
   const [results, setResults] = useState({
     restaurants: [],
-    products: []
+    products: [],
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    const query = searchParams.get('q');
+    const query = searchParams.get("q");
     if (query) {
       setSearchQuery(query);
       performSearch(query);
@@ -34,33 +36,41 @@ const Search = () => {
 
       const searchPromises = [];
 
-      if (searchType === 'all' || searchType === 'restaurants') {
+      if (searchType === "all" || searchType === "restaurants") {
         searchPromises.push(
-          api.get(`/restaurants/?search=${encodeURIComponent(query)}`)
-            .then(response => ({ type: 'restaurants', data: response.data.results || response.data }))
-            .catch(() => ({ type: 'restaurants', data: [] }))
+          api
+            .get(`/restaurants/?search=${encodeURIComponent(query)}`)
+            .then((response) => ({
+              type: "restaurants",
+              data: response.data.results || response.data,
+            }))
+            .catch(() => ({ type: "restaurants", data: [] }))
         );
       }
 
-      if (searchType === 'all' || searchType === 'products') {
+      if (searchType === "all" || searchType === "products") {
         searchPromises.push(
-          api.get(`/products/?search=${encodeURIComponent(query)}`)
-            .then(response => ({ type: 'products', data: response.data.results || response.data }))
-            .catch(() => ({ type: 'products', data: [] }))
+          api
+            .get(`/products/?search=${encodeURIComponent(query)}`)
+            .then((response) => ({
+              type: "products",
+              data: response.data.results || response.data,
+            }))
+            .catch(() => ({ type: "products", data: [] }))
         );
       }
 
       const searchResults = await Promise.all(searchPromises);
-      
+
       const newResults = { restaurants: [], products: [] };
-      searchResults.forEach(result => {
+      searchResults.forEach((result) => {
         newResults[result.type] = result.data;
       });
 
       setResults(newResults);
     } catch (error) {
-      console.error('Search error:', error);
-      setError('Error searching');
+      console.error("Search error:", error);
+      setError(translate("common.error_searching"));
     } finally {
       setLoading(false);
     }
@@ -75,13 +85,13 @@ const Search = () => {
   };
 
   const handleAddToCart = (product) => {
-    console.log('Adding product to cart from search:', product);
-    
+    console.log("Adding product to cart from search:", product);
+
     // การตรวจสอบ login จะทำใน CartContext แล้ว
     // ไม่ต้องตรวจสอบที่นี่อีก
 
     if (!product.is_available) {
-      alert('This product is out of stock');
+      alert(translate("common.out_of_stock"));
       return;
     }
 
@@ -89,7 +99,7 @@ const Search = () => {
       // สร้าง restaurant object จากข้อมูลสินค้า
       const restaurant = {
         id: product.restaurant_id,
-        name: product.restaurant_name
+        name: product.restaurant_name,
       };
 
       // เพิ่มสินค้าลงตะกร้า
@@ -101,16 +111,18 @@ const Search = () => {
         if (result.requiresLogin) {
           return; // ไม่แสดง alert เพิ่มเติม
         }
-        
-        alert(result.error || 'Error adding product to cart');
+
+        alert(result.error || translate("common.error_adding_to_cart"));
         return;
       }
 
       // แสดงข้อความยืนยัน
-      alert(`Added "${product.product_name}" to cart!`);
+      alert(
+        translate("common.added_to_cart", { product: product.product_name })
+      );
     } catch (error) {
-      console.error('Error adding to cart:', error);
-      alert('Error adding product to cart');
+      console.error("Error adding to cart:", error);
+      alert(translate("common.error_adding_to_cart"));
     }
   };
 
@@ -120,62 +132,65 @@ const Search = () => {
     <div className="container mx-auto px-4 py-8">
       {/* Search Form */}
       <div className="max-w-2xl mx-auto mb-8">
-        <form onSubmit={handleSearch} className="bg-white rounded-lg shadow-md p-6">
+        <form
+          onSubmit={handleSearch}
+          className="bg-white rounded-lg shadow-md p-6"
+        >
           <div className="flex flex-col gap-4">
             <div>
               <label className="block text-sm font-medium text-secondary-700 mb-2">
-                Search for restaurant or menu
+                {translate("search.search_for_restaurant_or_menu")}
               </label>
               <div className="flex gap-2">
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Enter search..."
+                  placeholder={translate("search.enter_search_term")}
                   className="flex-1 p-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 />
                 <button
                   type="submit"
                   className="bg-primary-500 text-white px-6 py-3 rounded-lg hover:bg-primary-600 transition-colors"
                 >
-                  Search
+                  {translate("search.search")}
                 </button>
               </div>
             </div>
             <div>
               <label className="block text-sm font-medium text-secondary-700 mb-2">
-                Search type
+                {translate("search.search_type")}
               </label>
               <div className="flex gap-4">
                 <label className="flex items-center">
                   <input
                     type="radio"
                     value="all"
-                    checked={searchType === 'all'}
+                    checked={searchType === "all"}
                     onChange={(e) => setSearchType(e.target.value)}
                     className="mr-2"
                   />
-                  All
+                  {translate("common.all")}
                 </label>
                 <label className="flex items-center">
                   <input
                     type="radio"
                     value="restaurants"
-                    checked={searchType === 'restaurants'}
+                    checked={searchType === "restaurants"}
                     onChange={(e) => setSearchType(e.target.value)}
                     className="mr-2"
                   />
-                  Restaurant
+                  {translate("common.restaurant")}
                 </label>
                 <label className="flex items-center">
                   <input
                     type="radio"
                     value="products"
-                    checked={searchType === 'products'}
+                    checked={searchType === "products"}
                     onChange={(e) => setSearchType(e.target.value)}
                     className="mr-2"
                   />
-                  Menu
+                  {translate("search.menu")}
                 </label>
               </div>
             </div>
@@ -187,7 +202,9 @@ const Search = () => {
       {loading && (
         <div className="text-center py-8">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500 mx-auto"></div>
-          <p className="mt-4 text-secondary-600">Searching...</p>
+          <p className="mt-4 text-secondary-600">
+            {translate("search.searching")}
+          </p>
         </div>
       )}
 
@@ -197,11 +214,14 @@ const Search = () => {
         </div>
       )}
 
-      {!loading && !error && searchParams.get('q') && (
+      {!loading && !error && searchParams.get("q") && (
         <div>
           <div className="mb-6">
             <h2 className="text-2xl font-bold text-secondary-800">
-              Search results "{searchParams.get('q')}" ({totalResults} results)
+              {translate("search.search_results", {
+                query: searchParams.get("q"),
+                count: totalResults,
+              })}
             </h2>
           </div>
 
@@ -209,7 +229,9 @@ const Search = () => {
           {results.restaurants.length > 0 && (
             <div className="mb-8">
               <h3 className="text-xl font-semibold text-secondary-700 mb-4">
-                Restaurant ({results.restaurants.length} restaurants)
+                {translate("search.restaurants_results", {
+                  count: results.restaurants.length,
+                })}
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {results.restaurants.map((restaurant) => (
@@ -246,7 +268,7 @@ const Search = () => {
                           </span>
                         </div>
                         <span className="text-primary-500 font-semibold group-hover:text-primary-600">
-                          View menu →
+                          {translate("search.view_menu")}
                         </span>
                       </div>
                     </div>
@@ -260,7 +282,9 @@ const Search = () => {
           {results.products.length > 0 && (
             <div className="mb-8">
               <h3 className="text-xl font-semibold text-secondary-700 mb-4">
-                Menu ({results.products.length} results)
+                {translate("search.menu_results", {
+                  count: results.products.length,
+                })}
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {results.products.map((product) => (
@@ -300,19 +324,18 @@ const Search = () => {
                         onClick={() => handleAddToCart(product)}
                         className={`w-full py-2 px-4 rounded-lg font-semibold transition-colors ${
                           product.is_available === false
-                            ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                            ? "bg-gray-300 text-gray-500 cursor-not-allowed"
                             : isAuthenticated
-                            ? 'bg-primary-500 text-white hover:bg-primary-600'
-                            : 'bg-secondary-300 text-secondary-500'
+                            ? "bg-primary-500 text-white hover:bg-primary-600"
+                            : "bg-secondary-300 text-secondary-500"
                         }`}
                         disabled={product.is_available === false}
                       >
-                        {product.is_available === false 
-                          ? 'Out of stock' 
-                          : !isAuthenticated 
-                          ? 'Login to order' 
-                          : 'Add to cart'
-                        }
+                        {product.is_available === false
+                          ? translate("common.out_of_stock")
+                          : !isAuthenticated
+                          ? translate("common.login_to_order")
+                          : translate("cart.add")}
                       </button>
                     </div>
                   </div>
@@ -326,10 +349,10 @@ const Search = () => {
             <div className="text-center py-12">
               <div className="text-6xl mb-4 opacity-30">🔍</div>
               <h3 className="text-xl font-semibold text-secondary-700 mb-2">
-                No search results
+                {translate("search.no_search_results")}
               </h3>
               <p className="text-secondary-500 mb-6">
-                Try a different search or change the search type
+                {translate("search.try_different_search_or_change_type")}
               </p>
             </div>
           )}
@@ -337,14 +360,14 @@ const Search = () => {
       )}
 
       {/* Initial State */}
-      {!searchParams.get('q') && !loading && (
+      {!searchParams.get("q") && !loading && (
         <div className="text-center py-12">
           <div className="text-6xl mb-4 opacity-30">🔍</div>
           <h3 className="text-xl font-semibold text-secondary-700 mb-2">
-            Search for restaurant or menu
+            {translate("search.search_for_restaurant_or_menu")}
           </h3>
           <p className="text-secondary-500">
-            Enter a search above to start
+            {translate("search.enter_search_above_to_start")}
           </p>
         </div>
       )}
@@ -352,4 +375,4 @@ const Search = () => {
   );
 };
 
-export default Search; 
+export default Search;

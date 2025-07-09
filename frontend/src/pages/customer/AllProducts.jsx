@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { useCart } from "../../contexts/CartContext";
 import { toast } from "../../hooks/useNotification";
 import api from "../../services/api";
+import { useLanguage } from "../../contexts/LanguageContext";
 
 const AllProducts = () => {
   const { addItem } = useCart();
@@ -17,6 +18,7 @@ const AllProducts = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalProducts, setTotalProducts] = useState(0);
+  const { translate } = useLanguage();
 
   useEffect(() => {
     fetchData();
@@ -103,7 +105,7 @@ const AllProducts = () => {
       <div className="container mx-auto px-4 py-8">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500 mx-auto"></div>
-          <p className="mt-4 text-secondary-600">Loading...</p>
+          <p className="mt-4 text-secondary-600">{translate('common.loading')}</p>
         </div>
       </div>
     );
@@ -115,9 +117,9 @@ const AllProducts = () => {
         <div className="text-center">
           <p className="text-red-500">
             {error === "ERROR_LOADING_DATA"
-              ? "Failed to load data"
+              ? translate('common.failed_to_load_data')
               : error === "ERROR_LOADING_PRODUCTS"
-              ? "Failed to load products"
+              ? translate('common.failed_to_load_products')
               : error}
           </p>
           <button
@@ -127,7 +129,7 @@ const AllProducts = () => {
             }}
             className="mt-4 bg-primary-500 text-white px-4 py-2 rounded-lg hover:bg-primary-600"
           >
-            Try again
+            {translate('common.try_again')}
           </button>
         </div>
       </div>
@@ -138,11 +140,11 @@ const AllProducts = () => {
     <div className="container mx-auto px-4 py-8">
       <div className="text-center mb-8">
         <h1 className="text-3xl font-bold text-secondary-800 mb-2">
-          All Products
+          {translate("common.all_products")}
         </h1>
         <p className="text-secondary-600">
-          Choose your favorite food from different restaurants ({totalProducts}{" "}
-          items)
+          {translate("common.choose_food_from_different_restaurants")} (
+          {totalProducts} {translate('order.items_count')})
         </p>
       </div>
 
@@ -150,26 +152,26 @@ const AllProducts = () => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
           <div>
             <label className="block text-sm font-medium text-secondary-700 mb-2">
-              Search for products
+              {translate("common.search_for_products")}
             </label>
             <input
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search for products"
+              placeholder={translate("common.search_for_products")}
               className="w-full p-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             />
           </div>
           <div>
             <label className="block text-sm font-medium text-secondary-700 mb-2">
-              Category
+              {translate("common.categories")}
             </label>
             <select
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value)}
               className="w-full p-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             >
-              <option value="">All categories</option>
+              <option value="">{translate("common.all_categories")}</option>
               {categories.map((category) => (
                 <option key={category.category_id} value={category.category_id}>
                   {category.category_name}
@@ -179,14 +181,14 @@ const AllProducts = () => {
           </div>
           <div>
             <label className="block text-sm font-medium text-secondary-700 mb-2">
-              Restaurant
+              {translate("common.restaurants")}
             </label>
             <select
               value={selectedRestaurant}
               onChange={(e) => setSelectedRestaurant(e.target.value)}
               className="w-full p-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             >
-              <option value="">All restaurants</option>
+              <option value="">{translate("common.all_restaurants")}</option>
               {restaurants.map((restaurant) => (
                 <option
                   key={restaurant.restaurant_id}
@@ -209,7 +211,7 @@ const AllProducts = () => {
             }}
             className="text-primary-600 hover:text-primary-700 text-sm font-medium"
           >
-            Clear filters
+            {translate("common.clear_filters")}
           </button>
         )}
       </div>
@@ -271,7 +273,7 @@ const AllProducts = () => {
                         <div className="absolute inset-0 bg-black bg-opacity-60 flex items-center justify-center">
                           <div className="text-center">
                             <span className="text-white font-semibold text-lg block">
-                              Closed
+                              {translate("common.closed")}
                             </span>
                             <span className="text-white/80 text-sm">
                               {restaurant.restaurant_name}
@@ -283,7 +285,7 @@ const AllProducts = () => {
                       return (
                         <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
                           <span className="text-white font-semibold">
-                            Not available
+                            {translate("common.not_available")}
                           </span>
                         </div>
                       );
@@ -298,7 +300,7 @@ const AllProducts = () => {
                   </h3>
 
                   <p className="text-secondary-600 text-sm mb-3 line-clamp-2">
-                    {product.description || "No description"}
+                    {product.description || translate('common.no_description')}
                   </p>
 
                   <div className="flex items-center justify-between mb-2">
@@ -309,7 +311,7 @@ const AllProducts = () => {
                       {product.restaurant_name ||
                         product.restaurant?.restaurant_name ||
                         product.restaurant?.name ||
-                        "Restaurant"}
+                        translate('common.restaurant')}
                     </span>
                   </div>
 
@@ -339,7 +341,9 @@ const AllProducts = () => {
                         {(isRestaurantClosed || isProductUnavailable) && (
                           <div className="mb-2">
                             <span className="px-2 py-1 rounded-full text-xs bg-red-100 text-red-800 block text-center">
-                              {isRestaurantClosed ? "Closed" : "Not available"}
+                              {isRestaurantClosed
+                                ? translate("common.closed")
+                                : translate("common.not_available")}
                             </span>
                           </div>
                         )}
@@ -354,7 +358,7 @@ const AllProducts = () => {
                           }`}
                           className="block w-full mb-2 py-2 px-4 bg-secondary-100 text-secondary-700 text-center rounded-lg font-medium hover:bg-secondary-200 transition-colors text-sm"
                         >
-                          🏪 View this restaurant
+                          🏪 {translate("common.view_this_restaurant")}
                         </Link>
 
                         {/* ปุ่มเพิ่มลงตะกร้า - แสดงเฉพาะเมื่อร้านเปิดและสินค้าพร้อมจำหน่าย */}
@@ -393,13 +397,15 @@ const AllProducts = () => {
                               }
 
                               // แสดงข้อความยืนยัน
-                              toast.success(
-                                `Added "${product.product_name}" to cart!`
+                              alert(
+                                translate("common.added_to_cart", {
+                                  product: product.product_name,
+                                })
                               );
                             }}
                             className="w-full py-2 px-4 rounded-lg font-semibold transition-colors bg-primary-500 text-white hover:bg-primary-600"
                           >
-                            Add to cart
+                            {translate("cart.add")}
                           </button>
                         )}
 
@@ -409,7 +415,9 @@ const AllProducts = () => {
                             disabled
                             className="w-full py-2 px-4 rounded-lg font-semibold bg-gray-300 text-gray-500 cursor-not-allowed"
                           >
-                            {isRestaurantClosed ? "Closed" : "Not available"}
+                            {isRestaurantClosed
+                              ? translate("common.closed")
+                              : translate("common.not_available")}
                           </button>
                         )}
                       </>
@@ -436,7 +444,7 @@ const AllProducts = () => {
                       : "bg-white border border-secondary-300 text-secondary-700 hover:bg-secondary-50"
                   }`}
                 >
-                  Previous
+                  {translate("common.previous")}
                 </button>
 
                 {/* Page Numbers */}
@@ -479,7 +487,7 @@ const AllProducts = () => {
                       : "bg-white border border-secondary-300 text-secondary-700 hover:bg-secondary-50"
                   }`}
                 >
-                  Next
+                  {translate("common.next")}
                 </button>
               </div>
             </div>
@@ -489,10 +497,10 @@ const AllProducts = () => {
         <div className="text-center py-12">
           <div className="text-6xl mb-4 opacity-30">🍽️</div>
           <h3 className="text-xl font-semibold text-secondary-700 mb-2">
-            No products found
+            {translate("common.no_products_found")}
           </h3>
           <p className="text-secondary-500 mb-6">
-            Try changing the search or filter
+            {translate("common.try_changing_the_search_or_filter")}
           </p>
           <button
             onClick={() => {
@@ -503,7 +511,7 @@ const AllProducts = () => {
             }}
             className="bg-primary-500 text-white px-6 py-3 rounded-lg hover:bg-primary-600 transition-colors"
           >
-            Clear filters
+            {translate("common.clear_filters")}
           </button>
         </div>
       )}

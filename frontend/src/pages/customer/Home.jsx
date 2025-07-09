@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useLanguage } from '../../contexts/LanguageContext';
 import { Link } from "react-router-dom";
 import {
   restaurantService,
@@ -14,7 +15,8 @@ const Home = () => {
   const [appSettings, setAppSettings] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-
+  const { translate } = useLanguage();
+  
   useEffect(() => {
     fetchData();
   }, []);
@@ -139,7 +141,7 @@ const Home = () => {
                 to="/products"
                 className="btn-primary bg-white text-primary-600 hover:bg-primary-50 px-6 py-2 shadow-lg"
               >
-                Order now
+                {translate('common.order_now')}
               </Link>
             </div>
           </div>
@@ -151,13 +153,13 @@ const Home = () => {
         <section className="mb-16">
           <div className="flex items-center justify-between mb-8">
             <h2 className="text-3xl font-bold text-secondary-900">
-              Popular categories
+              {translate('common.popular_categories')}
             </h2>
             <Link
               to="/categories"
               className="text-primary-600 hover:text-primary-700 font-medium"
             >
-              View all →
+              {translate('common.view_all')} →
             </Link>
           </div>
 
@@ -193,16 +195,16 @@ const Home = () => {
           <section className="mb-16">
             <div className="flex items-center justify-between mb-8">
               <h2 className="text-3xl font-bold text-secondary-900">
-                Recommended restaurants
+                {translate('common.recommended_restaurants')}
                 <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                  ⭐ Special
+                  ⭐ {translate('common.special')}
                 </span>
               </h2>
               <Link
                 to="/restaurants?type=special"
                 className="text-primary-600 hover:text-primary-700 font-medium"
               >
-                View all →
+                {translate('common.view_all')} →
               </Link>
             </div>
 
@@ -212,6 +214,7 @@ const Home = () => {
                   key={restaurant.restaurant_id}
                   restaurant={restaurant}
                   isSpecial={true}
+                  translate={translate}
                 />
               ))}
             </div>
@@ -222,13 +225,13 @@ const Home = () => {
         <section className="mb-16">
           <div className="flex items-center justify-between mb-8">
             <h2 className="text-3xl font-bold text-secondary-900">
-              Popular restaurants
+              {translate('common.popular_restaurants')}
             </h2>
             <Link
               to="/restaurants"
               className="text-primary-600 hover:text-primary-700 font-medium"
             >
-              View all →
+              {translate('common.view_all')} →
             </Link>
           </div>
 
@@ -237,6 +240,7 @@ const Home = () => {
               <RestaurantCard
                 key={restaurant.restaurant_id}
                 restaurant={restaurant}
+                translate={translate}
               />
             ))}
           </div>
@@ -246,7 +250,7 @@ const Home = () => {
         <section className="py-16 bg-white rounded-lg shadow-sm">
           <div className="max-w-4xl mx-auto text-center px-6">
             <h2 className="text-3xl font-bold text-secondary-900 mb-12">
-              Why choose us?
+              {translate('common.why_choose_us')}
             </h2>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -303,7 +307,7 @@ const Home = () => {
 };
 
 // Restaurant Card Component
-const RestaurantCard = ({ restaurant, isSpecial = false }) => (
+const RestaurantCard = ({ restaurant, isSpecial = false, translate }) => (
   <Link
     to={`/restaurants/${restaurant.restaurant_id}`}
     className="group bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow overflow-hidden"
@@ -319,12 +323,12 @@ const RestaurantCard = ({ restaurant, isSpecial = false }) => (
       />
       {isSpecial && (
         <div className="absolute top-2 right-2 bg-yellow-400 text-yellow-900 px-2 py-1 rounded-full text-xs font-medium">
-          ⭐ Special
+          ⭐ {translate('common.special')}
         </div>
       )}
       {restaurant.status === "closed" && (
         <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-          <span className="text-white text-lg font-medium">Closed</span>
+          <span className="text-white text-lg font-medium">{translate('common.closed')}</span>
         </div>
       )}
     </div>
@@ -352,13 +356,13 @@ const RestaurantCard = ({ restaurant, isSpecial = false }) => (
         </div>
 
         <div className="text-right">
-          <p className="text-sm text-secondary-500">Delivery</p>
-          <p className="text-sm font-medium text-secondary-700">฿30-50</p>
+          <p className="text-sm text-secondary-500">{translate('common.delivery')}</p>
+          <p className="text-sm font-medium text-secondary-700">1-2$</p>
         </div>
       </div>
 
       <div className="mt-2 flex items-center justify-between text-sm text-secondary-500">
-        <span>30-45 minutes</span>
+        <span>{translate('common.delivery_time')}</span>
         <span
           className={`px-2 py-1 rounded-full text-xs ${
             restaurant.status === "open"
@@ -366,7 +370,7 @@ const RestaurantCard = ({ restaurant, isSpecial = false }) => (
               : "bg-red-100 text-red-800"
           }`}
         >
-          {restaurant.status === "open" ? 'Open' : 'Closed'}
+          {restaurant.status === "open" ? translate('common.open') : translate('common.closed')}
         </span>
       </div>
     </div>

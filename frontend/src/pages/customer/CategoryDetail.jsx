@@ -3,8 +3,10 @@ import { useParams, Link } from 'react-router-dom';
 import api from '../../services/api';
 import { useCart } from '../../contexts/CartContext';
 import { useAuth } from '../../contexts/AuthContext';
+import { useLanguage } from '../../contexts/LanguageContext';
 
 const CategoryDetail = () => {
+  const { translate } = useLanguage();
   const { id } = useParams();
   const { addItem } = useCart();
   const { isAuthenticated } = useAuth();
@@ -93,15 +95,15 @@ const CategoryDetail = () => {
           return; // ไม่แสดง alert เพิ่มเติม
         }
         
-        alert(result.error || 'Error adding product to cart');
+        alert(result.error || translate('common.error_adding_to_cart'));
         return;
       }
 
       // แสดงข้อความยืนยัน
-      alert(`Added "${product.product_name}" to cart!`);
+      alert(translate('common.added_to_cart', { product: product.product_name }));
     } catch (error) {
       console.error('Error adding to cart:', error);
-      alert('Error adding product to cart: ' + error.message);
+              alert(translate('common.error_adding_to_cart') + ': ' + error.message);
     }
   };
 
@@ -110,7 +112,7 @@ const CategoryDetail = () => {
       <div className="container mx-auto px-4 py-8">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500 mx-auto"></div>
-          <p className="mt-4 text-secondary-600">Loading...</p>
+          <p className="mt-4 text-secondary-600">{translate('common.loading')}</p>
         </div>
       </div>
     );
@@ -125,7 +127,7 @@ const CategoryDetail = () => {
             to="/categories"
             className="mt-4 inline-block bg-primary-500 text-white px-4 py-2 rounded-lg hover:bg-primary-600"
           >
-            Back to category
+            {translate('common.back_to_categories')}
           </Link>
         </div>
       </div>
@@ -136,9 +138,9 @@ const CategoryDetail = () => {
     <div className="container mx-auto px-4 py-8">
       {/* Breadcrumb */}
       <nav className="text-sm mb-6">
-        <Link to="/" className="text-primary-500 hover:text-primary-600">Home</Link>
+        <Link to="/" className="text-primary-500 hover:text-primary-600">{translate('common.home')}</Link>
         <span className="mx-2 text-secondary-400">&gt;</span>
-        <Link to="/categories" className="text-primary-500 hover:text-primary-600">Categories</Link>
+        <Link to="/categories" className="text-primary-500 hover:text-primary-600">{translate('nav.categories')}</Link>
         <span className="mx-2 text-secondary-400">&gt;</span>
         <span className="text-secondary-600">{category?.category_name}</span>
       </nav>
@@ -176,7 +178,7 @@ const CategoryDetail = () => {
       {/* Products Grid */}
       <div className="mb-6">
         <h2 className="text-2xl font-bold text-secondary-800 mb-4">
-          Menu in this category ({products.length} items)
+          {translate('common.menu_in_this_category')} ({products.length} {translate('order.items_count')})
         </h2>
       </div>
 
@@ -204,12 +206,12 @@ const CategoryDetail = () => {
                 )}
                 {product.is_available === false && (
                   <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-                    <span className="text-white font-semibold">Out of stock</span>
+                    <span className="text-white font-semibold">{translate('common.out_of_stock')}</span>
                   </div>
                 )}
                 {product.restaurant_status !== 'open' && (
                   <div className="absolute inset-0 bg-red-600 bg-opacity-70 flex items-center justify-center">
-                    <span className="text-white font-semibold">Closed</span>
+                    <span className="text-white font-semibold">{translate('common.closed')}</span>
                   </div>
                 )}
               </div>
@@ -234,7 +236,7 @@ const CategoryDetail = () => {
                   to={`/restaurants/${product.restaurant_id || product.restaurant}`}
                   className="block w-full mb-2 py-2 px-4 bg-secondary-100 text-secondary-700 text-center rounded-lg font-medium hover:bg-secondary-200 transition-colors text-sm"
                 >
-                  🏪 View this restaurant
+                  🏪 {translate('common.view_this_restaurant')}
                 </Link>
                 
                 <button
@@ -249,12 +251,12 @@ const CategoryDetail = () => {
                   disabled={product.restaurant_status !== 'open' || product.is_available === false}
                 >
                   {product.restaurant_status !== 'open'
-                    ? 'Closed'
+                    ? translate('common.closed')
                     : product.is_available === false 
-                    ? 'Out of stock' 
+                    ? translate('common.out_of_stock') 
                     : !isAuthenticated 
-                    ? 'Login to order' 
-                    : 'Add to cart'
+                    ? translate('common.login_to_order') 
+                    : translate('cart.add')
                   }
                 </button>
               </div>
@@ -265,16 +267,16 @@ const CategoryDetail = () => {
         <div className="text-center py-12">
           <div className="text-6xl mb-4 opacity-30">🍽️</div>
           <h3 className="text-xl font-semibold text-secondary-700 mb-2">
-            No menu in this category
+            {translate('common.no_menu_in_this_category')}
           </h3>
           <p className="text-secondary-500 mb-6">
-            Try choosing another category
+            {translate('common.try_choosing_another_category')}
           </p>
           <Link
             to="/categories"
             className="inline-block bg-primary-500 text-white px-6 py-3 rounded-lg hover:bg-primary-600 transition-colors"
           >
-            View other categories
+            {translate('common.view_other_categories')}
           </Link>
         </div>
       )}

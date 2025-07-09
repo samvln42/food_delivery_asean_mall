@@ -6,6 +6,8 @@ const Unauthorized = () => {
   const { user, logout } = useAuth();
 
   const handleLogout = async () => {
+    const confirmed = window.confirm('Are you sure you want to log out?');
+    if (!confirmed) return;
     await logout();
   };
 

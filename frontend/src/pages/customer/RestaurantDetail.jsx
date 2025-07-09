@@ -4,8 +4,10 @@ import api from "../../services/api";
 import Loading from "../../components/common/Loading";
 import { useCart } from "../../contexts/CartContext";
 import { useAuth } from "../../contexts/AuthContext";
+import { useLanguage } from "../../contexts/LanguageContext";
 
 const RestaurantDetail = () => {
+
   const { id } = useParams();
   const { addItem } = useCart();
   const { user, isAuthenticated } = useAuth();
@@ -15,6 +17,7 @@ const RestaurantDetail = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState("menu");
+  const { translate } = useLanguage();
 
   useEffect(() => {
     if (id) {
@@ -47,7 +50,7 @@ const RestaurantDetail = () => {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <Loading size="large" text="Loading restaurant data..." />
+        <Loading size="large" text={translate('common.loading_restaurant_data')} />
       </div>
     );
   }
@@ -62,7 +65,7 @@ const RestaurantDetail = () => {
             to="/restaurants"
             className="bg-primary-500 text-white px-6 py-3 rounded-lg hover:bg-primary-600 transition-colors inline-block"
           >
-            Back to restaurant list
+            {translate('common.back_to_restaurant_list')}
           </Link>
         </div>
       </div>
@@ -74,12 +77,12 @@ const RestaurantDetail = () => {
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <div className="text-secondary-400 text-xl mb-4">🏪</div>
-          <p className="text-secondary-600 mb-4">No restaurant found</p>
+          <p className="text-secondary-600 mb-4">{translate('common.no_restaurant_found')}</p>
           <Link
             to="/restaurants"
             className="bg-primary-500 text-white px-6 py-3 rounded-lg hover:bg-primary-600 transition-colors inline-block"
           >
-            Back to restaurant list
+            {translate('common.back_to_restaurant_list')}
           </Link>
         </div>
       </div>
@@ -93,14 +96,14 @@ const RestaurantDetail = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
           <nav className="text-sm">
             <Link to="/" className="text-primary-600 hover:text-primary-700">
-              Home
+              {translate('common.home')}
             </Link>
             <span className="mx-2 text-secondary-400">&gt;</span>
             <Link
               to="/restaurants"
               className="text-primary-600 hover:text-primary-700"
             >
-              Restaurants
+              {translate('common.restaurants')}
             </Link>
             <span className="mx-2 text-secondary-400">&gt;</span>
             <span className="text-secondary-600">
@@ -138,7 +141,7 @@ const RestaurantDetail = () => {
                 {restaurant.is_special && (
                   <div className="absolute top-4 right-4">
                     <span className="bg-yellow-400 text-yellow-900 px-3 py-1 rounded-full text-sm font-semibold">
-                      ⭐ Special restaurant
+                      ⭐ {translate('common.special_restaurant')}
                     </span>
                   </div>
                 )}
@@ -150,7 +153,7 @@ const RestaurantDetail = () => {
                         : "bg-red-100 text-red-800"
                     }`}
                   >
-                    {restaurant.status === "open" ? "🟢 Open" : "🔴 Closed"}
+                    {restaurant.status === "open" ? "🟢 " + translate('common.open') : "🔴 " + translate('common.closed')}
                   </span>
                 </div>
               </div>
@@ -173,7 +176,7 @@ const RestaurantDetail = () => {
                     {Number(restaurant.average_rating || 0).toFixed(1)}
                   </span>
                   <span className="text-secondary-500 ml-1">
-                    ({restaurant.total_reviews} reviews)
+                    ({restaurant.total_reviews} {translate('restaurant.reviews')})
                   </span>
                 </div>
               </div>
@@ -205,7 +208,7 @@ const RestaurantDetail = () => {
                 <div className="flex items-center">
                   <span className="text-secondary-500 mr-2">🚚</span>
                   <span className="text-secondary-700">
-                    Delivery fee 30-50 baht
+                    {translate('cart.delivery_fee')} 1-2 {translate('common.dollars')}
                   </span>
                 </div>
               </div>
@@ -226,7 +229,7 @@ const RestaurantDetail = () => {
                   : "border-transparent text-secondary-500 hover:text-secondary-700"
               }`}
             >
-              Menu ({products.length})
+              {translate('restaurant.menu')} ({products.length})
             </button>
             <button
               onClick={() => setActiveTab("reviews")}
@@ -236,7 +239,7 @@ const RestaurantDetail = () => {
                   : "border-transparent text-secondary-500 hover:text-secondary-700"
               }`}
             >
-              Reviews ({reviews.length})
+              {translate('restaurant.reviews')} ({reviews.length})
             </button>
           </div>
         </div>
@@ -246,7 +249,7 @@ const RestaurantDetail = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {activeTab === "menu" && (
           <div>
-            <h2 className="text-2xl font-bold text-secondary-900 mb-6">Menu</h2>
+            <h2 className="text-2xl font-bold text-secondary-900 mb-6">{translate('restaurant.menu')}</h2>
             {products.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {products.map((product) => (
@@ -256,13 +259,14 @@ const RestaurantDetail = () => {
                     restaurant={restaurant}
                     onAddToCart={addItem}
                     isAuthenticated={isAuthenticated}
+                    translate={translate}
                   />
                 ))}
               </div>
             ) : (
               <div className="text-center py-12">
                 <div className="text-6xl mb-4 opacity-30">🍽️</div>
-                <p className="text-secondary-500">No menu</p>
+                <p className="text-secondary-500">{translate('common.no_menu')}</p>
               </div>
             )}
           </div>
@@ -271,7 +275,7 @@ const RestaurantDetail = () => {
         {activeTab === "reviews" && (
           <div>
             <h2 className="text-2xl font-bold text-secondary-900 mb-6">
-              Reviews
+              {translate('common.reviews')}
             </h2>
             {reviews.length > 0 ? (
               <div className="space-y-6">
@@ -282,7 +286,7 @@ const RestaurantDetail = () => {
             ) : (
               <div className="text-center py-12">
                 <div className="text-6xl mb-4 opacity-30">💬</div>
-                <p className="text-secondary-500">No reviews</p>
+                <p className="text-secondary-500">{translate('common.no_reviews')}</p>
               </div>
             )}
           </div>
@@ -293,11 +297,11 @@ const RestaurantDetail = () => {
 };
 
 // Product Card Component
-const ProductCard = ({ product, restaurant, onAddToCart, isAuthenticated }) => {
+const ProductCard = ({ product, restaurant, onAddToCart, isAuthenticated, translate }) => {
   const handleAddToCart = () => {
-    console.log("Product:", product);
-    console.log("Restaurant:", restaurant);
-    console.log("isAuthenticated:", isAuthenticated);
+    // console.log("Product:", product);
+    // console.log("Restaurant:", restaurant);
+    // console.log("isAuthenticated:", isAuthenticated);
 
     // ตรวจสอบสถานะร้าน
     if (restaurant.status !== "open") {
@@ -332,7 +336,7 @@ const ProductCard = ({ product, restaurant, onAddToCart, isAuthenticated }) => {
       }
 
       // แสดงข้อความยืนยัน
-      alert(`Added "${product.product_name}" to cart!`);
+      alert(translate('common.added_to_cart', { product: product.product_name }));
     } catch (error) {
       console.error("Error adding to cart:", error);
       alert("Error adding product to cart");
@@ -358,7 +362,7 @@ const ProductCard = ({ product, restaurant, onAddToCart, isAuthenticated }) => {
         )}
         {!product.is_available && (
           <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-            <span className="text-white font-semibold">Out of stock</span>
+            <span className="text-white font-semibold">{translate('common.out_of_stock')}</span>
           </div>
         )}
       </div>
@@ -389,10 +393,10 @@ const ProductCard = ({ product, restaurant, onAddToCart, isAuthenticated }) => {
           disabled={!product.is_available || restaurant.status !== "open"}
         >
           {restaurant.status !== "open"
-            ? "Restaurant is closed"
+            ? translate('common.restaurant_is_closed')
             : !product.is_available
-            ? "Out of stock"
-            : "Add to cart"}
+            ? translate('common.out_of_stock')
+                                : translate('cart.add')}
         </button>
       </div>
     </div>
