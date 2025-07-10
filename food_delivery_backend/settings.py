@@ -19,15 +19,14 @@ SECRET_KEY = os.environ.get('SECRET_KEY')
 DEBUG = os.environ.get('DEBUG', 'False').lower() == 'true'
 
 
-ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '').split(',')
+_env_hosts = os.environ.get('ALLOWED_HOSTS')
+# If not specified, allow all hosts (useful for internal LB health checks)
+ALLOWED_HOSTS = _env_hosts.split(',') if _env_hosts else ['*']
 
 # CORS configuration
 CORS_ALLOWED_ORIGINS = [
     'http://localhost:3000',
-    # 'http://localhost:8000',
-    'http://127.0.0.1:8000',
-    'http://15.165.242.203:8000',
-    'https://15.165.242.203:8000',
+    'https://tacashop.com',
 ]
 CORS_ALLOW_CREDENTIALS = True
 
@@ -49,12 +48,8 @@ CORS_ALLOW_HEADERS = [
 
 # CSRF configuration for API
 CSRF_TRUSTED_ORIGINS = [
-    'http://localhost:3000',
-    'http://127.0.0.1:3000',
     'http://localhost:8000',
-    'http://127.0.0.1:8000',
-    'http://15.165.242.203:8000',
-    'https://15.165.242.203:8000',
+    'https://tacashop.com',
 ]
 
 # Exempt API endpoints from CSRF
@@ -264,7 +259,10 @@ GOOGLE_OAUTH2_CLIENT_SECRET = os.environ.get('GOOGLE_OAUTH2_CLIENT_SECRET')
 # Security settings for production
 if not DEBUG:
     # HTTPS Security
-    SECURE_SSL_REDIRECT = True
+    # เปิด redirect ไป HTTPS เฉพาะเมื่อกำหนด FORCE_SSL=true ใน environment
+    SECURE_SSL_REDIRECT = os.environ.get('FORCE_SSL', 'False').lower() == 'true'
+    # Allow load-balancer health check over plain HTTP (no redirect to HTTPS)
+    SECURE_REDIRECT_EXEMPT = [r'^api/health/$']
     SECURE_HSTS_SECONDS = 31536000  # 1 year
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
@@ -274,3 +272,6 @@ if not DEBUG:
     CSRF_COOKIE_SECURE = True
     SECURE_BROWSER_XSS_FILTER = True
     SECURE_CONTENT_TYPE_NOSNIFF = True
+
+# Tell Django to trust the X-Forwarded-Proto header from load balancer
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')

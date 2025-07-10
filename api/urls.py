@@ -21,6 +21,8 @@ router.register(r'languages', views.LanguageViewSet)
 router.register(r'translations', views.TranslationViewSet)
 
 urlpatterns = [
+    # Health check endpoint for ALB/ELB
+    path('health/', views.health_check, name='health-check'),
     path('', include(router.urls)),
     path('search/', views.SearchViewSet.as_view({'get': 'search'}), name='search'),
     path('search/popular/', views.SearchViewSet.as_view({'get': 'popular'}), name='popular-searches'),

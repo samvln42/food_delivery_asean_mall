@@ -31,6 +31,14 @@ from .serializers import (
 )
 
 
+# -------------------- Health Check Endpoint --------------------
+# ALB/ELB ใช้เรียกตรวจสอบสถานะเซิร์ฟเวอร์ ควรตอบ HTTP 200 เสมอ
+@api_view(["GET", "HEAD"])
+@permission_classes([AllowAny])
+def health_check(request):
+    """Simple health check view for load balancer."""
+    return Response({"status": "ok"})
+
 
 class RestaurantViewSet(viewsets.ModelViewSet):
     queryset = Restaurant.objects.all()
