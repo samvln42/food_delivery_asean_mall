@@ -1,4 +1,4 @@
-import React, { useState, useEffect, createContext, useContext } from 'react';
+import React, { useState, useEffect, createContext, useContext, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import Header from '../components/common/Header';
 import { notificationService } from '../services/api';
@@ -21,54 +21,110 @@ const AdminLayout = ({ children }) => {
   const { user, token } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  
+  // Debug logging for unreadCount changes
+  useEffect(() => {
+    console.log('📊 UnreadCount state changed to:', unreadCount);
+  }, [unreadCount]);
+
+  // Fetch unread notifications count function
+  const fetchUnreadCount = useCallback(async () => {
+    console.log('🔍 Fetching unread count for admin...');
+    try {
+      const response = await notificationService.getUnreadCount();
+      const count = response.data.unread_count || 0;
+      setUnreadCount(count);
+      console.log('📊 Unread count API response:', response.data);
+      console.log('📊 Final unread count set to:', count);
+    } catch (error) {
+      console.error('❌ Error fetching unread count:', error);
+      // Fallback: count manually from unread notifications
+      try {
+        console.log('🔄 Trying fallback method...');
+        const notifResponse = await notificationService.getAll({ is_read: 'false' });
+        console.log('📊 Fallback API response:', notifResponse.data);
+        const unreadNotifs = (notifResponse.data.results || notifResponse.data).filter(n => !n.is_read);
+        console.log('📊 Filtered unread notifications:', unreadNotifs);
+        setUnreadCount(unreadNotifs.length);
+        console.log('📊 Fallback unread count:', unreadNotifs.length);
+      } catch (fallbackError) {
+        console.error('❌ Fallback count also failed:', fallbackError);
+      }
+    }
+  }, []);
 
   // Fetch unread notifications count for admin
   useEffect(() => {
+    console.log('🔍 AdminLayout useEffect triggered:', { 
+      userRole: user?.role, 
+      hasToken: !!token,
+      userName: user?.username 
+    });
     if (user?.role === 'admin' && token) {
+      console.log('✅ Admin user with token detected, fetching unread count...');
+      // เรียกดึงข้อมูล unread count ตอนโหลดหน้า
+      fetchUnreadCount();
+
       // ฟังก์ชันเมื่อได้รับออเดอร์ใหม่ → อัปเดตตัวเลข unread เฉย ๆ (toast & sound ทำโดย AdminNotificationBridge)
       const handleNewOrder = (data) => {
-        setUnreadCount(prev => prev + 1);
+        console.log('🔔 AdminLayout: Received new_order event, incrementing unread count', data);
+        setUnreadCount(prev => {
+          const newCount = prev + 1;
+          console.log('🔔 AdminLayout: Incrementing unread count from', prev, 'to', newCount);
+          return newCount;
+        });
+      };
+
+      // ลงทะเบียน listener สำหรับ notification_update event
+      const handleNotificationUpdate = () => {
+        console.log('🔄 AdminLayout: Received notification_update event, refreshing unread count');
+        fetchUnreadCount();
       };
 
       // ลงทะเบียน listener (ไม่ต้องเชื่อมต่อ WebSocket ที่นี่ เพราะเชื่อมจาก AdminNotificationBridge แล้ว)
       websocketService.on('new_order', handleNewOrder);
+      window.addEventListener('notification_update', handleNotificationUpdate);
+      console.log('✅ AdminLayout: Registered event listeners for new_order and notification_update');
+
+      // 🔄 เพิ่ม polling mechanism เป็น fallback สำหรับการอัพเดท unread count
+      // ในกรณีที่ WebSocket ยังไม่ได้ deploy
+      const pollingInterval = setInterval(() => {
+        console.log('🔄 Polling unread count automatically...');
+        fetchUnreadCount();
+      }, 30000); // ทุก 30 วินาที
+      console.log('⏰ AdminLayout: Set up polling interval (30 seconds)');
 
       // cleanup เมื่อ component unmount หรือ token เปลี่ยน
       return () => {
         websocketService.off('new_order', handleNewOrder);
+        window.removeEventListener('notification_update', handleNotificationUpdate);
+        clearInterval(pollingInterval);
+        console.log('🧹 AdminLayout: Cleaned up all listeners and polling interval');
       };
     }
-  }, [user?.role, token]);
+  }, [user?.role, token, fetchUnreadCount]);
 
-  const fetchUnreadCount = async () => {
-    try {
-      const response = await notificationService.getUnreadCount();
-      setUnreadCount(response.data.unread_count || 0);
-      console.log('📊 Unread count in sidebar:', response.data.unread_count);
-    } catch (error) {
-      console.error('Error fetching unread count:', error);
-      // Fallback: count manually from unread notifications
-      try {
-        const notifResponse = await notificationService.getAll({ is_read: 'false' });
-        const unreadNotifs = (notifResponse.data.results || notifResponse.data).filter(n => !n.is_read);
-        setUnreadCount(unreadNotifs.length);
-      } catch (fallbackError) {
-        console.error('Fallback count also failed:', fallbackError);
-      }
-    }
-  };
+
 
   // Function to update unread count (for use by children components)
   const updateUnreadCount = (newCount) => {
-    setUnreadCount(newCount);
-    console.log('🔄 Updated unread count to:', newCount);
+    if (typeof newCount === 'function') {
+      setUnreadCount(prev => {
+        const result = newCount(prev);
+        console.log('🔄 Updated unread count from', prev, 'to:', result);
+        return result;
+      });
+    } else {
+      setUnreadCount(newCount);
+      console.log('🔄 Updated unread count to:', newCount);
+    }
   };
 
   // Function to decrease unread count by 1
   const decreaseUnreadCount = () => {
     setUnreadCount(prev => {
       const newCount = Math.max(0, prev - 1);
-      console.log('➖ Decreased unread count to:', newCount);
+      console.log('➖ Decreased unread count from', prev, 'to:', newCount);
       return newCount;
     });
   };
@@ -156,11 +212,11 @@ const AdminLayout = ({ children }) => {
                   className="flex items-center justify-between px-4 py-2 text-secondary-700 rounded-lg hover:bg-primary-50 hover:text-primary-600 transition-colors"
                 >
                   <span>🔔 การแจ้งเตือน</span>
-                  {unreadCount > 0 && (
-                    <span className="bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                      {unreadCount > 9 ? '9+' : unreadCount}
-                    </span>
-                  )}
+                  <span className={`text-xs rounded-full h-5 w-5 flex items-center justify-center ${
+                    unreadCount > 0 ? 'bg-red-500 text-white' : 'bg-gray-300 text-gray-600'
+                  }`}>
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
                 </Link>
                 <Link
                   to="/admin/analytics"
@@ -187,6 +243,8 @@ const AdminLayout = ({ children }) => {
             </div>
           </main>
         </div>
+        
+        {/* Development Test Button removed */}
       </div>
     </NotificationContext.Provider>
   );

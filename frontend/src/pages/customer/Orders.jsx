@@ -4,7 +4,6 @@ import api from "../../services/api";
 import { useAuth } from "../../contexts/AuthContext";
 import { useLanguage } from "../../contexts/LanguageContext";
 import websocketService from "../../services/websocket";
-import { toast } from "../../hooks/useNotification";
 
 // Order Status Tracker Component
 const OrderStatusTracker = ({ currentStatus, orderDate, translate }) => {
@@ -287,7 +286,7 @@ const Orders = () => {
     }
   }, [page]);
 
-  // Polling system สำหรับ real-time updates
+  // Polling system สำหรับ real-time updates (Fallback หาก WebSocket ไม่ทำงาน)
   useEffect(() => {
     if (!user?.id || !token) {
       console.log("⚠️ User not authenticated, stopping polling");
@@ -295,14 +294,32 @@ const Orders = () => {
       return;
     }
 
+    // Check WebSocket connection status
+    const isWebSocketConnected = websocketService.ws && websocketService.ws.readyState === WebSocket.OPEN;
+    
+    if (isWebSocketConnected) {
+      console.log("✅ WebSocket connected - polling disabled");
+      setPollingActive(false);
+      fetchOrders(); // Initial fetch only
+      return;
+    }
+
+    // Use polling as fallback when WebSocket is not available
     setPollingActive(true);
-    console.log("🔄 Starting polling for real-time updates...");
+    console.log("🔄 WebSocket not available - using polling for real-time updates...");
 
     // Initial fetch
     fetchOrders();
 
     // Set up polling interval (ทุก 10 วินาที)
     const pollingInterval = setInterval(() => {
+      // Check again if WebSocket became available
+      if (websocketService.ws && websocketService.ws.readyState === WebSocket.OPEN) {
+        console.log("✅ WebSocket now available - stopping polling");
+        setPollingActive(false);
+        clearInterval(pollingInterval);
+        return;
+      }
       fetchOrdersQuietly(); // Fetch without loading states
     }, 10000);
 
@@ -318,19 +335,23 @@ const Orders = () => {
     
     // Listen for order status updates
     const handleOrderStatusUpdate = (data) => {
+      console.log('🎯 Order status update received in Orders.jsx:', data);
+      console.log('👤 Current user:', user);
+      console.log('📦 Order details:', data.payload || data);
+      
       // Refresh orders list
       fetchOrdersQuietly();
       
-      // Show toast notification with translated message from WebSocket service
-      toast.success(data.payload.new_status_display, { duration: 5000 });
+      // Build display message (no toast anymore)
+      const displayMessage = data.payload?.new_status_display || `Order #${data.payload?.order_id || data.order_id} updated to ${data.payload?.new_status || data.new_status}`;
       
       // Show UI notification popup
-      const translatedStatus = translate(`order.status.${data.payload.new_status}`);
+      const translatedStatus = translate(`order.status.${data.payload?.new_status || data.new_status}`);
       setStatusUpdateNotification({
-        orderId: data.payload.order_id,
+        orderId: data.payload?.order_id || data.order_id,
         statusLabel: translatedStatus,
-        oldStatus: data.payload.old_status,
-        newStatus: data.payload.new_status,
+        oldStatus: data.payload?.old_status || data.old_status,
+        newStatus: data.payload?.new_status || data.new_status,
       });
 
       // Auto-hide notification after 5 seconds
@@ -338,18 +359,7 @@ const Orders = () => {
         setStatusUpdateNotification(null);
       }, 5000);
 
-      // Browser notification (if permission granted)
-      if (Notification.permission === "granted") {
-        const notificationTitle = translate("order.status_updated");
-        // ใช้ข้อความที่แปลแล้วจาก WebSocket service โดยตรง
-        const notificationBody = data.payload.new_status_display;
-        
-        new Notification(notificationTitle, {
-          body: notificationBody,
-          icon: "/favicon.ico",
-          badge: "/favicon.ico",
-        });
-      }
+      // Removed Browser notification
     };
     
     websocketService.on('order_status_update', handleOrderStatusUpdate);
@@ -364,8 +374,16 @@ const Orders = () => {
       setLoading(true);
       setError(null);
 
-      // เรียก API จริง
-      const response = await api.get(import.meta.env.VITE_API_URL + "/orders/");
+      // ตรวจสอบว่ามี user และ token หรือไม่
+      if (!user || !token) {
+        console.error("❌ User not authenticated");
+        setError(translate("order.please_login_first"));
+        setOrders([]);
+        return;
+      }
+
+      // เรียก API จริง - backend จะ filter orders ตาม user role อัตโนมัติ
+      const response = await api.get("/orders/");
       const apiOrders = response.data.results || response.data;
       // เรียงตาม order_date (ใหม่ -> เก่า)
       const sortedOrders = [...apiOrders].sort(
@@ -387,7 +405,13 @@ const Orders = () => {
   // Fetch orders without loading states (สำหรับ polling)
   const fetchOrdersQuietly = async () => {
     try {
-      const response = await api.get(import.meta.env.VITE_API_URL + "/orders/");
+      // ตรวจสอบว่ามี user และ token หรือไม่
+      if (!user || !token) {
+        console.error("❌ User not authenticated for polling");
+        return;
+      }
+
+      const response = await api.get("/orders/");
       const apiOrders = response.data.results || response.data;
       const sortedNew = [...apiOrders].sort(
         (a, b) => new Date(b.order_date) - new Date(a.order_date)
@@ -432,20 +456,7 @@ const Orders = () => {
               setStatusUpdateNotification(null);
             }, 5000);
 
-            // Browser notification (if permission granted)
-            if (Notification.permission === "granted") {
-              const notificationTitle = translate("order.status_updated");
-              const notificationBody = translate("order.status_change_notification", {
-                orderId: latestChange.orderId,
-                status: statusInfo.text,
-              });
-              
-              new Notification(notificationTitle, {
-                body: notificationBody,
-                icon: "/favicon.ico",
-                badge: "/favicon.ico",
-              });
-            }
+            // Removed Browser notification
           }
         }
 
@@ -637,41 +648,30 @@ const Orders = () => {
             <>
               {/* Real-time Updates Status Indicator */}
               <div className="flex items-center space-x-2">
-                <div
-                  className={`w-2 h-2 rounded-full ${
-                    pollingActive ? "bg-green-500 animate-pulse" : "bg-red-500"
-                  }`}
-                ></div>
-                <span
-                  className={`text-xs ${
-                    pollingActive ? "text-green-600" : "text-red-600"
-                  }`}
-                >
-                  {pollingActive
-                    ? translate("order.realtime_active")
-                    : translate("order.realtime_inactive")}
-                </span>
+                {websocketService.ws && websocketService.ws.readyState === WebSocket.OPEN ? (
+                  <>
+                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                    <span className="text-xs text-green-600 font-medium">
+                      WebSocket Connected
+                    </span>
+                  </>
+                ) : pollingActive ? (
+                  <>
+                    <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                    <span className="text-xs text-blue-600 font-medium">
+                      Polling Active
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                    <span className="text-xs text-red-600 font-medium">
+                      No Real-time Updates
+                    </span>
+                  </>
+                )}
               </div>
 
-              {/* Debug User Info */}
-              <div className="text-xs text-gray-500 space-x-2">
-                <span>
-                  {translate("auth.user_id")}: {user.id}
-                </span>
-                <span>|</span>
-                <span>
-                  {translate("auth.token")}: {token ? "✓" : "✗"}
-                </span>
-                <button
-                  onClick={() => {
-                    fetchOrders();
-                  }}
-                  className="text-blue-500 hover:text-blue-700 underline"
-                >
-                  {translate("common.refresh")}
-                </button>
-
-              </div>
             </>
           )}
         </div>

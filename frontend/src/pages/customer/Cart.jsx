@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
 import { useCart } from "../../contexts/CartContext";
-import { appSettingsService } from "../../services/api";
+import api, { appSettingsService } from "../../services/api";
 import { ErrorHandler, handleError } from "../../utils/errorHandler";
 import { toast } from "../../hooks/useNotification";
 import { useLanguage } from "../../contexts/LanguageContext";
@@ -75,16 +75,12 @@ const Cart = () => {
 
       try {
         for (const restaurantId of restaurantIds) {
-          const response = await fetch(
-            import.meta.env.VITE_API_URL + "/restaurants/" + restaurantId + "/"
-          );
-          if (response.ok) {
-            const restaurant = await response.json();
-            statuses[restaurantId] = {
-              name: restaurant.restaurant_name,
-              status: restaurant.status,
-            };
-          }
+          const response = await api.get(`/restaurants/${restaurantId}/`);
+          const restaurant = response.data;
+          statuses[restaurantId] = {
+            name: restaurant.restaurant_name,
+            status: restaurant.status,
+          };
         }
         setRestaurantStatuses(statuses);
       } catch (error) {
@@ -136,17 +132,13 @@ const Cart = () => {
     ];
     try {
       for (const restaurantId of restaurantIds) {
-        const response = await fetch(
-          import.meta.env.VITE_API_URL + `/restaurants/${restaurantId}/`
-        );
-        if (response.ok) {
-          const restaurant = await response.json();
-          if (restaurant.status !== "open") {
-            toast.error(
-              `Sorry, "${restaurant.restaurant_name}" is closed. Please remove items from this restaurant before ordering`
-            );
-            return;
-          }
+        const response = await api.get(`/restaurants/${restaurantId}/`);
+        const restaurant = response.data;
+        if (restaurant.status !== "open") {
+          toast.error(
+            `Sorry, "${restaurant.restaurant_name}" is closed. Please remove items from this restaurant before ordering`
+          );
+          return;
         }
       }
     } catch (error) {
@@ -191,27 +183,17 @@ const Cart = () => {
         formData.append("proof_of_payment", proofOfPayment);
       }
 
-      // ใช้ fetch API
-      const myHeaders = new Headers();
-      myHeaders.append("Authorization", `Token ${token}`);
-      // ไม่ต้องระบุ Content-Type เพื่อให้ browser ตั้งค่า multipart/form-data อัตโนมัติ
+      // ใช้ api instance ที่ตั้งค่า headers และ baseURL ไว้แล้ว
 
-      const requestOptions = {
-        method: "POST",
-        headers: myHeaders,
-        body: formData,
-        redirect: "follow",
-      };
-
-      const response = await fetch(
-        import.meta.env.VITE_API_URL + "/orders/multi/",
-        requestOptions
-      );
-      const result = await response.text();
-
-      if (response.ok) {
+      try {
+        const response = await api.post("/orders/multi/", formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        });
+        
         // สำเร็จ
-        const orderResult = JSON.parse(result);
+        const orderResult = response.data;
         clearCart();
 
         // สร้างข้อความแจ้งเตือนความสำเร็จแบบหลายภาษา
@@ -224,12 +206,12 @@ const Cart = () => {
 
         toast.success(successMessage);
         navigate("/orders");
-      } else {
+      } catch (error) {
         // ถ้า API multi ยังไม่มี ลองใช้ single restaurant order แบบเดิม
-        if (response.status === 404 && restaurantCount === 1) {
+        if (error.response?.status === 404 && restaurantCount === 1) {
           await handleSingleRestaurantCheckout(token, userId);
         } else {
-          const errorData = JSON.parse(result);
+          const errorData = error.response?.data || error.message;
           let errorMessage = "Error occurred while placing order";
           if (typeof errorData === "object") {
             const errors = [];
@@ -287,33 +269,23 @@ const Cart = () => {
       formData.append("proof_of_payment", proofOfPayment);
     }
 
-    const myHeaders = new Headers();
-    myHeaders.append("Authorization", `Token ${token}`);
-    // ไม่ต้องระบุ Content-Type เพื่อให้ browser ตั้งค่า multipart/form-data อัตโนมัติ
+    // ไม่ต้องตั้งค่า headers เพิ่มเติม เพราะ api instance จะจัดการ Authorization header ให้อัตโนมัติ
 
-    const requestOptions = {
-      method: "POST",
-      headers: myHeaders,
-      body: formData,
-      redirect: "follow",
-    };
-
-    const response = await fetch(
-      import.meta.env.VITE_API_URL + "/orders/",
-      requestOptions
-    );
-    const result = await response.text();
-
-    if (response.ok) {
-      const orderResult = JSON.parse(result);
+    try {
+      const response = await api.post("/orders/", formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      
       clearCart();
       toast.success(
         `Order successful!\nOrder ID: ${
-          orderResult.id || "ORD-" + Date.now()
+          response.data.id || "ORD-" + Date.now()
         }\nTotal: ฿${total}`
       );
       navigate("/orders");
-    } else {
+    } catch (error) {
       throw new Error("Single restaurant order failed");
     }
   };

@@ -15,6 +15,18 @@ api.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Token ${token}`;
     }
+    
+    // Debug logging for specific API calls
+    if (config.url.includes('/notifications/')) {
+      console.log('🔍 API Request:', {
+        method: config.method.toUpperCase(),
+        url: config.url,
+        baseURL: config.baseURL,
+        fullURL: `${config.baseURL}${config.url}`,
+        hasToken: !!token
+      });
+    }
+    
     return config;
   },
   (error) => {
@@ -24,8 +36,30 @@ api.interceptors.request.use(
 
 // Response interceptor for error handling
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // Debug logging for notifications API responses
+    if (response.config.url.includes('/notifications/')) {
+      console.log('✅ API Response:', {
+        method: response.config.method.toUpperCase(),
+        url: response.config.url,
+        status: response.status,
+        data: response.data
+      });
+    }
+    return response;
+  },
   (error) => {
+    // Debug logging for notifications API errors
+    if (error.config?.url.includes('/notifications/')) {
+      console.log('❌ API Error:', {
+        method: error.config.method.toUpperCase(),
+        url: error.config.url,
+        status: error.response?.status,
+        message: error.message,
+        data: error.response?.data
+      });
+    }
+    
     // Handle authentication errors globally
     if (error.response?.status === 401) {
       // Token expired or invalid - clear session and redirect
@@ -39,6 +73,12 @@ api.interceptors.response.use(
         localStorage.setItem('redirectAfterLogin', currentPath);
         window.location.href = '/login';
       }
+    }
+    
+    // Handle network errors with user-friendly messages
+    if (error.code === 'ECONNABORTED' || error.code === 'NETWORK_ERROR') {
+      console.error('🌐 Network error:', error.message);
+      // Don't show alert for every network error, let components handle it
     }
     
     // For other errors, let individual components handle them
@@ -69,9 +109,46 @@ export const restaurantService = {
   getSpecial: (params = {}) => api.get('/restaurants/special/', { params }),
   getNearby: (params = {}) => api.get('/restaurants/nearby/', { params }),
   getAnalytics: (id, params = {}) => api.get(`/restaurants/${id}/analytics/`, { params }),
-  create: (data) => api.post('/restaurants/', data),
-  update: (id, data) => api.put(`/restaurants/${id}/`, data),
-  partialUpdate: (id, data) => api.patch(`/restaurants/${id}/`, data),
+  create: (data) => {
+    // Use FormData for file uploads
+    if (data instanceof FormData) {
+      return api.post('/restaurants/', data, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+    }
+    return api.post('/restaurants/', data);
+  },
+  update: (id, data) => {
+    // Use FormData for file uploads
+    if (data instanceof FormData) {
+      return api.put(`/restaurants/${id}/`, data, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+    }
+    return api.put(`/restaurants/${id}/`, data);
+  },
+  partialUpdate: (id, data) => {
+    // Use FormData for file uploads
+    if (data instanceof FormData) {
+      return api.patch(`/restaurants/${id}/`, data, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+    }
+    return api.patch(`/restaurants/${id}/`, data);
+  },
+  uploadImage: (id, formData) => {
+    return api.post(`/restaurants/${id}/upload_image/`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+  },
   delete: (id) => api.delete(`/restaurants/${id}/`),
 };
 
@@ -80,9 +157,39 @@ export const productService = {
   getAll: (params = {}) => api.get('/products/', { params }),
   getById: (id) => api.get(`/products/${id}/`),
   getReviews: (id, params = {}) => api.get(`/products/${id}/reviews/`, { params }),
-  create: (data) => api.post('/products/', data),
-  update: (id, data) => api.put(`/products/${id}/`, data),
-  partialUpdate: (id, data) => api.patch(`/products/${id}/`, data),
+  create: (data) => {
+    // Use FormData for file uploads
+    if (data instanceof FormData) {
+      return api.post('/products/', data, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+    }
+    return api.post('/products/', data);
+  },
+  update: (id, data) => {
+    // Use FormData for file uploads
+    if (data instanceof FormData) {
+      return api.put(`/products/${id}/`, data, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+    }
+    return api.put(`/products/${id}/`, data);
+  },
+  partialUpdate: (id, data) => {
+    // Use FormData for file uploads
+    if (data instanceof FormData) {
+      return api.patch(`/products/${id}/`, data, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+    }
+    return api.patch(`/products/${id}/`, data);
+  },
   delete: (id) => api.delete(`/products/${id}/`),
 };
 
@@ -156,7 +263,10 @@ export const notificationService = {
   getAll: (params = {}) => api.get('/notifications/', { params }),
   markAsRead: (id) => api.post(`/notifications/${id}/mark-read/`),
   markAllAsRead: () => api.post('/notifications/mark-all-read/'),
-  getUnreadCount: () => api.get('/notifications/unread-count/'),
+  getUnreadCount: () => {
+    console.log('🔍 API: Calling getUnreadCount endpoint...');
+    return api.get('/notifications/unread-count/');
+  },
 };
 
 // Favorite services

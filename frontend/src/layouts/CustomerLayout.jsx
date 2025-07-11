@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Header from '../components/common/Header';
+import CustomerWebSocketBridge from '../components/customer/CustomerWebSocketBridge';
 import { appSettingsService } from '../services/api';
 import { useLanguage } from '../contexts/LanguageContext';
 
@@ -24,6 +25,9 @@ const CustomerLayout = ({ children }) => {
 
   return (
     <div className="min-h-screen bg-secondary-50">
+      {/* WebSocket Bridge for real-time notifications */}
+      <CustomerWebSocketBridge />
+      
       {/* Fixed Header */}
       <div className="fixed top-0 left-0 right-0 z-30">
         <Header />

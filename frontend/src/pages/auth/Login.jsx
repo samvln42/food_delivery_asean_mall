@@ -45,13 +45,37 @@ const Login = () => {
       if (redirectAfterLogin) {
         // ลบ URL ที่เก็บไว้หลังจากใช้แล้ว
         localStorage.removeItem('redirectAfterLogin');
-        navigate(redirectAfterLogin);
+        
+        // ตรวจสอบว่า user มีสิทธิ์เข้าถึง route นั้นหรือไม่
+        if (isRouteAllowed(redirectAfterLogin, result.user.role)) {
+          navigate(redirectAfterLogin);
+        } else {
+          // ถ้าไม่มีสิทธิ์ ให้ไปที่ dashboard ของ user
+          const redirectPath = getDashboardRoute(result.user.role);
+          navigate(redirectPath);
+        }
       } else {
         // Redirect based on user role
         const redirectPath = getDashboardRoute(result.user.role);
         navigate(redirectPath);
       }
     }
+  };
+
+  // ตรวจสอบว่า user มีสิทธิ์เข้าถึง route หรือไม่
+  const isRouteAllowed = (path, userRole) => {
+    // Admin routes
+    if (path.startsWith('/admin')) {
+      return userRole === 'admin';
+    }
+    
+    // Restaurant routes
+    if (path.startsWith('/restaurant')) {
+      return userRole === 'general_restaurant' || userRole === 'special_restaurant';
+    }
+    
+    // Customer routes - ปกติ customer เข้าได้หมด
+    return true;
   };
 
   const getDashboardRoute = (role) => {
@@ -63,7 +87,20 @@ const Login = () => {
         return '/restaurant';
       case 'customer':
       default:
-        return from === '/login' ? '/' : from;
+        // ถ้าเป็น customer ให้ไปที่ homepage เสมอ ยกเว้นถ้า from เป็น public route
+        if (from === '/login' || from.startsWith('/admin') || from.startsWith('/restaurant')) {
+          return '/';
+        }
+        // ตรวจสอบว่า route ที่ customer ต้องการไปเป็น public route หรือไม่
+        const customerAllowedRoutes = [
+          '/', '/restaurants', '/categories', '/products', '/search', '/about', '/contact', '/help', '/terms', '/privacy',
+          '/profile', '/notifications', '/cart', '/orders', '/settings'
+        ];
+        // ถ้า from เป็น route ที่ customer เข้าได้ ให้ไปต่อ ถ้าไม่ใช่ให้ไปหน้าแรก
+        const isCustomerRoute = customerAllowedRoutes.some(route => 
+          from === route || from.startsWith('/restaurants/') || from.startsWith('/categories/')
+        );
+        return isCustomerRoute ? from : '/';
     }
   };
 

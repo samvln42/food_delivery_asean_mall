@@ -1,7 +1,12 @@
-// API Configuration
+// API Configuration - Remove trailing slash to prevent double slash
+const getBaseUrl = () => {
+  const url = import.meta.env.VITE_API_URL || 'https://tacashop.com/api/';
+  return url.endsWith('/') ? url.slice(0, -1) : url;
+};
+
 export const API_CONFIG = {
-  BASE_URL: import.meta.env.VITE_API_URL || 'https://tacashop.com/api/',
-  TIMEOUT: 10000,
+  BASE_URL: getBaseUrl(),
+  TIMEOUT: 30000, // Increased from 10s to 30s
   HEADERS: {
     'Content-Type': 'application/json',
   }

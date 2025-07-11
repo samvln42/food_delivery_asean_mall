@@ -28,6 +28,11 @@ const ProtectedRoute = ({ children, allowedRoles = [], requireAuth = true }) => 
 
   // Check role-based access
   if (allowedRoles.length > 0 && (!user || !allowedRoles.includes(user.role))) {
+    // If user is customer trying to access admin/restaurant pages, redirect to home
+    if (user && user.role === 'customer') {
+      return <Navigate to="/" replace />;
+    }
+    // For other cases (no user, or other roles), show unauthorized page
     return <Navigate to="/unauthorized" replace />;
   }
 

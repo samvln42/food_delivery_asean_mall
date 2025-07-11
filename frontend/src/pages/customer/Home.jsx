@@ -58,18 +58,24 @@ const Home = () => {
             appSettingsService.getPublic({ _t: new Date().getTime() }), // Only app settings need cache busting
           ]);
 
-        setRestaurants(restaurantsRes.data?.results || []);
-        setSpecialRestaurants(specialRes.data?.results || []);
-        setCategories(categoriesRes.data?.results || []);
-        setAppSettings(settingsRes.data || null);
+        // Handle different response structures
+        const restaurantData = restaurantsRes.data?.results || restaurantsRes.data || [];
+        const specialData = specialRes.data?.results || specialRes.data || [];
+        const categoryData = categoriesRes.data?.results || categoriesRes.data || [];
+        const settingsData = settingsRes.data || null;
+
+        setRestaurants(restaurantData);
+        setSpecialRestaurants(specialData);
+        setCategories(categoryData);
+        setAppSettings(settingsData);
 
         // Only log in development mode
         if (process.env.NODE_ENV === "development") {
           console.log("✅ Data fetched at", new Date().toLocaleString(), {
-            restaurants: restaurantsRes.data?.results?.length,
-            specialRestaurants: specialRes.data?.results?.length,
-            categories: categoriesRes.data?.results?.length,
-            appSettings: settingsRes.data?.app_name,
+            restaurants: restaurantData?.length || 0,
+            specialRestaurants: specialData?.length || 0,
+            categories: categoryData?.length || 0,
+            appSettings: settingsData?.app_name || 'No app name',
           });
         }
       } catch (apiError) {

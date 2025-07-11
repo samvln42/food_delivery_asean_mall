@@ -16,13 +16,38 @@ class WebSocketService {
 
   connect(token) {
     try {
-      // WebSocket endpoint
-      const wsUrl = `ws://127.0.0.1:8000/ws/orders/?token=${token}`;
+      // Get base URL from environment variable
+      const baseUrl = import.meta.env.VITE_API_URL || 'https://tacashop.com/api/';
       
-      this.ws = new WebSocket(wsUrl);
+      let wsUrl;
+      // Convert HTTP/HTTPS to WS/WSS
+      if (baseUrl.startsWith('https://')) {
+        // Replace https:// with wss:// and /api or /api/ with /ws/orders/
+        wsUrl = baseUrl.replace('https://', 'wss://').replace(/\/api\/?$/, '/ws/orders/');
+      } else if (baseUrl.startsWith('http://')) {
+        // Replace http:// with ws:// and /api or /api/ with /ws/orders/
+        wsUrl = baseUrl.replace('http://', 'ws://').replace(/\/api\/?$/, '/ws/orders/');
+      } else {
+        // Fallback for localhost development
+        wsUrl = 'ws://127.0.0.1:8000/ws/orders/';
+      }
+      
+      const fullWsUrl = `${wsUrl}?token=${token}`;
+      console.log('🔗 Connecting to WebSocket:', fullWsUrl);
+      
+      this.ws = new WebSocket(fullWsUrl);
       
       this.ws.onopen = () => {
+        console.log('✅ WebSocket connected successfully');
         this.reconnectAttempts = 0;
+        
+        // Send a test ping to confirm connection
+        setTimeout(() => {
+          if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+            console.log('🏓 Sending test ping...');
+            this.send('ping', { timestamp: Date.now() });
+          }
+        }, 1000);
       };
       
       this.ws.onmessage = (event) => {
@@ -35,6 +60,7 @@ class WebSocketService {
       };
       
       this.ws.onclose = (event) => {
+        console.log('🔌 WebSocket disconnected, code:', event.code);
         if (event.code !== 1000) { // 1000 = normal closure
           this.reconnect(token);
         }
@@ -60,45 +86,52 @@ class WebSocketService {
   }
 
   handleMessage(data) {
+    console.log('📨 WebSocket message received:', data);
+    
     const { type } = data;
+    
+    // แปลสถานะก่อนส่งให้ listeners สำหรับ order_status_update
+    if (type === 'order_status_update') {
+      console.log('🔄 Processing order status update:', data);
+      
+      // เพิ่ม payload wrapper ถ้าไม่มี
+      if (!data.payload) {
+        data.payload = {
+          order_id: data.order_id,
+          old_status: data.old_status,
+          new_status: data.new_status,
+          user_id: data.user_id,
+          restaurant_name: data.restaurant_name
+        };
+      }
+
+      if (this.translate) {
+        try {
+          // แปลสถานะ
+          const statusKey = `order.status.${data.payload.new_status}`;
+          const translatedStatus = this.translate(statusKey);
+          
+          // สร้างข้อความแจ้งเตือน
+          data.payload.new_status_display = this.translate("order.status_change_notification", {
+            orderId: data.payload.order_id,
+            status: translatedStatus || data.payload.new_status
+          });
+          
+          console.log('📝 Created status display message:', data.payload.new_status_display);
+        } catch (error) {
+          console.error('❌ Error in translation:', error);
+          // Fallback: ใช้ข้อความพื้นฐาน
+          data.payload.new_status_display = `Order #${data.payload.order_id} status changed to ${data.payload.new_status}`;
+        }
+      } else {
+        // Fallback: ใช้ข้อความพื้นฐาน
+        data.payload.new_status_display = `Order #${data.payload.order_id} status changed to ${data.payload.new_status}`;
+      }
+    }
     
     // Execute all listeners for this message type
     if (this.listeners.has(type)) {
-      
-      // แปลสถานะก่อนส่งให้ listeners
-      // if (data.type === 'order_status_update') {
-
-      //   if (this.translate) {
-      //     try {
-      //       // แปลสถานะ
-      //       const statusKey = `order.status.${data.payload.new_status}`;
-      //       const translatedStatus = this.translate(statusKey);
-            
-      //       // ตรวจสอบว่าการแปลสำเร็จหรือไม่ (ถ้าไม่สำเร็จจะได้ key เดิมกลับมา)
-      //       if (translatedStatus && translatedStatus !== statusKey) {
-      //         // สร้างข้อความแจ้งเตือนด้วย translation key
-      //         data.payload.new_status_display = this.translate("order.status_change_notification", {
-      //           orderId: data.payload.order_id,
-      //           status: translatedStatus
-      //         });
-      //       } else {
-      //         // Fallback: ใช้ status key โดยตรง (ควรจะมีใน translation files)
-      //         const fallbackStatus = this.translate(statusKey, {}, data.payload.new_status);
-      //         data.payload.new_status_display = this.translate("order.status_change_notification", {
-      //           orderId: data.payload.order_id,
-      //           status: fallbackStatus
-      //         });
-      //       }
-      //     } catch (error) {
-      //       console.error('❌ Error in translation:', error);
-      //       // Fallback: ใช้ข้อความพื้นฐาน
-      //       data.payload.new_status_display = `Order #${data.payload.order_id} status changed to ${data.payload.new_status}`;
-      //     }
-      //   } else {
-      //     // Fallback: ใช้ข้อความพื้นฐาน
-      //     data.payload.new_status_display = `Order #${data.payload.order_id} status changed to ${data.payload.new_status}`;
-      //   }
-      // }
+      console.log(`📢 Notifying ${this.listeners.get(type).size} listeners for type: ${type}`);
       
       this.listeners.get(type).forEach(callback => {
         try {
@@ -109,6 +142,7 @@ class WebSocketService {
       });
     } else {
       console.warn(`⚠️ No listeners registered for message type: ${type}`);
+      console.warn('📋 Available listeners:', Array.from(this.listeners.keys()));
     }
   }
 
@@ -118,12 +152,15 @@ class WebSocketService {
       this.listeners.set(eventType, new Set());
     }
     this.listeners.get(eventType).add(callback);
+    console.log(`✅ WebSocket listener added for: ${eventType}, total listeners: ${this.listeners.get(eventType).size}`);
+    console.log('📋 All registered listeners:', Array.from(this.listeners.keys()));
   }
 
   // Remove event listener
   off(eventType, callback) {
     if (this.listeners.has(eventType)) {
       this.listeners.get(eventType).delete(callback);
+      console.log(`❌ WebSocket listener removed for: ${eventType}, remaining: ${this.listeners.get(eventType).size}`);
     }
   }
 

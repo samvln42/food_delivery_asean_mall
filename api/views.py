@@ -605,6 +605,39 @@ class OrderViewSet(viewsets.ModelViewSet):
         
         return Response(OrderSerializer(order).data)
 
+    def perform_update(self, serializer):
+        """Override to send WebSocket notification when order status changes via PUT/PATCH"""
+        from channels.layers import get_channel_layer
+        from asgiref.sync import async_to_sync
+        from django.utils import timezone
+        
+        # Keep old status before saving
+        instance = self.get_object()
+        old_status = instance.current_status
+        
+        # Save changes
+        updated_order = serializer.save()
+        new_status = updated_order.current_status
+        
+        # If status changed, notify customer via WebSocket
+        if old_status != new_status and updated_order.user:
+            channel_layer = get_channel_layer()
+            room_group_name = f"orders_user_{updated_order.user.id}"
+            async_to_sync(channel_layer.group_send)(
+                room_group_name,
+                {
+                    "type": "order_status_update",
+                    "order_id": updated_order.order_id,
+                    "old_status": old_status,
+                    "new_status": new_status,
+                    "timestamp": timezone.now().isoformat(),
+                    "restaurant_name": updated_order.restaurant.restaurant_name if updated_order.restaurant else "",
+                    "user_id": updated_order.user.id,
+                },
+            )
+        
+        return updated_order
+
 
 class OrderDetailViewSet(viewsets.ModelViewSet):
     queryset = OrderDetail.objects.all()

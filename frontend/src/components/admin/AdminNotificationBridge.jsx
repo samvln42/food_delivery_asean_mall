@@ -10,11 +10,14 @@ const AdminNotificationBridge = () => {
   const { user, token } = useAuth();
   const navigate = useNavigate();
   // optional context
-  let decreaseUnreadCount;
+  let decreaseUnreadCount, updateUnreadCount;
   try {
-    decreaseUnreadCount = useNotificationContext().decreaseUnreadCount;
+    const notificationContext = useNotificationContext();
+    decreaseUnreadCount = notificationContext.decreaseUnreadCount;
+    updateUnreadCount = notificationContext.updateUnreadCount;
   } catch (e) {
     decreaseUnreadCount = () => {};
+    updateUnreadCount = () => {};
   }
   const [orderAlerts, setOrderAlerts] = useState([]); // list ของออเดอร์ใหม่ที่ต้องโชว์ด้านขวา
 
@@ -22,40 +25,50 @@ const AdminNotificationBridge = () => {
     if (user?.role === 'admin' && token) {
       // Connect only if not yet connected or closed
       if (!websocketService.ws || websocketService.ws.readyState === WebSocket.CLOSED) {
+        console.log('🔗 AdminNotificationBridge attempting WebSocket connection for admin');
         websocketService.connect(token);
+      } else {
+        console.log('✅ AdminNotificationBridge WebSocket already connected, state:', websocketService.ws.readyState);
       }
 
       const handleNewOrder = (data) => {
+        console.log('🔔 AdminNotificationBridge received new_order:', data);
+        
         // (ตัด toast ออก เพื่อลดจำนวนแจ้งเตือนซ้ำซ้อน)
 
         // เพิ่มออเดอร์ใหม่เข้า list ด้านขวา
         const newAlert = {
-          order_id: data.order_id,
-          customer_name: data.customer_name,
+          order_id: data.payload?.order_id || data.order_id,
+          customer_name: data.payload?.customer_name || data.customer_name || 'Unknown Customer',
           exiting: false,
         };
         setOrderAlerts(prev => [...prev, newAlert]);
 
         // แจ้ง component อื่น ๆ ว่ามี notification ใหม่
+        console.log('🔄 Dispatching notification_update event from handleNewOrder');
         window.dispatchEvent(new Event('notification_update'));
 
-        // auto dismiss after 2000ms
-        setTimeout(() => handleClose(data.order_id), 2000);
+        // auto dismiss after 5000ms (เพิ่มเวลาเป็น 5 วินาที)
+        setTimeout(() => handleClose(newAlert.order_id), 5000);
 
         // Play alert sound if available
         try {
           const audio = new Audio('/new_order.mp3');
-          audio.play().catch(() => {});
+          audio.play().catch(() => {
+            console.log('🔇 Could not play notification sound (file not found or browser policy)');
+          });
         } catch (err) {
           console.error('ไม่สามารถเล่นเสียงแจ้งเตือน:', err);
         }
       };
 
       websocketService.on('new_order', handleNewOrder);
+      console.log('✅ AdminNotificationBridge: Registered new_order listener');
 
       // Cleanup when deps change
       return () => {
         websocketService.off('new_order', handleNewOrder);
+        console.log('🧹 AdminNotificationBridge: Cleaned up new_order listener');
       };
     }
   }, [user?.role, token]);
@@ -85,12 +98,62 @@ const AdminNotificationBridge = () => {
 
     setOrderAlerts(prev => prev.filter(o => o.order_id !== orderId));
     // แจ้งให้ Dashboard รีเฟรชรายการ
+    console.log('🔄 Dispatching notification_update event from handleViewOrder');
     window.dispatchEvent(new Event('notification_update'));
     navigate('/admin/orders');
   };
 
+  // Function to test notification (development only)
+  const testNotification = () => {
+    const testData = {
+      order_id: Date.now(),
+      customer_name: 'Test Customer',
+      payload: {
+        order_id: Date.now(),
+        customer_name: 'Test Customer'
+      }
+    };
+    
+    console.log('🧪 Testing AdminNotificationBridge with mock data:', testData);
+    
+    const newAlert = {
+      order_id: testData.order_id,
+      customer_name: testData.customer_name,
+      exiting: false,
+    };
+    setOrderAlerts(prev => [...prev, newAlert]);
+    
+    // แจ้ง component อื่น ๆ ว่ามี notification ใหม่
+    console.log('🔄 Dispatching notification_update event from testNotification');
+    window.dispatchEvent(new Event('notification_update'));
+    
+    // เพิ่ม unread count ใน sidebar (สำหรับการทดสอบ)
+    if (updateUnreadCount) {
+      updateUnreadCount(prev => prev + 1);
+      console.log('📊 Test: Incremented unread count');
+    } else {
+      console.log('📊 Test: No notification context available');
+    }
+    
+    // auto dismiss after 5000ms
+    setTimeout(() => handleClose(newAlert.order_id), 5000);
+  };
+
+  // Function to reset unread count (development only)
+  const resetUnreadCount = () => {
+    console.log('🔄 Resetting unread count to 0');
+    if (updateUnreadCount) {
+      updateUnreadCount(0);
+      console.log('📊 Test: Reset unread count to 0');
+    } else {
+      console.log('📊 Test: No notification context available');
+    }
+  };
+
   return (
     <>
+      {/* Development Test Buttons removed for production */}
+      
       {orderAlerts.length > 0 && (
         <div className="fixed top-24 right-4 z-50 flex flex-col gap-4 max-w-xs">
           {orderAlerts.map(alert => (

@@ -1,13 +1,21 @@
-from pathlib import Path
-from decouple import config
-import os
-from dotenv import load_dotenv
+#!/bin/bash
 
-load_dotenv()
+# Script to update Django settings on AWS Server
+# Run this on EC2 instance
+
+echo "🔧 Updating Django settings for CORS..."
+
+# Backup current settings
+cp food_delivery_backend/settings.py food_delivery_backend/settings.py.backup
+echo "✅ Backup created: settings.py.backup"
+
+# Update settings.py with CORS configuration
+cat << 'EOF' > /tmp/cors_settings.py
+import os
+from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
-
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
@@ -18,7 +26,7 @@ SECRET_KEY = os.environ.get('SECRET_KEY')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get('DEBUG', 'False').lower() == 'true'
 
-
+# Allow hosts from environment variable
 _env_hosts = os.environ.get('ALLOWED_HOSTS')
 # If not specified, allow all hosts (useful for internal LB health checks)
 ALLOWED_HOSTS = _env_hosts.split(',') if _env_hosts else ['*']
@@ -26,13 +34,6 @@ ALLOWED_HOSTS = _env_hosts.split(',') if _env_hosts else ['*']
 # CORS configuration
 CORS_ALLOWED_ORIGINS = [
     'http://localhost:3000',
-    'https://tacashop.com',
-]
-
-# CSRF configuration for API
-CSRF_TRUSTED_ORIGINS = [
-    'http://localhost:3000',
-    'http://localhost:8000',
     'https://tacashop.com',
 ]
 CORS_ALLOW_CREDENTIALS = True
@@ -53,13 +54,19 @@ CORS_ALLOW_HEADERS = [
     'x-requested-with',
 ]
 
+# CSRF configuration for API
+CSRF_TRUSTED_ORIGINS = [
+    'http://localhost:3000',
+    'http://localhost:8000',
+    'https://tacashop.com',
+]
+
 # Exempt API endpoints from CSRF
 CSRF_EXEMPT_URLS = [
     r'^/api/',
 ]
 
 # Application definition
-
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -122,20 +129,7 @@ CHANNEL_LAYERS = {
     },
 }
 
-# Uncomment below for Redis when Redis server is running ถ้าใช้ Redis ต้องติดตั้ง Redis ก่อน
-CHANNEL_LAYERS = {
-    'default': {
-        'BACKEND': 'channels_redis.core.RedisChannelLayer',
-        'CONFIG': {
-            "hosts": [('127.0.0.1', 6379)],
-        },
-    },
-}
-
-
 # Database
-# https://docs.djangoproject.com/en/5.1/ref/settings/#databases
-
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
@@ -150,10 +144,7 @@ DATABASES = {
     }
 }
 
-
 # Password validation
-# https://docs.djangoproject.com/en/5.1/ref/settings/#auth-password-validators
-
 AUTH_PASSWORD_VALIDATORS = [
     {
         'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
@@ -169,24 +160,15 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-
 # Internationalization
-# https://docs.djangoproject.com/en/5.1/topics/i18n/
-
 LANGUAGE_CODE = 'en-us'
-
 TIME_ZONE = 'Asia/Bangkok'
-
 USE_I18N = False
-
 USE_TZ = True
 
-
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/5.1/howto/static-files/
-
+# Static files
 if not DEBUG:
-    # aws settings
+    # AWS settings
     AWS_ACCESS_KEY_ID = os.environ.get("AWS_ACCESS_KEY_ID")
     AWS_SECRET_ACCESS_KEY = os.environ.get("AWS_SECRET_ACCESS_KEY")
     AWS_STORAGE_BUCKET_NAME = os.environ.get("AWS_STORAGE_BUCKET_NAME")
@@ -197,22 +179,17 @@ if not DEBUG:
     AWS_S3_VERIFY = True
     DEFAULT_FILE_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
     STATICFILES_STORAGE = "storages.backends.s3boto3.S3StaticStorage"
-    AWS_S3_CUSTOM_DOMAIN = (
-        f"{AWS_STORAGE_BUCKET_NAME}.s3.{AWS_S3_REGION_NAME}.amazonaws.com"
-    )
+    AWS_S3_CUSTOM_DOMAIN = f"{AWS_STORAGE_BUCKET_NAME}.s3.{AWS_S3_REGION_NAME}.amazonaws.com"
     STATIC_LOCATION = "static"
     STATIC_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/{STATIC_LOCATION}/"
     PUBLIC_MEDIA_LOCATION = "media"
     MEDIA_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/{PUBLIC_MEDIA_LOCATION}/"
 else:
-    # local settings
+    # Local settings
     STATIC_URL = "/static/"
     STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
     MEDIA_URL = "/media/"
     MEDIA_ROOT = os.path.join(BASE_DIR, "media")
-
-# Default primary key field type
-# https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
@@ -231,7 +208,6 @@ REST_FRAMEWORK = {
         'rest_framework.filters.OrderingFilter',
     ],
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
-    # 'PAGE_SIZE': 20,
     'DATETIME_FORMAT': '%Y-%m-%d %H:%M:%S',
 }
 
@@ -241,7 +217,7 @@ AUTH_USER_MODEL = 'accounts.User'
 # Email configuration
 EMAIL_BACKEND = os.environ.get('EMAIL_BACKEND')
 EMAIL_HOST = os.environ.get('EMAIL_HOST')
-EMAIL_PORT = int(os.environ.get('EMAIL_PORT'))
+EMAIL_PORT = int(os.environ.get('EMAIL_PORT', 587))
 EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'False').lower() == 'true'
 EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER')
 EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD')
@@ -256,10 +232,9 @@ GOOGLE_OAUTH2_CLIENT_SECRET = os.environ.get('GOOGLE_OAUTH2_CLIENT_SECRET')
 
 # Security settings for production
 if not DEBUG:
-    # HTTPS Security
     # ปิด SSL redirect เพราะ Load Balancer จัดการ HTTPS แล้ว
-    SECURE_SSL_REDIRECT = False  # เปลี่ยนจาก True เป็น False
-    # Allow load-balancer health check over plain HTTP (no redirect to HTTPS)
+    SECURE_SSL_REDIRECT = False
+    # Allow load-balancer health check over plain HTTP
     SECURE_REDIRECT_EXEMPT = [r'^api/health/$']
     SECURE_HSTS_SECONDS = 31536000  # 1 year
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
@@ -277,3 +252,20 @@ SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 # Allow Load Balancer to send requests with different Host headers
 USE_X_FORWARDED_HOST = True
 USE_X_FORWARDED_PORT = True
+EOF
+
+# Replace the settings file
+mv /tmp/cors_settings.py food_delivery_backend/settings.py
+echo "✅ Settings updated with CORS configuration"
+
+# Restart Gunicorn
+echo "🔄 Restarting Gunicorn..."
+sudo systemctl restart gunicorn
+echo "✅ Gunicorn restarted"
+
+# Test the API
+echo "🧪 Testing API..."
+curl -I -H "Origin: http://localhost:3000" https://tacashop.com/api/health/ || echo "❌ API test failed"
+
+echo "🎉 Update completed!"
+echo "🌐 Your API should now accept CORS requests from localhost:3000" 

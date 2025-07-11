@@ -120,19 +120,8 @@ const AdminRestaurantProducts = () => {
         formDataWithFile.append('image', imageFile);
         // ไม่ส่ง image_url ถ้ามีไฟล์ เพราะไฟล์มีความสำคัญกว่า
         
-        // ส่งข้อมูลพร้อมไฟล์
-        const response = await fetch(import.meta.env.VITE_API_URL + '/products/', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Token ${localStorage.getItem('token')}`
-          },
-          body: formDataWithFile
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || 'เกิดข้อผิดพลาดในการสร้างสินค้า');
-        }
+        // ใช้ productService.create() แทน fetch()
+        await productService.create(formDataWithFile);
       } else {
         // ไม่มีไฟล์รูปภาพ ใช้วิธีเดิม (อาจมี image_url)
         await productService.create({ ...formData, restaurant: restaurantId });

@@ -817,27 +817,17 @@ const RestaurantModal = ({ restaurant, type, onClose, onUpdate, availableUsers }
       const formDataUpload = new FormData();
       formDataUpload.append('image', selectedFile);
 
-      const response = await fetch(`http://127.0.0.1:8000/api/restaurants/${restaurant.restaurant_id}/upload_image/`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Token ${localStorage.getItem('token')}`
-        },
-        body: formDataUpload
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        alert('อัปโหลดรูปภาพสำเร็จ!');
-        setSelectedFile(null);
-        setImagePreview(result.restaurant.image_display_url);
-        onUpdate(); // อัปเดตรายการร้าน
-      } else {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'เกิดข้อผิดพลาดในการอัปโหลด');
-      }
+      // ใช้ restaurantService.uploadImage() แทน fetch โดยตรง
+      const response = await restaurantService.uploadImage(restaurant.restaurant_id, formDataUpload);
+      
+      alert('อัปโหลดรูปภาพสำเร็จ!');
+      setSelectedFile(null);
+      setImagePreview(response.data.restaurant.image_display_url);
+      onUpdate(); // อัปเดตรายการร้าน
     } catch (error) {
       console.error('Error uploading image:', error);
-      alert(error.message || 'เกิดข้อผิดพลาดในการอัปโหลดรูปภาพ');
+      const errorMessage = error.response?.data?.error || error.message || 'เกิดข้อผิดพลาดในการอัปโหลดรูปภาพ';
+      alert(errorMessage);
     } finally {
       setUploadLoading(false);
     }
