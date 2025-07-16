@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Header from '../components/common/Header';
+import BottomNavigation from '../components/common/BottomNavigation';
 import CustomerWebSocketBridge from '../components/customer/CustomerWebSocketBridge';
 import { appSettingsService } from '../services/api';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -33,9 +34,12 @@ const CustomerLayout = ({ children }) => {
         <Header />
       </div>
       
-      <main className="pt-16">
+      <main className="pt-16 pb-20 md:pb-0">
         {children}
       </main>
+      
+      {/* Bottom Navigation for Mobile */}
+      <BottomNavigation />
       <footer className="bg-secondary-800 text-white py-12 mt-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
@@ -62,7 +66,7 @@ const CustomerLayout = ({ children }) => {
               <ul className="space-y-2 text-sm text-secondary-300">
                 <li><a href="/" className="hover:text-white">{translate('common.home')}</a></li>
                 <li><a href="/products" className="hover:text-white">{translate('nav.all_products')}</a></li>
-                <li><a href="/restaurants" className="hover:text-white">{translate('nav.restaurants')}</a></li>
+                {/* <li><a href="/restaurants" className="hover:text-white">{translate('nav.restaurants')}</a></li> */}
                 <li><a href="/categories" className="hover:text-white">{translate('nav.categories')}</a></li>
                 <li><a href="/about" className="hover:text-white">{translate('common.about')}</a></li>
               </ul>

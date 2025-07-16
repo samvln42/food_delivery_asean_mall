@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Guest Orders</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .test-section {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 10px 0;
+        }
+        .log {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 10px;
+            height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        button {
+            padding: 8px 16px;
+            margin: 5px;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            background-color: #007bff;
+            color: white;
+        }
+        input {
+            padding: 8px;
+            margin: 5px;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            width: 300px;
+        }
+        .url-display {
+            background-color: #e9ecef;
+            padding: 10px;
+            border-radius: 3px;
+            font-family: monospace;
+            word-break: break-all;
+        }
+    </style>
+</head>
+<body>
+    <h1>Test Guest Orders Page</h1>
+    
+    <div class="test-section">
+        <h3>1. Test URL Parameters</h3>
+        <div>
+            <label for="temporaryId">Temporary ID:</label>
+            <input type="text" id="temporaryId" placeholder="Enter temporary_id">
+            <button onclick="testUrlParams()">Test URL Params</button>
+        </div>
+        <div id="urlDisplay" class="url-display"></div>
+    </div>
+    
+    <div class="test-section">
+        <h3>2. Test WebSocket Service</h3>
+        <div>
+            <button onclick="testWebSocketService()">Test WebSocket Service</button>
+            <button onclick="clearLog()">Clear Log</button>
+        </div>
+    </div>
+    
+    <div class="test-section">
+        <h3>3. Log</h3>
+        <div id="log" class="log"></div>
+    </div>
+    
+    <script>
+        let logElement = document.getElementById('log');
+        
+        function log(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            logElement.innerHTML += `[${timestamp}] ${message}\n`;
+            logElement.scrollTop = logElement.scrollHeight;
+            console.log(message);
+        }
+        
+        function clearLog() {
+            logElement.innerHTML = '';
+        }
+        
+        function testUrlParams() {
+            const temporaryId = document.getElementById('temporaryId').value;
+            log(`🔍 Testing URL parameters with temporary_id: ${temporaryId}`);
+            
+            // สร้าง URL ใหม่
+            const url = new URL(window.location.href);
+            if (temporaryId) {
+                url.searchParams.set('temporary_id', temporaryId);
+            } else {
+                url.searchParams.delete('temporary_id');
+            }
+            
+            const urlDisplay = document.getElementById('urlDisplay');
+            urlDisplay.textContent = url.toString();
+            
+            log(`🔗 Generated URL: ${url.toString()}`);
+            
+            // ทดสอบการอ่าน URL parameters
+            const searchParams = new URLSearchParams(url.search);
+            const tempIdFromUrl = searchParams.get('temporary_id');
+            log(`📋 temporary_id from URL: ${tempIdFromUrl}`);
+            log(`📋 All search params: ${Object.fromEntries(searchParams.entries())}`);
+            
+            // เปลี่ยน URL (ไม่ reload หน้า)
+            window.history.pushState({}, '', url.toString());
+            log(`✅ URL updated without page reload`);
+        }
+        
+        function testWebSocketService() {
+            log('🔍 Testing WebSocket Service...');
+            
+            // ทดสอบการสร้าง WebSocket
+            try {
+                const ws = new WebSocket('ws://localhost:8000/ws/guest-orders/');
+                
+                ws.onopen = function() {
+                    log('✅ WebSocket connected successfully');
+                    
+                    // ทดสอบส่งข้อความ
+                    const testMessage = {
+                        type: 'subscribe_guest_order',
+                        payload: { temporary_id: 'test123' }
+                    };
+                    
+                    ws.send(JSON.stringify(testMessage));
+                    log(`📤 Sent test message: ${JSON.stringify(testMessage)}`);
+                    
+                    // ปิด connection หลังจาก 3 วินาที
+                    setTimeout(() => {
+                        ws.close();
+                        log('🔌 Test WebSocket closed');
+                    }, 3000);
+                };
+                
+                ws.onclose = function(event) {
+                    log(`🔌 WebSocket closed with code: ${event.code}`);
+                };
+                
+                ws.onerror = function(error) {
+                    log(`❌ WebSocket error: ${error}`);
+                };
+                
+                ws.onmessage = function(event) {
+                    log(`📨 Message received: ${event.data}`);
+                };
+                
+            } catch (error) {
+                log(`❌ Error creating WebSocket: ${error}`);
+            }
+        }
+        
+        // Auto-test on page load
+        window.onload = function() {
+            log('🚀 Test page loaded');
+            log(`🔍 Current URL: ${window.location.href}`);
+            log(`🔍 Current search params: ${window.location.search}`);
+            
+            // ทดสอบ URL parameters ปัจจุบัน
+            const searchParams = new URLSearchParams(window.location.search);
+            const currentTempId = searchParams.get('temporary_id');
+            log(`🔍 Current temporary_id: ${currentTempId}`);
+            
+            // แสดง URL ปัจจุบัน
+            const urlDisplay = document.getElementById('urlDisplay');
+            urlDisplay.textContent = window.location.href;
+        };
+    </script>
+</body>
+</html> 

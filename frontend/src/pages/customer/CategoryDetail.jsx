@@ -2,14 +2,19 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import api from '../../services/api';
 import { useCart } from '../../contexts/CartContext';
+import { useGuestCart } from '../../contexts/GuestCartContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useLanguage } from '../../contexts/LanguageContext';
 
 const CategoryDetail = () => {
   const { translate } = useLanguage();
   const { id } = useParams();
-  const { addItem } = useCart();
   const { isAuthenticated } = useAuth();
+  
+  // เลือก context ตามสถานะการล็อกอิน
+  const { addItem: addToCart } = useCart();
+  const { addItem: addToGuestCart } = useGuestCart();
+  const addItem = isAuthenticated ? addToCart : addToGuestCart;
   const [category, setCategory] = useState(null);
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -36,7 +41,8 @@ const CategoryDetail = () => {
     try {
       setLoading(true);
       const response = await api.get(`/products/?category_id=${id}`);
-      setProducts(response.data.results || response.data);
+      const productsData = response.data.results || response.data;
+      setProducts(productsData);
     } catch (error) {
       console.error('Error fetching category products:', error);
       setError('Unable to load products');
@@ -46,44 +52,34 @@ const CategoryDetail = () => {
   };
 
   const handleAddToCart = (product) => {
-    console.log('Adding product to cart from category:', product);
     
-    // ตรวจสอบสถานะร้าน
-    if (product.restaurant_status !== 'open') {
+    // ตรวจสอบสถานะร้าน - ใช้ restaurant_status field จาก API
+    if (product.restaurant_status && product.restaurant_status !== 'open') {
       alert('This restaurant is closed and cannot order food');
       return;
     }
     
-    // การตรวจสอบ login จะทำใน CartContext แล้ว
-    // ไม่ต้องตรวจสอบที่นี่อีก
-
     if (!product.is_available) {
       alert('This product is out of stock');
       return;
     }
 
     // ตรวจสอบว่ามี restaurant_id หรือไม่
-    if (!product.restaurant_id && !product.restaurant) {
+    if (!product.restaurant_id) {
       console.error('Product missing restaurant information:', product);
       alert('Restaurant information is incomplete and cannot be added to the cart');
       return;
     }
 
     try {
-      // สร้าง restaurant object จากข้อมูลสินค้า - รองรับหลายรูปแบบ
+      // สร้าง restaurant object จากข้อมูลสินค้า
       const restaurant = {
-        id: product.restaurant_id || product.restaurant?.id || product.restaurant,
-        restaurant_id: product.restaurant_id || product.restaurant?.id || product.restaurant,
-        name: product.restaurant_name || product.restaurant?.name || product.restaurant_name,
-        restaurant_name: product.restaurant_name || product.restaurant?.name || product.restaurant_name
+        id: product.restaurant_id,
+        restaurant_id: product.restaurant_id,
+        name: product.restaurant_name,
+        restaurant_name: product.restaurant_name,
+        status: product.restaurant_status || 'open'
       };
-
-      console.log('Restaurant object created:', restaurant);
-
-      // ตรวจสอบว่า restaurant_id มีค่าหรือไม่
-      if (!restaurant.id && !restaurant.restaurant_id) {
-        throw new Error('No restaurant_id found');
-      }
 
       // เพิ่มสินค้าลงตะกร้า
       const result = addItem(product, restaurant);
@@ -103,7 +99,7 @@ const CategoryDetail = () => {
       alert(translate('common.added_to_cart', { product: product.product_name }));
     } catch (error) {
       console.error('Error adding to cart:', error);
-              alert(translate('common.error_adding_to_cart') + ': ' + error.message);
+      alert(translate('common.error_adding_to_cart') + ': ' + error.message);
     }
   };
 
@@ -209,7 +205,7 @@ const CategoryDetail = () => {
                     <span className="text-white font-semibold">{translate('common.out_of_stock')}</span>
                   </div>
                 )}
-                {product.restaurant_status !== 'open' && (
+                {product.restaurant_status && product.restaurant_status !== 'open' && (
                   <div className="absolute inset-0 bg-red-600 bg-opacity-70 flex items-center justify-center">
                     <span className="text-white font-semibold">{translate('common.closed')}</span>
                   </div>
@@ -242,20 +238,16 @@ const CategoryDetail = () => {
                 <button
                   onClick={() => handleAddToCart(product)}
                   className={`w-full py-2 px-4 rounded-lg font-semibold transition-colors ${
-                    product.restaurant_status !== 'open' || product.is_available === false
+                    (product.restaurant_status && product.restaurant_status !== 'open') || product.is_available === false
                       ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                      : isAuthenticated
-                      ? 'bg-primary-500 text-white hover:bg-primary-600'
-                      : 'bg-secondary-300 text-secondary-500'
+                      : 'bg-primary-500 text-white hover:bg-primary-600'
                   }`}
-                  disabled={product.restaurant_status !== 'open' || product.is_available === false}
+                  disabled={(product.restaurant_status && product.restaurant_status !== 'open') || product.is_available === false}
                 >
-                  {product.restaurant_status !== 'open'
+                  {(product.restaurant_status && product.restaurant_status !== 'open')
                     ? translate('common.closed')
                     : product.is_available === false 
                     ? translate('common.out_of_stock') 
-                    : !isAuthenticated 
-                    ? translate('common.login_to_order') 
                     : translate('cart.add')
                   }
                 </button>

@@ -282,7 +282,7 @@ const Cart = () => {
       toast.success(
         `Order successful!\nOrder ID: ${
           response.data.id || "ORD-" + Date.now()
-        }\nTotal: ฿${total}`
+                  }\nTotal: ${total}`
       );
       navigate("/orders");
     } catch (error) {
@@ -712,6 +712,7 @@ const Cart = () => {
                       {formatCurrency(1 * (restaurantCount - 1))} (
                       {restaurantCount - 1} {translate("common.restaurants")} ×{" "}
                       {formatCurrency(1)})
+                      <br />• {translate("cart.delivery_fee_calculated_by_admin")}
                     </div>
                   )}
                 </div>

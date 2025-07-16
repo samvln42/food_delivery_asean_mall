@@ -7,6 +7,7 @@ router.register(r'restaurants', views.RestaurantViewSet)
 router.register(r'categories', views.CategoryViewSet)
 router.register(r'products', views.ProductViewSet)
 router.register(r'orders', views.OrderViewSet, basename='order')
+router.register(r'guest-orders', views.GuestOrderViewSet, basename='guest-order') # Guest Order
 router.register(r'order-details', views.OrderDetailViewSet)
 router.register(r'payments', views.PaymentViewSet)
 router.register(r'reviews', views.ReviewViewSet)

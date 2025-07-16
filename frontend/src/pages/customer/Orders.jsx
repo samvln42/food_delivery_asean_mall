@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
 import api from "../../services/api";
 import { useAuth } from "../../contexts/AuthContext";
 import { useLanguage } from "../../contexts/LanguageContext";
@@ -92,7 +91,7 @@ const OrderStatusTracker = ({ currentStatus, orderDate, translate }) => {
       </h4>
 
       <div className="relative">
-        {/* Progress Line */}
+        {/* Progress Line (ขีดสีเขียวยาวๆ) แสดงเสมอ */}
         <div className="absolute top-4 left-4 right-4 h-0.5 bg-secondary-200 z-0">
           <div
             className="h-full bg-gradient-to-r from-green-400 to-green-600 transition-all duration-500 ease-in-out shadow-sm"
@@ -105,23 +104,6 @@ const OrderStatusTracker = ({ currentStatus, orderDate, translate }) => {
           />
         </div>
 
-        {/* Current Status Banner for Mobile */}
-        <div className="sm:hidden mb-4 p-3 bg-gradient-to-r from-green-50 to-blue-50 rounded-lg border border-green-200">
-          <div className="flex items-center justify-center">
-            <span className="text-lg mr-2">
-              {statusSteps[currentStepIndex]?.icon}
-            </span>
-            <div className="text-center">
-              <p className="text-sm font-semibold text-green-700">
-                {statusSteps[currentStepIndex]?.label}
-              </p>
-              <p className="text-xs text-green-600">
-                {statusSteps[currentStepIndex]?.description}
-              </p>
-            </div>
-          </div>
-        </div>
-
         {/* Status Steps */}
         <div className="relative z-10 flex justify-between">
           {statusSteps.map((step, index) => {
@@ -131,64 +113,31 @@ const OrderStatusTracker = ({ currentStatus, orderDate, translate }) => {
             return (
               <div
                 key={step.key}
-                className="flex flex-col items-center flex-1 max-w-[90px]"
+                className="flex flex-col items-center flex-1 sm:flex-none sm:min-w-[56px] sm:max-w-[72px]"
               >
                 {/* Step Circle */}
                 <div
                   className={`
-                  relative w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold
-                  transition-all duration-300 ease-in-out
-                  ${
-                    isCompleted
-                      ? "bg-green-500 text-white transform scale-110 shadow-lg"
-                      : "bg-secondary-200 text-secondary-500"
-                  }
-                  ${
-                    isCurrent
-                      ? "ring-4 ring-green-200 ring-opacity-50 shadow-xl"
-                      : ""
-                  }
-                `}
+                    relative w-8 h-8 rounded-full flex items-center justify-center text-base font-bold
+                    transition-all duration-300 ease-in-out
+                    ${isCompleted ? "bg-green-500 text-white scale-110 shadow-lg" : "bg-secondary-200 text-secondary-500"}
+                    ${isCurrent ? "ring-4 ring-green-200 ring-opacity-50 shadow-xl" : ""}
+                  `}
+                  title={step.label}
                 >
-                  {isCompleted ? "✓" : step.icon}
-
-                  {/* Pulse animation for current step */}
+                  <span>{step.icon}</span>
+                  {isCompleted && (
+                    <span className="absolute -right-1 -bottom-1 bg-white rounded-full text-green-500 text-xs w-4 h-4 flex items-center justify-center border border-green-500">✓</span>
+                  )}
                   {isCurrent && (
-                    <div className="absolute inset-0 rounded-full bg-green-500 animate-ping opacity-25" />
+                    <div className="absolute inset-0 rounded-full bg-green-500 animate-ping opacity-25" style={{animationDuration: '1.2s'}} />
                   )}
                 </div>
-
-                {/* Step Label */}
-                <div className="mt-2 text-center px-1">
-                  <p
-                    className={`text-xs font-medium leading-tight ${
-                      isCompleted ? "text-green-600" : "text-secondary-500"
-                    }`}
-                  >
-                    {step.label}
-                  </p>
-                  <p
-                    className={`text-xs mt-1 leading-tight hidden sm:block ${
-                      isCompleted ? "text-green-500" : "text-secondary-400"
-                    }`}
-                  >
+                {/* Step Label + Description เฉพาะ desktop/tablet */}
+                <div className="hidden sm:block mt-1 text-center px-0.5">
+                  <p className={`text-xs leading-tight mt-1 ${isCompleted ? "text-green-500" : "text-secondary-400"}`}>
                     {step.description}
                   </p>
-
-                  {/* Show timestamp for completed steps */}
-                  {isCompleted && isCurrent && (
-                    <p className="text-xs text-secondary-400 mt-1 hidden sm:block">
-                      {new Date(orderDate).toLocaleString(
-                        localeMap[currentLanguage] || "en-US",
-                        {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                          day: "numeric",
-                          month: "short",
-                        }
-                      )}
-                    </p>
-                  )}
                 </div>
               </div>
             );
@@ -281,7 +230,6 @@ const Orders = () => {
     // Request notification permission
     if ("Notification" in window && Notification.permission === "default") {
       Notification.requestPermission().then((permission) => {
-        console.log("Notification permission:", permission);
       });
     }
   }, [page]);
@@ -289,7 +237,6 @@ const Orders = () => {
   // Polling system สำหรับ real-time updates (Fallback หาก WebSocket ไม่ทำงาน)
   useEffect(() => {
     if (!user?.id || !token) {
-      console.log("⚠️ User not authenticated, stopping polling");
       setPollingActive(false);
       return;
     }
@@ -298,7 +245,6 @@ const Orders = () => {
     const isWebSocketConnected = websocketService.ws && websocketService.ws.readyState === WebSocket.OPEN;
     
     if (isWebSocketConnected) {
-      console.log("✅ WebSocket connected - polling disabled");
       setPollingActive(false);
       fetchOrders(); // Initial fetch only
       return;
@@ -306,7 +252,6 @@ const Orders = () => {
 
     // Use polling as fallback when WebSocket is not available
     setPollingActive(true);
-    console.log("🔄 WebSocket not available - using polling for real-time updates...");
 
     // Initial fetch
     fetchOrders();
@@ -315,7 +260,6 @@ const Orders = () => {
     const pollingInterval = setInterval(() => {
       // Check again if WebSocket became available
       if (websocketService.ws && websocketService.ws.readyState === WebSocket.OPEN) {
-        console.log("✅ WebSocket now available - stopping polling");
         setPollingActive(false);
         clearInterval(pollingInterval);
         return;
@@ -335,16 +279,10 @@ const Orders = () => {
     
     // Listen for order status updates
     const handleOrderStatusUpdate = (data) => {
-      console.log('🎯 Order status update received in Orders.jsx:', data);
-      console.log('👤 Current user:', user);
-      console.log('📦 Order details:', data.payload || data);
       
       // Refresh orders list
       fetchOrdersQuietly();
-      
-      // Build display message (no toast anymore)
-      const displayMessage = data.payload?.new_status_display || `Order #${data.payload?.order_id || data.order_id} updated to ${data.payload?.new_status || data.new_status}`;
-      
+        
       // Show UI notification popup
       const translatedStatus = translate(`order.status.${data.payload?.new_status || data.new_status}`);
       setStatusUpdateNotification({
@@ -650,6 +588,7 @@ const Orders = () => {
               <div className="flex items-center space-x-2">
                 {websocketService.ws && websocketService.ws.readyState === WebSocket.OPEN ? (
                   <>
+                    {console.log("isWebSocketConnected")}
                     <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
                     <span className="text-xs text-green-600 font-medium">
                       WebSocket Connected
@@ -657,17 +596,19 @@ const Orders = () => {
                   </>
                 ) : pollingActive ? (
                   <>
-                    <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                    {console.log("pollingActive")}
+                    {/* <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
                     <span className="text-xs text-blue-600 font-medium">
                       Polling Active
-                    </span>
+                    </span> */}
                   </>
                 ) : (
                   <>
-                    <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                    {console.log("no connection")}
+                    {/* <div className="w-2 h-2 bg-red-500 rounded-full"></div>
                     <span className="text-xs text-red-600 font-medium">
                       No Real-time Updates
-                    </span>
+                    </span> */}
                   </>
                 )}
               </div>
@@ -790,7 +731,7 @@ const Orders = () => {
                     >
                       {statusInfo.text}
                     </span>
-                    <p className="text-lg font-semibold text-primary-600 mt-1">
+                    <p className="text-lg font-semibold text-red-600 mt-1">
                       {parseFloat(order.total_amount).toFixed(2)}
                     </p>
                   </div>
@@ -971,7 +912,7 @@ const Orders = () => {
                       <span className="text-secondary-800">
                         {translate("cart.total")}:
                       </span>
-                      <span className="text-primary-600">
+                      <span className="text-red-600">
                         {parseFloat(order.total_amount).toFixed(2)}
                       </span>
                     </div>
@@ -1011,7 +952,7 @@ const Orders = () => {
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <a
-              href="/restaurants"
+              href="/products"
               className="bg-primary-500 text-white px-6 py-3 rounded-lg hover:bg-primary-600 transition-colors"
             >
               {translate("order.start_ordering")}

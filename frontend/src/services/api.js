@@ -17,13 +17,14 @@ api.interceptors.request.use(
     }
     
     // Debug logging for specific API calls
-    if (config.url.includes('/notifications/')) {
+    if (config.url.includes('/notifications/') || config.url.includes('/app-settings/')) {
       console.log('🔍 API Request:', {
         method: config.method.toUpperCase(),
         url: config.url,
         baseURL: config.baseURL,
         fullURL: `${config.baseURL}${config.url}`,
-        hasToken: !!token
+        hasToken: !!token,
+        token: token ? `${token.substring(0, 10)}...` : null
       });
     }
     
@@ -38,7 +39,7 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => {
     // Debug logging for notifications API responses
-    if (response.config.url.includes('/notifications/')) {
+    if (response.config.url.includes('/notifications/') || response.config.url.includes('/app-settings/')) {
       console.log('✅ API Response:', {
         method: response.config.method.toUpperCase(),
         url: response.config.url,
@@ -50,7 +51,7 @@ api.interceptors.response.use(
   },
   (error) => {
     // Debug logging for notifications API errors
-    if (error.config?.url.includes('/notifications/')) {
+    if (error.config?.url.includes('/notifications/') || error.config?.url.includes('/app-settings/')) {
       console.log('❌ API Error:', {
         method: error.config.method.toUpperCase(),
         url: error.config.url,
@@ -62,13 +63,30 @@ api.interceptors.response.use(
     
     // Handle authentication errors globally
     if (error.response?.status === 401) {
-      // Token expired or invalid - clear session and redirect
+      // Token expired or invalid - clear session
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       
-      // Only redirect if not already on login/register pages
+      // รายการ endpoint ที่ไม่ควร redirect guest ไป login
+      const publicEndpoints = [
+        '/restaurants/',
+        '/products/',
+        '/categories/',
+        '/reviews/',
+        '/search/',
+        '/app-settings/public/',
+        '/languages/',
+        '/translations/',
+        '/guest-orders/track/'
+      ];
+      
+      const isPublicEndpoint = publicEndpoints.some(endpoint => 
+        error.config.url.includes(endpoint)
+      );
+      
       const currentPath = window.location.pathname;
-      if (!['/login', '/register', '/'].includes(currentPath)) {
+      // Only redirect if not a public endpoint and not already on login/register pages
+      if (!isPublicEndpoint && !['/login', '/register', '/'].includes(currentPath)) {
         // Store current path for redirect after login
         localStorage.setItem('redirectAfterLogin', currentPath);
         window.location.href = '/login';

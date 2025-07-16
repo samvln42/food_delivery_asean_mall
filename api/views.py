@@ -18,7 +18,8 @@ from .models import (
     Restaurant, Category, Product, Order, OrderDetail,
     Payment, Review, ProductReview, DeliveryStatusLog, Notification,
     SearchHistory, PopularSearch, UserFavorite, AnalyticsDaily,
-    RestaurantAnalytics, ProductAnalytics, AppSettings, Language, Translation
+    RestaurantAnalytics, ProductAnalytics, AppSettings, Language, Translation,
+    GuestOrder, GuestOrderDetail, GuestDeliveryStatusLog
 )
 from .serializers import (
     RestaurantSerializer, CategorySerializer, ProductSerializer,
@@ -27,7 +28,8 @@ from .serializers import (
     NotificationSerializer, SearchHistorySerializer, PopularSearchSerializer,
     UserFavoriteSerializer, AnalyticsDailySerializer, RestaurantAnalyticsSerializer,
     ProductAnalyticsSerializer, MultiRestaurantOrderSerializer, AppSettingsSerializer,
-    LanguageSerializer, TranslationSerializer
+    LanguageSerializer, TranslationSerializer, GuestOrderSerializer, 
+    CreateGuestOrderSerializer, GuestOrderTrackingSerializer, GuestMultiRestaurantOrderSerializer
 )
 
 
@@ -1457,53 +1459,69 @@ class AppSettingsViewSet(viewsets.ModelViewSet):
         """
         Endpoint สำหรับดึงข้อมูล public settings ที่ไม่ต้อง authentication
         """
-        settings = AppSettings.get_settings()
-        
-        # ข้อมูลที่เปิดเผยแบบ public
-        public_data = {
-            'id': settings.id,
-            'app_name': settings.app_name,
-            'app_description': settings.app_description,
-            'logo_url': settings.get_logo_url(),
-            'banner_url': settings.get_banner_url(),
-            # ข้อมูลติดต่อ - เพิ่มเข้าไปใน public data
-            'contact_email': settings.contact_email,
-            'contact_phone': settings.contact_phone,
-            'contact_address': settings.contact_address,
-            'hero_title': settings.hero_title,
-            'hero_subtitle': settings.hero_subtitle,
-            'feature_1_title': settings.feature_1_title,
-            'feature_1_description': settings.feature_1_description,
-            'feature_1_icon': settings.feature_1_icon,
-            'feature_2_title': settings.feature_2_title,
-            'feature_2_description': settings.feature_2_description,
-            'feature_2_icon': settings.feature_2_icon,
-            'feature_3_title': settings.feature_3_title,
-            'feature_3_description': settings.feature_3_description,
-            'feature_3_icon': settings.feature_3_icon,
-            'facebook_url': settings.facebook_url,
-            'instagram_url': settings.instagram_url,
-            'twitter_url': settings.twitter_url,
-            'maintenance_mode': settings.maintenance_mode,
-            'maintenance_message': settings.maintenance_message,
-            'timezone': settings.timezone,
-            'currency': settings.currency,
-            # ข้อมูลการชำระเงิน
-            'bank_name': settings.bank_name,
-            'bank_account_number': settings.bank_account_number,
-            'bank_account_name': settings.bank_account_name,
-            'qr_code_url': settings.get_qr_code_url(),
-        }
-        
-        # เพิ่ม absolute URLs
-        if settings.app_logo:
-            public_data['logo_url'] = request.build_absolute_uri(settings.app_logo.url)
-        if settings.app_banner:
-            public_data['banner_url'] = request.build_absolute_uri(settings.app_banner.url)
-        if settings.qr_code_image:
-            public_data['qr_code_url'] = request.build_absolute_uri(settings.qr_code_image.url)
+        try:
+            settings = AppSettings.get_settings()
             
-        return Response(public_data)
+            # ใช้ serializer ปกติเพื่อความปลอดภัย
+            serializer = self.get_serializer(settings)
+            data = serializer.data
+            
+            # สร้าง public data ที่ปลอดภัย
+            public_data = {
+                'id': data.get('id'),
+                'app_name': data.get('app_name', ''),
+                'app_description': data.get('app_description', ''),
+                'logo_url': data.get('logo_url', ''),
+                'banner_url': data.get('banner_url', ''),
+                'contact_email': data.get('contact_email', ''),
+                'contact_phone': data.get('contact_phone', ''),
+                'contact_address': data.get('contact_address', ''),
+                'hero_title': data.get('hero_title', ''),
+                'hero_subtitle': data.get('hero_subtitle', ''),
+                'feature_1_title': data.get('feature_1_title', ''),
+                'feature_1_description': data.get('feature_1_description', ''),
+                'feature_1_icon': data.get('feature_1_icon', ''),
+                'feature_2_title': data.get('feature_2_title', ''),
+                'feature_2_description': data.get('feature_2_description', ''),
+                'feature_2_icon': data.get('feature_2_icon', ''),
+                'feature_3_title': data.get('feature_3_title', ''),
+                'feature_3_description': data.get('feature_3_description', ''),
+                'feature_3_icon': data.get('feature_3_icon', ''),
+                'facebook_url': data.get('facebook_url', ''),
+                'instagram_url': data.get('instagram_url', ''),
+                'twitter_url': data.get('twitter_url', ''),
+                'maintenance_mode': data.get('maintenance_mode', False),
+                'maintenance_message': data.get('maintenance_message', ''),
+                'timezone': data.get('timezone', 'Asia/Bangkok'),
+                'currency': data.get('currency', 'THB'),
+                'bank_name': data.get('bank_name', ''),
+                'bank_account_number': data.get('bank_account_number', ''),
+                'bank_account_name': data.get('bank_account_name', ''),
+                'qr_code_url': data.get('qr_code_url', ''),
+                # ข้อมูลค่าจัดส่ง - ใช้ค่าจาก serializer
+                'base_delivery_fee': data.get('base_delivery_fee', 20.0),
+                'free_delivery_minimum': data.get('free_delivery_minimum', 200.0),
+                'max_delivery_distance': data.get('max_delivery_distance', 10.0),
+                'per_km_fee': data.get('per_km_fee', 5.0),
+                'multi_restaurant_base_fee': data.get('multi_restaurant_base_fee', 2.0),
+                'multi_restaurant_additional_fee': data.get('multi_restaurant_additional_fee', 1.0),
+                'delivery_time_slots': data.get('delivery_time_slots', '09:00-21:00'),
+                'enable_scheduled_delivery': data.get('enable_scheduled_delivery', True),
+                'rush_hour_multiplier': data.get('rush_hour_multiplier', 1.5),
+                'weekend_multiplier': data.get('weekend_multiplier', 1.2),
+            }
+            
+            return Response(public_data)
+            
+        except AppSettings.DoesNotExist:
+            return Response({"detail": "App settings not found."}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            print("---------------------------------------------------")
+            print(f"Error in public app settings endpoint: {e}")
+            import traceback
+            traceback.print_exc()
+            print("---------------------------------------------------")
+            return Response({"detail": "An internal server error occurred."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class LanguageViewSet(viewsets.ModelViewSet):
@@ -1574,6 +1592,198 @@ class TranslationViewSet(viewsets.ModelViewSet):
         
         serializer = self.get_serializer(translations, many=True)
         return Response(serializer.data)
+
+
+class GuestOrderViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet สำหรับการสั่งซื้อแบบไม่ต้องล็อกอิน
+    ใช้ Temporary ID เพื่อติดตามคำสั่งซื้อ
+    รองรับ multi-restaurant จริง
+    """
+    serializer_class = GuestOrderSerializer
+    permission_classes = [AllowAny]  # ไม่ต้องล็อกอิน
+    
+    def get_queryset(self):
+        user = self.request.user
+        if user.is_authenticated:
+            if user.role == 'admin':
+                return GuestOrder.objects.all()
+            elif user.role in ['special_restaurant', 'general_restaurant']:
+                try:
+                    # filter ทั้ง single restaurant และ multi-restaurant ที่มีร้านนี้อยู่
+                    restaurant = user.restaurant
+                    return GuestOrder.objects.filter(
+                        Q(restaurant=restaurant) |
+                        Q(restaurants__contains=[{"restaurant_id": restaurant.restaurant_id}])
+                    )
+                except Restaurant.DoesNotExist:
+                    return GuestOrder.objects.none()
+        return GuestOrder.objects.none()
+
+    def get_serializer_class(self):
+        if self.action == 'create':
+            return CreateGuestOrderSerializer
+        elif self.action == 'track':
+            return GuestOrderTrackingSerializer
+        elif self.action == 'multi':
+            return GuestMultiRestaurantOrderSerializer
+        return GuestOrderSerializer
+
+    def create(self, request, *args, **kwargs):
+        try:
+            if 'order_data' in request.data:
+                order_data_str = request.data.get('order_data')
+                proof_of_payment = request.FILES.get('proof_of_payment')
+                if not order_data_str:
+                    return Response({'error': 'order_data is required'}, status=status.HTTP_400_BAD_REQUEST)
+                import json
+                order_data = json.loads(order_data_str)
+            else:
+                order_data = request.data
+                proof_of_payment = None
+            serializer = self.get_serializer(data=order_data)
+            serializer.is_valid(raise_exception=True)
+            guest_order = serializer.save()
+            if proof_of_payment:
+                guest_order.proof_of_payment = proof_of_payment
+                guest_order.save()
+            # ส่ง notification ไปยังแอดมินทุกคน
+            admin_users = User.objects.filter(role='admin')
+            for admin_user in admin_users:
+                Notification.objects.create(
+                    user=admin_user,
+                    title='New Guest Order Received',
+                    message=f'Guest order #{guest_order.guest_order_id} ({guest_order.temporary_id}) was placed by {guest_order.customer_name}',
+                    type='guest_order_update'
+                )
+            # ส่ง WebSocket notification ไปยังกลุ่มแอดมิน (รองรับ multi-restaurant)
+            channel_layer = get_channel_layer()
+            restaurant_name = 'Multi-Restaurant Guest Order' if guest_order.is_multi_restaurant else (guest_order.restaurant.restaurant_name if guest_order.restaurant else '-')
+            async_to_sync(channel_layer.group_send)(
+                "orders_admin",
+                {
+                    'type': 'new_guest_order',
+                    'order_id': guest_order.guest_order_id,
+                    'temporary_id': guest_order.temporary_id,
+                    'customer_name': guest_order.customer_name,
+                    'restaurant_name': restaurant_name,
+                    'total_amount': str(guest_order.total_amount),
+                    'timestamp': timezone.now().isoformat()
+                }
+            )
+            headers = self.get_success_headers(serializer.data)
+            return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+        except Exception as e:
+            return Response(
+                {'error': f'Failed to create guest order: {str(e)}'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+    @action(detail=False, methods=['get'], permission_classes=[AllowAny])
+    def track(self, request):
+        temporary_id = request.query_params.get('temporary_id')
+        if not temporary_id:
+            return Response({'error': 'temporary_id is required'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            guest_order = GuestOrder.objects.get(temporary_id=temporary_id)
+            from django.utils import timezone
+            if guest_order.expires_at and guest_order.expires_at < timezone.now():
+                return Response({'error': 'Order has expired'}, status=status.HTTP_410_GONE)
+            serializer = GuestOrderTrackingSerializer(guest_order)
+            return Response(serializer.data)
+        except GuestOrder.DoesNotExist:
+            return Response({'error': 'Order not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated])
+    def update_status(self, request, pk=None):
+        guest_order = self.get_object()
+        new_status = request.data.get('status')
+        note = request.data.get('note', '')
+        if not new_status:
+            return Response({'error': 'status is required'}, status=status.HTTP_400_BAD_REQUEST)
+        if new_status not in dict(GuestOrder.STATUS_CHOICES):
+            return Response({'error': 'Invalid status'}, status=status.HTTP_400_BAD_REQUEST)
+        old_status = guest_order.current_status
+        guest_order.current_status = new_status
+        guest_order.save()
+        GuestDeliveryStatusLog.objects.create(
+            guest_order=guest_order,
+            status=new_status,
+            note=note,
+            updated_by_user=request.user
+        )
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(
+            f"guest_order_{guest_order.temporary_id}",
+            {
+                'type': 'guest_order_status_update',
+                'order_id': guest_order.guest_order_id,
+                'temporary_id': guest_order.temporary_id,
+                'old_status': old_status,
+                'new_status': new_status,
+                'note': note,
+                'timestamp': timezone.now().isoformat()
+            }
+        )
+        async_to_sync(channel_layer.group_send)(
+            "guest_orders_all",
+            {
+                'type': 'guest_order_status_update',
+                'order_id': guest_order.guest_order_id,
+                'temporary_id': guest_order.temporary_id,
+                'old_status': old_status,
+                'new_status': new_status,
+                'note': note,
+                'timestamp': timezone.now().isoformat()
+            }
+        )
+        return Response({
+            'message': 'Status updated successfully',
+            'old_status': old_status,
+            'new_status': new_status
+        })
+
+    @action(detail=False, methods=['post'], permission_classes=[AllowAny])
+    def multi(self, request):
+        try:
+            order_data_str = request.data.get('order_data')
+            proof_of_payment = request.FILES.get('proof_of_payment')
+            if not order_data_str:
+                return Response({'error': 'order_data is required'}, status=status.HTTP_400_BAD_REQUEST)
+            import json
+            order_data = json.loads(order_data_str)
+            serializer = GuestMultiRestaurantOrderSerializer(data=order_data)
+            if serializer.is_valid():
+                guest_order = serializer.save()
+                if proof_of_payment:
+                    guest_order.proof_of_payment = proof_of_payment
+                    guest_order.save()
+                admin_users = User.objects.filter(role='admin')
+                for admin_user in admin_users:
+                    Notification.objects.create(
+                        user=admin_user,
+                        title='New Multi-Restaurant Guest Order Received',
+                        message=f'Multi-restaurant guest order #{guest_order.guest_order_id} ({guest_order.temporary_id}) was placed by {guest_order.customer_name}',
+                        type='guest_order_update'
+                    )
+                channel_layer = get_channel_layer()
+                async_to_sync(channel_layer.group_send)(
+                    "orders_admin",
+                    {
+                        'type': 'new_guest_order',
+                        'order_id': guest_order.guest_order_id,
+                        'temporary_id': guest_order.temporary_id,
+                        'customer_name': guest_order.customer_name,
+                        'restaurant_name': 'Multi-Restaurant Guest Order',
+                        'total_amount': str(guest_order.total_amount),
+                        'timestamp': timezone.now().isoformat()
+                    }
+                )
+                return Response(GuestOrderSerializer(guest_order).data, status=status.HTTP_201_CREATED)
+            else:
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({'error': f'Failed to create multi-restaurant guest order: {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
 
 
 

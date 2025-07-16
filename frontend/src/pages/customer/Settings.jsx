@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { userService } from '../../services/api';
+import LanguageSwitcher from '../../components/common/LanguageSwitcher';
 
 const Settings = () => {
   const { user, logout } = useAuth();
@@ -21,7 +22,7 @@ const Settings = () => {
     preferences: {
       language: 'th',
       theme: 'light',  
-      currency: 'THB',
+      currency: '',
       delivery_instructions: '',
       default_address: ''
     },
@@ -107,7 +108,7 @@ const Settings = () => {
         preferences: {
           language: 'th',
           theme: 'light',
-          currency: 'THB',
+          currency: '',
           delivery_instructions: '',
           default_address: ''
         },
@@ -225,7 +226,7 @@ const Settings = () => {
       <div className="max-w-4xl mx-auto space-y-6">
         
         {/* Notifications Settings */}
-        <div className="bg-white rounded-lg shadow-md p-6">
+        {/* <div className="bg-white rounded-lg shadow-md p-6">
           <h2 className="text-xl font-semibold text-secondary-700 mb-4">Notifications</h2>
           <div className="space-y-4">
             <div className="flex items-center justify-between">
@@ -283,10 +284,10 @@ const Settings = () => {
               />
             </div>
           </div>
-        </div>
+        </div> */}
 
         {/* Privacy Settings */}
-        <div className="bg-white rounded-lg shadow-md p-6">
+        {/* <div className="bg-white rounded-lg shadow-md p-6">
           <h2 className="text-xl font-semibold text-secondary-700 mb-4">Privacy</h2>
           <div className="space-y-4">
             <div className="flex items-center justify-between">
@@ -333,39 +334,31 @@ const Settings = () => {
               />
             </div>
           </div>
-        </div>
+        </div> */}
 
         {/* Preferences */}
         <div className="bg-white rounded-lg shadow-md p-6">
           <h2 className="text-xl font-semibold text-secondary-700 mb-4">Preferences</h2>
           <div className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-secondary-700 mb-2">Language</label>
-                <select
-                  value={settings.preferences.language}
-                  onChange={(e) => updateSetting('preferences', 'language', e.target.value)}
-                  className="w-full p-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500"
-                >
-                  <option value="th">ไทย</option>
-                  <option value="en">English</option>
-                </select>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-secondary-700 mb-2">Theme</label>
-                <select
-                  value={settings.preferences.theme}
-                  onChange={(e) => updateSetting('preferences', 'theme', e.target.value)}
-                  className="w-full p-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500"
-                >
-                  <option value="light">Light</option>
-                  <option value="dark">Dark</option>
-                  <option value="auto">Auto</option>
-                </select>
-              </div>
+            {/* LanguageSwitcher เฉพาะ mobile */}
+            <div className="block sm:hidden">
+              <label className="block text-sm font-medium text-secondary-700 mb-2">Language</label>
+              <LanguageSwitcher />
             </div>
-            
+            {/* Theme (เต็มแถวใน desktop) */}
+            <div>
+              <label className="block text-sm font-medium text-secondary-700 mb-2">Theme</label>
+              <select
+                value={settings.preferences.theme}
+                onChange={(e) => updateSetting('preferences', 'theme', e.target.value)}
+                className="w-full p-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+              >
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+                <option value="auto">Auto</option>
+              </select>
+            </div>
+            {/* Delivery instructions */}
             <div>
               <label className="block text-sm font-medium text-secondary-700 mb-2">Delivery instructions</label>
               <textarea
@@ -425,7 +418,7 @@ const Settings = () => {
         </div>
 
         {/* Action Buttons */}
-        <div className="bg-white rounded-lg shadow-md p-6">
+        {/* <div className="bg-white rounded-lg shadow-md p-6">
           <div className="flex flex-col sm:flex-row gap-4 justify-between">
             <button
               onClick={resetSettings}
@@ -451,7 +444,7 @@ const Settings = () => {
               </button>
             </div>
           </div>
-        </div>
+        </div> */}
 
         {/* Danger Zone - Delete Account */}
         <div className="bg-red-50 border border-red-200 rounded-lg shadow-md p-6">

@@ -36,7 +36,6 @@ const AdminNotifications = () => {
     try {
       // รอให้ notifications load ก่อน
       setTimeout(async () => {
-        console.log('🔔 Marking all notifications as read (entered notifications page)');
         
         // Mark all unread notifications as read
         await api.post('/notifications/mark-all-read/');
@@ -53,7 +52,6 @@ const AdminNotifications = () => {
           }))
         );
         
-        console.log('✅ All notifications marked as read (page entry)');
       }, 500);
     } catch (error) {
       console.error('❌ Error marking notifications as read on page enter:', error);
@@ -99,7 +97,6 @@ const AdminNotifications = () => {
       // อัปเดต unread count ใน sidebar
       decreaseUnreadCount();
       
-      console.log(`✅ Marked notification ${notificationId} as read`);
     } catch (error) {
       console.error('Error marking notification as read:', error);
     }
@@ -123,7 +120,6 @@ const AdminNotifications = () => {
       // ตั้ง unread count เป็น 0 ใน sidebar
       updateUnreadCount(0);
       
-      console.log(`✅ Marked all ${unreadCount} notifications as read`);
     } catch (error) {
       console.error('Error marking all notifications as read:', error);
     }

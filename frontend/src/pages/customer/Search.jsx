@@ -2,14 +2,19 @@ import React, { useState, useEffect } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import api from "../../services/api";
 import { useCart } from "../../contexts/CartContext";
+import { useGuestCart } from "../../contexts/GuestCartContext";
 import { useAuth } from "../../contexts/AuthContext";
 import { useLanguage } from "../../contexts/LanguageContext";
 
 const Search = () => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const { addItem } = useCart();
+  const { addItem: addToCart } = useCart();
+  const { addItem: addToGuestCart } = useGuestCart();
   const { isAuthenticated } = useAuth();
   const { translate } = useLanguage();
+  
+  // เลือกฟังก์ชัน addItem ตามสถานะการล็อกอิน
+  const addItem = isAuthenticated ? addToCart : addToGuestCart;
   const [searchQuery, setSearchQuery] = useState(searchParams.get("q") || "");
   const [searchType, setSearchType] = useState("all");
   const [results, setResults] = useState({
@@ -86,9 +91,6 @@ const Search = () => {
 
   const handleAddToCart = (product) => {
     console.log("Adding product to cart from search:", product);
-
-    // การตรวจสอบ login จะทำใน CartContext แล้ว
-    // ไม่ต้องตรวจสอบที่นี่อีก
 
     if (!product.is_available) {
       alert(translate("common.out_of_stock"));
@@ -314,7 +316,7 @@ const Search = () => {
                       </p>
                       <div className="flex items-center justify-between mb-3">
                         <span className="text-primary-500 font-bold text-lg">
-                          ฿{Number(product.price).toFixed(2)}
+                          {Number(product.price).toFixed(2)}
                         </span>
                         <span className="text-xs text-secondary-500">
                           {product.restaurant_name}
@@ -325,16 +327,12 @@ const Search = () => {
                         className={`w-full py-2 px-4 rounded-lg font-semibold transition-colors ${
                           product.is_available === false
                             ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                            : isAuthenticated
-                            ? "bg-primary-500 text-white hover:bg-primary-600"
-                            : "bg-secondary-300 text-secondary-500"
+                            : "bg-primary-500 text-white hover:bg-primary-600"
                         }`}
                         disabled={product.is_available === false}
                       >
                         {product.is_available === false
                           ? translate("common.out_of_stock")
-                          : !isAuthenticated
-                          ? translate("common.login_to_order")
                           : translate("cart.add")}
                       </button>
                     </div>

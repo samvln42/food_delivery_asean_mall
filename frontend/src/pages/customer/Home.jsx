@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from "react";
 import { useLanguage } from '../../contexts/LanguageContext';
-import { Link } from "react-router-dom";
+import { useAuth } from '../../contexts/AuthContext';
+import { Link, useNavigate } from "react-router-dom";
 import {
   restaurantService,
   categoryService,
   appSettingsService,
 } from "../../services/api";
 import Loading from "../../components/common/Loading";
+import { MagnifyingGlassIcon } from '@heroicons/react/24/outline';
 
 const Home = () => {
   const [restaurants, setRestaurants] = useState([]);
@@ -15,7 +17,10 @@ const Home = () => {
   const [appSettings, setAppSettings] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
   const { translate } = useLanguage();
+  // const { user } = useAuth();
+  const navigate = useNavigate();
   
   useEffect(() => {
     fetchData();
@@ -69,15 +74,6 @@ const Home = () => {
         setCategories(categoryData);
         setAppSettings(settingsData);
 
-        // Only log in development mode
-        if (process.env.NODE_ENV === "development") {
-          console.log("✅ Data fetched at", new Date().toLocaleString(), {
-            restaurants: restaurantData?.length || 0,
-            specialRestaurants: specialData?.length || 0,
-            categories: categoryData?.length || 0,
-            appSettings: settingsData?.app_name || 'No app name',
-          });
-        }
       } catch (apiError) {
         console.error("API error:", apiError);
         throw apiError; // Re-throw to be caught by outer catch
@@ -87,6 +83,14 @@ const Home = () => {
       console.error("Error fetching data:", err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSearch = (e) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
+      setSearchQuery('');
     }
   };
 
@@ -124,8 +128,8 @@ const Home = () => {
               alt="Banner"
               className="w-full h-full object-cover"
             />
-            {/* Light overlay for better text readability */}
-            <div className="absolute inset-0 bg-black/30"></div>
+            {/* Darker overlay for better text readability and search bar visibility */}
+            <div className="absolute inset-0 bg-black/50"></div>
           </div>
         )}
 
@@ -134,7 +138,7 @@ const Home = () => {
           <div className="absolute inset-0 bg-gradient-to-r from-primary-600 to-primary-800"></div>
         )}
 
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-20">
           <div className="text-center">
             <h1 className="text-3xl md:text-4xl font-bold mb-4 text-white drop-shadow-lg">
               {appSettings?.hero_title || 'Welcome to ' + (appSettings?.app_name || 'FoodDelivery')}
@@ -142,14 +146,44 @@ const Home = () => {
             <p className="text-lg md:text-xl mb-6 text-white/90 drop-shadow-md">
               {appSettings?.hero_subtitle || 'Order food from your favorite restaurants easily with just a finger'}
             </p>
-            <div className="flex justify-center">
-              <Link
-                to="/products"
-                className="btn-primary bg-white text-primary-600 hover:bg-primary-50 px-6 py-2 shadow-lg"
-              >
-                {translate('common.order_now')}
-              </Link>
-            </div>
+            
+            {/* Search Bar - เฉพาะ customer */}
+            {/* {user?.role === 'customer' && ( */}
+              <div className="max-w-2xl mx-auto mb-8 px-4">
+                <form onSubmit={handleSearch} className="flex shadow-2xl rounded-lg overflow-hidden">
+                  <div className="relative flex-1">
+                    <div className="absolute inset-y-0 left-0 pl-3 md:pl-4 flex items-center pointer-events-none">
+                      <MagnifyingGlassIcon className="h-5 w-5 md:h-6 md:w-6 text-secondary-400" />
+                    </div>
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="block w-full pl-10 md:pl-12 pr-4 py-3 md:py-4 border-0 text-base md:text-lg placeholder-secondary-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 bg-white"
+                      placeholder={translate('common.search') || 'Search for food, restaurants...'}
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    className="bg-primary-600 hover:bg-primary-700 text-white px-6 md:px-8 py-3 md:py-4 font-medium text-base md:text-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 shadow-lg"
+                  >
+                    {translate('common.search') || 'Search'}
+                  </button>
+                </form>
+              </div>
+            {/* )} */}
+
+            {/* Order Now Button - สำหรับผู้ใช้ที่ไม่ใช่ customer หรือยังไม่ได้ login */}
+            {/* {(!user || user?.role !== 'customer') && (
+              <div className="flex justify-center mb-8">
+                <Link
+                  to="/products"
+                  className="bg-white text-primary-600 hover:bg-primary-50 px-8 py-4 rounded-lg font-medium text-lg shadow-lg transition-all duration-200 hover:shadow-xl"
+                >
+                  {translate('common.order_now') || 'Order Now'}
+                </Link>
+              </div>
+            )} */}
           </div>
         </div>
       </section>
@@ -159,7 +193,7 @@ const Home = () => {
         <section className="mb-16">
           <div className="flex items-center justify-between mb-8">
             <h2 className="text-3xl font-bold text-secondary-900">
-              {translate('common.popular_categories')}
+              {translate('common.categories')}
             </h2>
             <Link
               to="/categories"
@@ -170,7 +204,7 @@ const Home = () => {
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-            {categories.slice(0, 6).map((category) => (
+            {categories.slice(0, 18).map((category) => (
               <Link
                 key={category.category_id}
                 to={`/categories/${category.category_id}`}
@@ -197,7 +231,7 @@ const Home = () => {
         </section>
 
         {/* Special Restaurants Section */}
-        {specialRestaurants.length > 0 && (
+        {/* {specialRestaurants.length > 0 && (
           <section className="mb-16">
             <div className="flex items-center justify-between mb-8">
               <h2 className="text-3xl font-bold text-secondary-900">
@@ -225,10 +259,10 @@ const Home = () => {
               ))}
             </div>
           </section>
-        )}
+        )} */}
 
         {/* Popular Restaurants Section */}
-        <section className="mb-16">
+        {/* <section className="mb-16">
           <div className="flex items-center justify-between mb-8">
             <h2 className="text-3xl font-bold text-secondary-900">
               {translate('common.popular_restaurants')}
@@ -250,10 +284,10 @@ const Home = () => {
               />
             ))}
           </div>
-        </section>
+        </section> */}
 
         {/* Features Section */}
-        <section className="py-16 bg-white rounded-lg shadow-sm">
+        {/* <section className="py-16 bg-white rounded-lg shadow-sm">
           <div className="max-w-4xl mx-auto text-center px-6">
             <h2 className="text-3xl font-bold text-secondary-900 mb-12">
               {translate('common.why_choose_us')}
@@ -306,81 +340,81 @@ const Home = () => {
               </div>
             </div>
           </div>
-        </section>
+        </section> */}
       </div>
     </div>
   );
 };
 
 // Restaurant Card Component
-const RestaurantCard = ({ restaurant, isSpecial = false, translate }) => (
-  <Link
-    to={`/restaurants/${restaurant.restaurant_id}`}
-    className="group bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow overflow-hidden"
-  >
-    <div className="relative">
-      <img
-        src={
-          restaurant.image ||
-          `https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=400&h=250&fit=crop`
-        }
-        alt={restaurant.restaurant_name}
-        className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
-      />
-      {isSpecial && (
-        <div className="absolute top-2 right-2 bg-yellow-400 text-yellow-900 px-2 py-1 rounded-full text-xs font-medium">
-          ⭐ {translate('common.special')}
-        </div>
-      )}
-      {restaurant.status === "closed" && (
-        <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-          <span className="text-white text-lg font-medium">{translate('common.closed')}</span>
-        </div>
-      )}
-    </div>
+// const RestaurantCard = ({ restaurant, isSpecial = false, translate }) => (
+//   <Link
+//     to={`/restaurants/${restaurant.restaurant_id}`}
+//     className="group bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow overflow-hidden"
+//   >
+//     <div className="relative">
+//       <img
+//         src={
+//           restaurant.image ||
+//           `https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=400&h=250&fit=crop`
+//         }
+//         alt={restaurant.restaurant_name}
+//         className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
+//       />
+//       {isSpecial && (
+//         <div className="absolute top-2 right-2 bg-yellow-400 text-yellow-900 px-2 py-1 rounded-full text-xs font-medium">
+//           ⭐ {translate('common.special')}
+//         </div>
+//       )}
+//       {restaurant.status === "closed" && (
+//         <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+//           <span className="text-white text-lg font-medium">{translate('common.closed')}</span>
+//         </div>
+//       )}
+//     </div>
 
-    <div className="p-4">
-      <h3 className="font-semibold text-lg text-secondary-900 mb-1 group-hover:text-primary-600">
-        {restaurant.restaurant_name}
-      </h3>
-      <p className="text-secondary-600 text-sm mb-2 line-clamp-2">
-        {restaurant.description}
-      </p>
+//     <div className="p-4">
+//       <h3 className="font-semibold text-lg text-secondary-900 mb-1 group-hover:text-primary-600">
+//         {restaurant.restaurant_name}
+//       </h3>
+//       <p className="text-secondary-600 text-sm mb-2 line-clamp-2">
+//         {restaurant.description}
+//       </p>
 
-      <div className="flex items-center justify-between">
-        <div className="flex items-center">
-          <span className="text-yellow-400 mr-1">⭐</span>
-          <span className="text-sm font-medium text-secondary-700">
-            {restaurant.average_rating &&
-            !isNaN(Number(restaurant.average_rating))
-              ? Number(restaurant.average_rating).toFixed(1)
-              : 'New'}
-          </span>
-          <span className="text-secondary-500 text-sm ml-1">
-            ({restaurant.total_reviews || 0})
-          </span>
-        </div>
+//       <div className="flex items-center justify-between">
+//         <div className="flex items-center">
+//           <span className="text-yellow-400 mr-1">⭐</span>
+//           <span className="text-sm font-medium text-secondary-700">
+//             {restaurant.average_rating &&
+//             !isNaN(Number(restaurant.average_rating))
+//               ? Number(restaurant.average_rating).toFixed(1)
+//               : 'New'}
+//           </span>
+//           <span className="text-secondary-500 text-sm ml-1">
+//             ({restaurant.total_reviews || 0})
+//           </span>
+//         </div>
 
-        <div className="text-right">
-          <p className="text-sm text-secondary-500">{translate('common.delivery')}</p>
-          <p className="text-sm font-medium text-secondary-700">1-2$</p>
-        </div>
-      </div>
+//         <div className="text-right">
+//           <p className="text-sm text-secondary-500">{translate('common.delivery')}</p>
+//           <p className="text-sm font-medium text-secondary-700">1-2$</p>
+//         </div>
+//       </div>
 
-      <div className="mt-2 flex items-center justify-between text-sm text-secondary-500">
-        <span>{translate('common.delivery_time')}</span>
-        <span
-          className={`px-2 py-1 rounded-full text-xs ${
-            restaurant.status === "open"
-              ? "bg-green-100 text-green-800"
-              : "bg-red-100 text-red-800"
-          }`}
-        >
-          {restaurant.status === "open" ? translate('common.open') : translate('common.closed')}
-        </span>
-      </div>
-    </div>
-  </Link>
-);
+//       <div className="mt-2 flex items-center justify-between text-sm text-secondary-500">
+//         <span>{translate('common.delivery_time')}</span>
+//         <span
+//           className={`px-2 py-1 rounded-full text-xs ${
+//             restaurant.status === "open"
+//               ? "bg-green-100 text-green-800"
+//               : "bg-red-100 text-red-800"
+//           }`}
+//         >
+//           {restaurant.status === "open" ? translate('common.open') : translate('common.closed')}
+//         </span>
+//       </div>
+//     </div>
+//   </Link>
+// );
 
 export default Home;

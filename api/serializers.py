@@ -4,7 +4,8 @@ from .models import (
     Restaurant, Category, Product, Order, OrderDetail,
     Payment, Review, ProductReview, DeliveryStatusLog, Notification,
     SearchHistory, PopularSearch, UserFavorite, AnalyticsDaily,
-    RestaurantAnalytics, ProductAnalytics, AppSettings, Language, Translation
+    RestaurantAnalytics, ProductAnalytics, AppSettings, Language, Translation,
+    GuestOrder, GuestOrderDetail, GuestDeliveryStatusLog
 )
 
 
@@ -497,6 +498,9 @@ class AppSettingsSerializer(serializers.ModelSerializer):
             'maintenance_mode', 'maintenance_message',
             'timezone', 'currency',
             'bank_name', 'bank_account_number', 'bank_account_name', 'qr_code_image', 'qr_code_url',
+            'base_delivery_fee', 'free_delivery_minimum', 'max_delivery_distance', 'per_km_fee',
+            'multi_restaurant_base_fee', 'multi_restaurant_additional_fee', 'delivery_time_slots',
+            'enable_scheduled_delivery', 'rush_hour_multiplier', 'weekend_multiplier',
             'created_at', 'updated_at', 'updated_by'
         ]
         read_only_fields = ['id', 'logo_url', 'banner_url', 'qr_code_url', 'created_at', 'updated_at', 'updated_by']
@@ -540,3 +544,356 @@ class TranslationSerializer(serializers.ModelSerializer):
         model = Translation
         fields = ['id', 'language', 'language_code', 'key', 'value', 'group', 'created_at', 'updated_at']
         read_only_fields = ['created_at', 'updated_at'] 
+
+# Guest Order
+class GuestOrderDetailSerializer(serializers.ModelSerializer):
+    product_name = serializers.CharField(source='product.product_name', read_only=True)
+    product_image_url = serializers.CharField(source='product.image_url', read_only=True)
+    restaurant_id = serializers.IntegerField(source='restaurant.restaurant_id', read_only=True)
+    restaurant_name = serializers.CharField(source='restaurant.restaurant_name', read_only=True)
+
+    class Meta:
+        model = GuestOrderDetail
+        fields = ['guest_order_detail_id', 'guest_order', 'product', 'product_name', 
+                 'product_image_url', 'restaurant_id', 'restaurant_name', 'quantity', 
+                 'price_at_order', 'subtotal']
+        read_only_fields = ['guest_order_detail_id', 'subtotal']
+
+
+class GuestOrderSerializer(serializers.ModelSerializer):
+    order_details = GuestOrderDetailSerializer(many=True, read_only=True)
+    order_details_by_restaurant = serializers.SerializerMethodField()
+    restaurant_name = serializers.SerializerMethodField()
+    status_logs = serializers.SerializerMethodField()
+    restaurant_count = serializers.SerializerMethodField()
+    is_multi_restaurant = serializers.SerializerMethodField()
+    restaurants = serializers.SerializerMethodField()
+
+    class Meta:
+        model = GuestOrder
+        fields = [
+            'guest_order_id', 'temporary_id', 'restaurant', 'restaurants', 'restaurant_name',
+            'order_date', 'total_amount', 'delivery_address', 'delivery_latitude',
+            'delivery_longitude', 'current_status', 'delivery_fee',
+            'estimated_delivery_time', 'customer_name', 'customer_phone',
+            'customer_email', 'special_instructions', 'payment_method',
+            'payment_status', 'proof_of_payment', 'expires_at', 'order_details',
+            'order_details_by_restaurant', 'restaurant_count', 'is_multi_restaurant',
+            'status_logs'
+        ]
+        read_only_fields = ['guest_order_id', 'temporary_id', 'order_date', 'expires_at']
+
+    def get_restaurant_name(self, obj):
+        """ดึงชื่อร้านหลักหรือชื่อร้านแรก"""
+        if obj.is_multi_restaurant:
+            restaurant_names = obj.get_restaurant_names()
+            return restaurant_names[0] if restaurant_names else 'Multi-Restaurant Order'
+        elif obj.restaurant:
+            return obj.restaurant.restaurant_name
+        return 'Unknown Restaurant'
+
+    def get_restaurants(self, obj):
+        """ดึงข้อมูลร้านทั้งหมด"""
+        if obj.is_multi_restaurant:
+            return obj.restaurants
+        elif obj.restaurant:
+            return [{
+                'restaurant_id': obj.restaurant.restaurant_id,
+                'restaurant_name': obj.restaurant.restaurant_name,
+                'delivery_fee': float(obj.delivery_fee or 0)
+            }]
+        return []
+
+    def get_status_logs(self, obj):
+        logs = obj.status_logs.all().order_by('-timestamp')
+        return [
+            {
+                'status': log.status,
+                'timestamp': log.timestamp,
+                'note': log.note,
+                'updated_by': log.updated_by_user.username if log.updated_by_user else None
+            }
+            for log in logs
+        ]
+
+    def get_order_details_by_restaurant(self, obj):
+        """จัดกลุ่ม OrderDetail ตามร้าน"""
+        order_details = obj.order_details.all()
+        restaurants = {}
+        
+        for detail in order_details:
+            restaurant_id = detail.restaurant.restaurant_id
+            restaurant_name = detail.restaurant.restaurant_name
+            
+            if restaurant_id not in restaurants:
+                restaurants[restaurant_id] = {
+                    'restaurant_id': restaurant_id,
+                    'restaurant_name': restaurant_name,
+                    'restaurant_address': detail.restaurant.address or '',
+                    'items': [],
+                    'subtotal': 0
+                }
+            
+            item_data = GuestOrderDetailSerializer(detail).data
+            restaurants[restaurant_id]['items'].append(item_data)
+            restaurants[restaurant_id]['subtotal'] += float(detail.subtotal)
+        
+        return list(restaurants.values())
+    
+    def get_restaurant_count(self, obj):
+        """นับจำนวนร้านในคำสั่งซื้อ"""
+        return obj.restaurant_count
+    
+    def get_is_multi_restaurant(self, obj):
+        """ตรวจสอบว่าเป็น multi-restaurant order หรือไม่"""
+        return obj.is_multi_restaurant
+
+
+class GuestMultiRestaurantOrderSerializer(serializers.Serializer):
+    """
+    Serializer สำหรับการสั่งซื้อจากหลายร้านในครั้งเดียว (Guest Order)
+    ระบบจะสร้าง GuestOrder เดียวที่มี GuestOrderDetail จากหลายร้าน
+    """
+    delivery_address = serializers.CharField(max_length=255)
+    delivery_latitude = serializers.DecimalField(max_digits=10, decimal_places=8, required=False, allow_null=True)
+    delivery_longitude = serializers.DecimalField(max_digits=11, decimal_places=8, required=False, allow_null=True)
+    total_delivery_fee = serializers.DecimalField(max_digits=10, decimal_places=2)
+    customer_name = serializers.CharField(max_length=100)
+    customer_phone = serializers.CharField(max_length=20)
+    customer_email = serializers.EmailField(required=False, allow_blank=True)
+    special_instructions = serializers.CharField(max_length=500, required=False, allow_blank=True)
+    payment_method = serializers.CharField(max_length=20, default='bank_transfer')
+    restaurants = serializers.JSONField(write_only=True)
+    
+    def validate_restaurants(self, value):
+        """ตรวจสอบข้อมูลร้านและสินค้า"""
+        if not isinstance(value, list) or not value:
+            raise serializers.ValidationError("Must have at least 1 restaurant and must be a list")
+        
+        for i, restaurant_data in enumerate(value):
+            # ตรวจสอบ structure ของแต่ละร้าน
+            if not isinstance(restaurant_data, dict):
+                raise serializers.ValidationError(f"Restaurant data at index {i+1} must be an object")
+            
+            if 'restaurant_id' not in restaurant_data:
+                raise serializers.ValidationError(f"Restaurant {i+1}: restaurant_id is required")
+            if 'items' not in restaurant_data:
+                raise serializers.ValidationError(f"Restaurant {i+1}: items list is required")
+            
+            restaurant_id = restaurant_data.get('restaurant_id')
+            items = restaurant_data.get('items')
+            
+            # ตรวจสอบ restaurant_id
+            try:
+                restaurant_id = int(restaurant_id)
+                restaurant = Restaurant.objects.get(restaurant_id=restaurant_id)
+            except (ValueError, TypeError):
+                raise serializers.ValidationError(f"Restaurant {i+1}: restaurant_id must be a number")
+            except Restaurant.DoesNotExist:
+                raise serializers.ValidationError(f"Restaurant not found with ID: {restaurant_id}")
+            
+            # ตรวจสอบ items
+            if not isinstance(items, list) or not items:
+                raise serializers.ValidationError(f"Restaurant {i+1}: must have at least 1 item in the list")
+            
+            # ตรวจสอบสินค้าในร้าน
+            for j, item in enumerate(items):
+                if not isinstance(item, dict):
+                    raise serializers.ValidationError(f"Restaurant {i+1}, item {j+1}: must be an object")
+                
+                if 'product_id' not in item or 'quantity' not in item:
+                    raise serializers.ValidationError(f"Restaurant {i+1}, item {j+1}: product_id and quantity are required")
+                
+                try:
+                    product_id = int(item['product_id'])
+                    quantity = int(item['quantity'])
+                    
+                    if quantity <= 0:
+                        raise serializers.ValidationError(f"Restaurant {i+1}, item {j+1}: quantity must be greater than 0")
+                    
+                    product = Product.objects.get(
+                        product_id=product_id, 
+                        restaurant=restaurant,
+                        is_available=True
+                    )
+                except (ValueError, TypeError):
+                    raise serializers.ValidationError(f"Restaurant {i+1}, item {j+1}: product_id and quantity must be numbers")
+                except Product.DoesNotExist:
+                    raise serializers.ValidationError(
+                        f"Product not found with ID: {product_id} in restaurant {restaurant.restaurant_name}"
+                    )
+        
+        return value
+    
+    def create(self, validated_data):
+        restaurants_data = validated_data.pop('restaurants')
+        
+        # คำนวณยอดรวม
+        total_amount = validated_data.get('total_delivery_fee', 0)
+        
+        # เตรียมข้อมูลร้านสำหรับ JSONField
+        restaurants_json = []
+        
+        for restaurant_data in restaurants_data:
+            restaurant = Restaurant.objects.get(restaurant_id=restaurant_data['restaurant_id'])
+            restaurant_subtotal = 0
+            
+            for item_data in restaurant_data['items']:
+                product = Product.objects.get(product_id=item_data['product_id'])
+                restaurant_subtotal += product.price * int(item_data['quantity'])
+            
+            total_amount += restaurant_subtotal
+            
+            # เพิ่มข้อมูลร้านลงใน JSON
+            restaurants_json.append({
+                'restaurant_id': restaurant.restaurant_id,
+                'restaurant_name': restaurant.restaurant_name,
+                'delivery_fee': float(restaurant_data.get('delivery_fee', 0))
+            })
+        
+        # สร้าง GuestOrder
+        guest_order = GuestOrder.objects.create(
+            restaurants=restaurants_json,  # ใช้ JSONField ใหม่
+            delivery_address=validated_data['delivery_address'],
+            delivery_latitude=validated_data.get('delivery_latitude'),
+            delivery_longitude=validated_data.get('delivery_longitude'),
+            delivery_fee=validated_data['total_delivery_fee'],
+            total_amount=total_amount,
+            current_status='pending',
+            customer_name=validated_data['customer_name'],
+            customer_phone=validated_data['customer_phone'],
+            customer_email=validated_data.get('customer_email', ''),
+            special_instructions=validated_data.get('special_instructions', ''),
+            payment_method=validated_data.get('payment_method', 'bank_transfer')
+        )
+        
+        # สร้าง GuestOrderDetail สำหรับทุกสินค้าจากทุกร้าน
+        for restaurant_data in restaurants_data:
+            restaurant = Restaurant.objects.get(restaurant_id=restaurant_data['restaurant_id'])
+            for item_data in restaurant_data['items']:
+                product = Product.objects.get(product_id=item_data['product_id'])
+                GuestOrderDetail.objects.create(
+                    guest_order=guest_order,
+                    product=product,
+                    restaurant=restaurant,  # เพิ่ม restaurant field
+                    quantity=int(item_data['quantity']),
+                    price_at_order=product.price
+                )
+        
+        # สร้าง status log
+        GuestDeliveryStatusLog.objects.create(
+            guest_order=guest_order,
+            status='pending',
+            note=f'Multi-restaurant guest order created with {len(restaurants_data)} restaurants'
+        )
+        
+        return guest_order
+
+
+class CreateGuestOrderSerializer(serializers.ModelSerializer):
+    order_items = serializers.ListField(write_only=True)
+    
+    class Meta:
+        model = GuestOrder
+        fields = ['restaurant', 'delivery_address', 'delivery_latitude', 
+                 'delivery_longitude', 'delivery_fee', 'customer_name', 
+                 'customer_phone', 'customer_email', 'special_instructions', 
+                 'payment_method', 'order_items', 'temporary_id']
+        read_only_fields = ['temporary_id']
+    
+    def create(self, validated_data):
+        order_items = validated_data.pop('order_items')
+        
+        # คำนวณยอดรวม
+        total_amount = validated_data.get('delivery_fee', 0)
+        restaurant = validated_data.get('restaurant')
+        
+        for item in order_items:
+            product = Product.objects.get(product_id=item['product_id'])
+            total_amount += product.price * item['quantity']
+        
+        validated_data['total_amount'] = total_amount
+        guest_order = GuestOrder.objects.create(**validated_data)
+        
+        # สร้างรายละเอียดคำสั่งซื้อ
+        for item in order_items:
+            product = Product.objects.get(product_id=item['product_id'])
+            GuestOrderDetail.objects.create(
+                guest_order=guest_order,
+                product=product,
+                restaurant=product.restaurant,  # ใช้ restaurant จาก product
+                quantity=item['quantity'],
+                price_at_order=product.price
+            )
+        
+        # สร้าง status log แรก
+        GuestDeliveryStatusLog.objects.create(
+            guest_order=guest_order,
+            status='pending',
+            note='Order created'
+        )
+        
+        return guest_order
+
+
+class GuestOrderTrackingSerializer(serializers.ModelSerializer):
+    restaurant_name = serializers.CharField(source='restaurant.restaurant_name', read_only=True)
+    order_details = GuestOrderDetailSerializer(many=True, read_only=True)
+    order_details_by_restaurant = serializers.SerializerMethodField()
+    status_logs = serializers.SerializerMethodField()
+    restaurant_count = serializers.SerializerMethodField()
+    is_multi_restaurant = serializers.SerializerMethodField()
+
+    class Meta:
+        model = GuestOrder
+        fields = [
+            'guest_order_id', 'temporary_id', 'restaurant_name', 'order_date',
+            'total_amount', 'delivery_address', 'current_status', 'delivery_fee',
+            'estimated_delivery_time', 'customer_name', 'order_details',
+            'order_details_by_restaurant', 'restaurant_count', 'is_multi_restaurant',
+            'status_logs'
+        ]
+
+    def get_status_logs(self, obj):
+        logs = obj.status_logs.all().order_by('-timestamp')
+        return [
+            {
+                'status': log.status,
+                'timestamp': log.timestamp,
+                'note': log.note,
+                'updated_by': log.updated_by_user.username if log.updated_by_user else None
+            }
+            for log in logs
+        ]
+
+    def get_order_details_by_restaurant(self, obj):
+        """จัดกลุ่ม OrderDetail ตามร้าน"""
+        order_details = obj.order_details.all()
+        restaurants = {}
+        
+        for detail in order_details:
+            restaurant_id = detail.product.restaurant.restaurant_id
+            restaurant_name = detail.product.restaurant.restaurant_name
+            
+            if restaurant_id not in restaurants:
+                restaurants[restaurant_id] = {
+                    'restaurant_id': restaurant_id,
+                    'restaurant_name': restaurant_name,
+                    'restaurant_address': detail.product.restaurant.address or '',
+                    'items': [],
+                    'subtotal': 0
+                }
+            
+            item_data = GuestOrderDetailSerializer(detail).data
+            restaurants[restaurant_id]['items'].append(item_data)
+            restaurants[restaurant_id]['subtotal'] += float(detail.subtotal)
+        
+        return list(restaurants.values())
+    
+    def get_restaurant_count(self, obj):
+        """นับจำนวนร้านในคำสั่งซื้อ"""
+        return obj.order_details.values('product__restaurant').distinct().count()
+    
+    def get_is_multi_restaurant(self, obj):
+        """ตรวจสอบว่าเป็น multi-restaurant order หรือไม่"""
+        return self.get_restaurant_count(obj) > 1 

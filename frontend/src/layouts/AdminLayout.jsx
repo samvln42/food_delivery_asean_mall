@@ -29,24 +29,15 @@ const AdminLayout = ({ children }) => {
 
   // Fetch unread notifications count function
   const fetchUnreadCount = useCallback(async () => {
-    console.log('🔍 Fetching unread count for admin...');
     try {
       const response = await notificationService.getUnreadCount();
       const count = response.data.unread_count || 0;
       setUnreadCount(count);
-      console.log('📊 Unread count API response:', response.data);
-      console.log('📊 Final unread count set to:', count);
     } catch (error) {
-      console.error('❌ Error fetching unread count:', error);
-      // Fallback: count manually from unread notifications
       try {
-        console.log('🔄 Trying fallback method...');
         const notifResponse = await notificationService.getAll({ is_read: 'false' });
-        console.log('📊 Fallback API response:', notifResponse.data);
         const unreadNotifs = (notifResponse.data.results || notifResponse.data).filter(n => !n.is_read);
-        console.log('📊 Filtered unread notifications:', unreadNotifs);
         setUnreadCount(unreadNotifs.length);
-        console.log('📊 Fallback unread count:', unreadNotifs.length);
       } catch (fallbackError) {
         console.error('❌ Fallback count also failed:', fallbackError);
       }
@@ -55,51 +46,60 @@ const AdminLayout = ({ children }) => {
 
   // Fetch unread notifications count for admin
   useEffect(() => {
-    console.log('🔍 AdminLayout useEffect triggered:', { 
-      userRole: user?.role, 
-      hasToken: !!token,
-      userName: user?.username 
-    });
     if (user?.role === 'admin' && token) {
-      console.log('✅ Admin user with token detected, fetching unread count...');
       // เรียกดึงข้อมูล unread count ตอนโหลดหน้า
       fetchUnreadCount();
 
       // ฟังก์ชันเมื่อได้รับออเดอร์ใหม่ → อัปเดตตัวเลข unread เฉย ๆ (toast & sound ทำโดย AdminNotificationBridge)
       const handleNewOrder = (data) => {
-        console.log('🔔 AdminLayout: Received new_order event, incrementing unread count', data);
         setUnreadCount(prev => {
           const newCount = prev + 1;
-          console.log('🔔 AdminLayout: Incrementing unread count from', prev, 'to', newCount);
           return newCount;
         });
       };
 
       // ลงทะเบียน listener สำหรับ notification_update event
       const handleNotificationUpdate = () => {
-        console.log('🔄 AdminLayout: Received notification_update event, refreshing unread count');
         fetchUnreadCount();
       };
 
       // ลงทะเบียน listener (ไม่ต้องเชื่อมต่อ WebSocket ที่นี่ เพราะเชื่อมจาก AdminNotificationBridge แล้ว)
       websocketService.on('new_order', handleNewOrder);
       window.addEventListener('notification_update', handleNotificationUpdate);
-      console.log('✅ AdminLayout: Registered event listeners for new_order and notification_update');
+
+      // ตรวจสอบ WebSocket connection ทุกครั้งที่ AdminLayout mount
+      const checkWebSocketConnection = () => {
+        if (!websocketService.ws || websocketService.ws.readyState === WebSocket.CLOSED) {
+          websocketService.connect(token);
+        }
+      };
+
+      // ตรวจสอบทันที
+      checkWebSocketConnection();
+
+      // ตรวจสอบอีกครั้งหลังจาก 1 วินาที
+      const wsCheckTimeout1 = setTimeout(checkWebSocketConnection, 1000);
+      
+      // ตรวจสอบอีกครั้งหลังจาก 3 วินาที
+      const wsCheckTimeout2 = setTimeout(checkWebSocketConnection, 3000);
+      
+      // ตรวจสอบอีกครั้งหลังจาก 5 วินาที
+      const wsCheckTimeout3 = setTimeout(checkWebSocketConnection, 5000);
 
       // 🔄 เพิ่ม polling mechanism เป็น fallback สำหรับการอัพเดท unread count
       // ในกรณีที่ WebSocket ยังไม่ได้ deploy
       const pollingInterval = setInterval(() => {
-        console.log('🔄 Polling unread count automatically...');
         fetchUnreadCount();
       }, 30000); // ทุก 30 วินาที
-      console.log('⏰ AdminLayout: Set up polling interval (30 seconds)');
 
       // cleanup เมื่อ component unmount หรือ token เปลี่ยน
       return () => {
         websocketService.off('new_order', handleNewOrder);
         window.removeEventListener('notification_update', handleNotificationUpdate);
         clearInterval(pollingInterval);
-        console.log('🧹 AdminLayout: Cleaned up all listeners and polling interval');
+        clearTimeout(wsCheckTimeout1);
+        clearTimeout(wsCheckTimeout2);
+        clearTimeout(wsCheckTimeout3);
       };
     }
   }, [user?.role, token, fetchUnreadCount]);
@@ -107,27 +107,17 @@ const AdminLayout = ({ children }) => {
 
 
   // Function to update unread count (for use by children components)
-  const updateUnreadCount = (newCount) => {
-    if (typeof newCount === 'function') {
-      setUnreadCount(prev => {
-        const result = newCount(prev);
-        console.log('🔄 Updated unread count from', prev, 'to:', result);
-        return result;
-      });
-    } else {
-      setUnreadCount(newCount);
-      console.log('🔄 Updated unread count to:', newCount);
-    }
-  };
+  const updateUnreadCount = useCallback((newCount) => {
+    setUnreadCount(newCount);
+  }, []);
 
   // Function to decrease unread count by 1
-  const decreaseUnreadCount = () => {
+  const decreaseUnreadCount = useCallback(() => {
     setUnreadCount(prev => {
       const newCount = Math.max(0, prev - 1);
-      console.log('➖ Decreased unread count from', prev, 'to:', newCount);
       return newCount;
     });
-  };
+  }, []);
 
   // Context value
   const notificationContextValue = {
@@ -198,6 +188,13 @@ const AdminLayout = ({ children }) => {
                   className="flex items-center px-4 py-2 text-secondary-700 rounded-lg hover:bg-primary-50 hover:text-primary-600 transition-colors"
                 >
                   📦 คำสั่งซื้อ
+                </Link>
+                <Link
+                  to="/admin/guest-orders"
+                  onClick={() => setSidebarOpen(false)}
+                  className="flex items-center px-4 py-2 text-secondary-700 rounded-lg hover:bg-primary-50 hover:text-primary-600 transition-colors"
+                >
+                  🛒 Guest Orders
                 </Link>
                 <Link
                   to="/admin/categories"

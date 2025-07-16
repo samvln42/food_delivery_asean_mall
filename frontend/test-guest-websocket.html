@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ทดสอบ WebSocket Guest Orders</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        .connected { background-color: #d4edda; color: #155724; }
+        .disconnected { background-color: #f8d7da; color: #721c24; }
+        .connecting { background-color: #fff3cd; color: #856404; }
+        .log {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 10px;
+            height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .log-entry {
+            margin: 2px 0;
+            padding: 2px 0;
+        }
+        .log-info { color: #0066cc; }
+        .log-success { color: #28a745; }
+        .log-error { color: #dc3545; }
+        .log-warning { color: #ffc107; }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+        input {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin: 5px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔗 ทดสอบ WebSocket Guest Orders</h1>
+        
+        <div class="test-section">
+            <h3>📡 การเชื่อมต่อ WebSocket</h3>
+            <div id="connectionStatus" class="status disconnected">ไม่เชื่อมต่อ</div>
+            <button onclick="connectWebSocket()">เชื่อมต่อ WebSocket</button>
+            <button onclick="disconnectWebSocket()">ปิดการเชื่อมต่อ</button>
+            <button onclick="clearLog()">ล้าง Log</button>
+        </div>
+
+        <div class="test-section">
+            <h3>🎫 Subscribe to Guest Order</h3>
+            <input type="text" id="temporaryId" placeholder="ใส่ Temporary ID" value="GUEST-A1B2C3D4">
+            <button onclick="subscribeToOrder()">Subscribe to Order</button>
+            <button onclick="subscribeToAllOrders()">Subscribe to All Orders</button>
+            <button onclick="unsubscribeFromOrder()">Unsubscribe</button>
+        </div>
+
+        <div class="test-section">
+            <h3>📨 ส่งข้อความทดสอบ</h3>
+            <button onclick="sendPing()">ส่ง Ping</button>
+            <button onclick="testMessage()">ส่งข้อความทดสอบ</button>
+        </div>
+
+        <div class="test-section">
+            <h3>📊 สถานะการเชื่อมต่อ</h3>
+            <div id="connectionInfo">
+                <p><strong>WebSocket URL:</strong> <span id="wsUrl">-</span></p>
+                <p><strong>Ready State:</strong> <span id="readyState">-</span></p>
+                <p><strong>Connected:</strong> <span id="isConnected">-</span></p>
+                <p><strong>Temporary ID:</strong> <span id="currentTemporaryId">-</span></p>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>📝 Log การทำงาน</h3>
+            <div id="log" class="log"></div>
+        </div>
+    </div>
+
+    <script>
+        let ws = null;
+        let currentTemporaryId = null;
+
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.className = `log-entry log-${type}`;
+            logEntry.textContent = `[${timestamp}] ${message}`;
+            logDiv.appendChild(logEntry);
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function clearLog() {
+            document.getElementById('log').innerHTML = '';
+        }
+
+        function updateConnectionStatus(status, className) {
+            const statusDiv = document.getElementById('connectionStatus');
+            statusDiv.textContent = status;
+            statusDiv.className = `status ${className}`;
+        }
+
+        function updateConnectionInfo() {
+            if (ws) {
+                document.getElementById('wsUrl').textContent = ws.url || 'N/A';
+                document.getElementById('readyState').textContent = getReadyStateText(ws.readyState);
+                document.getElementById('isConnected').textContent = ws.readyState === WebSocket.OPEN ? 'ใช่' : 'ไม่';
+            } else {
+                document.getElementById('wsUrl').textContent = 'N/A';
+                document.getElementById('readyState').textContent = 'N/A';
+                document.getElementById('isConnected').textContent = 'ไม่';
+            }
+            document.getElementById('currentTemporaryId').textContent = currentTemporaryId || 'N/A';
+        }
+
+        function getReadyStateText(readyState) {
+            switch (readyState) {
+                case WebSocket.CONNECTING: return 'CONNECTING (0)';
+                case WebSocket.OPEN: return 'OPEN (1)';
+                case WebSocket.CLOSING: return 'CLOSING (2)';
+                case WebSocket.CLOSED: return 'CLOSED (3)';
+                default: return 'UNKNOWN';
+            }
+        }
+
+        function connectWebSocket() {
+            try {
+                log('🔗 กำลังเชื่อมต่อ WebSocket...', 'info');
+                updateConnectionStatus('กำลังเชื่อมต่อ...', 'connecting');
+
+                // ใช้ localhost สำหรับการทดสอบ
+                const wsUrl = 'ws://localhost:8000/ws/guest-orders/';
+                log(`🔗 WebSocket URL: ${wsUrl}`, 'info');
+
+                ws = new WebSocket(wsUrl);
+
+                ws.onopen = function(event) {
+                    log('✅ WebSocket เชื่อมต่อสำเร็จ!', 'success');
+                    updateConnectionStatus('เชื่อมต่อแล้ว', 'connected');
+                    updateConnectionInfo();
+                };
+
+                ws.onmessage = function(event) {
+                    try {
+                        const data = JSON.parse(event.data);
+                        log(`📨 รับข้อความ: ${JSON.stringify(data, null, 2)}`, 'info');
+                        
+                        // จัดการข้อความต่างๆ
+                        if (data.type === 'connection_established') {
+                            log('✅ การเชื่อมต่อได้รับการยืนยันจากเซิร์ฟเวอร์', 'success');
+                        } else if (data.type === 'pong') {
+                            log('🏓 ได้รับ Pong response', 'success');
+                        } else if (data.type === 'guest_order_status_update') {
+                            log(`🔄 อัปเดทสถานะออเดอร์: ${data.temporary_id} - ${data.old_status} → ${data.new_status}`, 'success');
+                        } else if (data.type === 'error') {
+                            log(`❌ ข้อผิดพลาดจากเซิร์ฟเวอร์: ${data.message}`, 'error');
+                        }
+                    } catch (error) {
+                        log(`❌ ข้อผิดพลาดในการ parse ข้อความ: ${error.message}`, 'error');
+                        log(`📄 ข้อความดิบ: ${event.data}`, 'warning');
+                    }
+                };
+
+                ws.onclose = function(event) {
+                    log(`🔌 WebSocket ปิดการเชื่อมต่อ (code: ${event.code}, reason: ${event.reason})`, 'warning');
+                    updateConnectionStatus('ปิดการเชื่อมต่อ', 'disconnected');
+                    updateConnectionInfo();
+                    
+                    if (event.code !== 1000) {
+                        log('⚠️ การปิดการเชื่อมต่อไม่ปกติ (ไม่ใช่ code 1000)', 'warning');
+                    }
+                };
+
+                ws.onerror = function(error) {
+                    log(`❌ WebSocket error: ${error}`, 'error');
+                    updateConnectionStatus('เกิดข้อผิดพลาด', 'disconnected');
+                    updateConnectionInfo();
+                };
+
+            } catch (error) {
+                log(`❌ ข้อผิดพลาดในการสร้าง WebSocket: ${error.message}`, 'error');
+                updateConnectionStatus('เกิดข้อผิดพลาด', 'disconnected');
+            }
+        }
+
+        function disconnectWebSocket() {
+            if (ws) {
+                log('🔌 กำลังปิดการเชื่อมต่อ WebSocket...', 'info');
+                ws.close(1000, 'Manual disconnect');
+                ws = null;
+                currentTemporaryId = null;
+                updateConnectionInfo();
+            } else {
+                log('⚠️ ไม่มี WebSocket ที่เชื่อมต่ออยู่', 'warning');
+            }
+        }
+
+        function subscribeToOrder() {
+            const temporaryId = document.getElementById('temporaryId').value.trim();
+            if (!temporaryId) {
+                log('❌ กรุณาใส่ Temporary ID', 'error');
+                return;
+            }
+
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                log('❌ WebSocket ไม่ได้เชื่อมต่อ', 'error');
+                return;
+            }
+
+            currentTemporaryId = temporaryId;
+            const message = {
+                type: 'subscribe_guest_order',
+                payload: {
+                    temporary_id: temporaryId
+                }
+            };
+
+            log(`📡 กำลัง subscribe ไปยัง guest order: ${temporaryId}`, 'info');
+            ws.send(JSON.stringify(message));
+            updateConnectionInfo();
+        }
+
+        function subscribeToAllOrders() {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                log('❌ WebSocket ไม่ได้เชื่อมต่อ', 'error');
+                return;
+            }
+
+            const message = {
+                type: 'subscribe_guest_order',
+                payload: {
+                    temporary_id: 'all'
+                }
+            };
+
+            log('📡 กำลัง subscribe ไปยัง guest orders ทั้งหมด', 'info');
+            ws.send(JSON.stringify(message));
+            currentTemporaryId = 'all';
+            updateConnectionInfo();
+        }
+
+        function unsubscribeFromOrder() {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                log('❌ WebSocket ไม่ได้เชื่อมต่อ', 'error');
+                return;
+            }
+
+            const message = {
+                type: 'unsubscribe_guest_order',
+                payload: {
+                    temporary_id: currentTemporaryId || 'all'
+                }
+            };
+
+            log(`📡 กำลัง unsubscribe จาก guest order: ${currentTemporaryId || 'all'}`, 'info');
+            ws.send(JSON.stringify(message));
+            currentTemporaryId = null;
+            updateConnectionInfo();
+        }
+
+        function sendPing() {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                log('❌ WebSocket ไม่ได้เชื่อมต่อ', 'error');
+                return;
+            }
+
+            const message = {
+                type: 'ping',
+                payload: {
+                    timestamp: Date.now()
+                }
+            };
+
+            log('🏓 กำลังส่ง Ping...', 'info');
+            ws.send(JSON.stringify(message));
+        }
+
+        function testMessage() {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                log('❌ WebSocket ไม่ได้เชื่อมต่อ', 'error');
+                return;
+            }
+
+            const message = {
+                type: 'test_message',
+                payload: {
+                    message: 'Hello from client!',
+                    timestamp: Date.now()
+                }
+            };
+
+            log('📤 กำลังส่งข้อความทดสอบ...', 'info');
+            ws.send(JSON.stringify(message));
+        }
+
+        // อัปเดทข้อมูลการเชื่อมต่อทุก 1 วินาที
+        setInterval(updateConnectionInfo, 1000);
+
+        // แสดงข้อมูลเริ่มต้น
+        log('🚀 เริ่มต้นระบบทดสอบ WebSocket Guest Orders', 'info');
+        log('💡 1. กดปุ่ม "เชื่อมต่อ WebSocket" เพื่อเริ่มการเชื่อมต่อ', 'info');
+        log('💡 2. ใส่ Temporary ID แล้วกด "Subscribe to Order"', 'info');
+        log('💡 3. ทดสอบส่งข้อความต่างๆ', 'info');
+        log('💡 4. ดู log การทำงานด้านล่าง', 'info');
+    </script>
+</body>
+</html> 

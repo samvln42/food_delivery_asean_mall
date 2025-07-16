@@ -46,8 +46,6 @@ const AdminUsers = () => {
         setLoading(true);
       }
       
-      console.log('🔍 Fetching users - Role filter:', roleFilter, 'Search:', searchTerm);
-      
       const params = {
         page: currentPage,
         page_size: itemsPerPage,
@@ -64,18 +62,14 @@ const AdminUsers = () => {
         params.role = roleFilter;
       }
 
-      console.log('📡 API Request params:', params);
       const response = await userService.getAll(params);
-      console.log('📦 Users response:', response);
       
       if (response.data.results) {
         setUsers(response.data.results);
         setTotalPages(Math.ceil(response.data.count / itemsPerPage));
-        console.log(`✅ Loaded ${response.data.results.length} users, total: ${response.data.count}`);
       } else if (Array.isArray(response.data)) {
         setUsers(response.data);
-        setTotalPages(1);
-        console.log(`✅ Loaded ${response.data.length} users (no pagination)`);
+        setTotalPages(1); 
       } else {
         console.warn('⚠️ Unexpected response format:', response.data);
         setUsers([]);
@@ -108,7 +102,6 @@ const AdminUsers = () => {
 
   const handleRoleChange = async (userId, newRole) => {
     try {
-      console.log(`🔄 Updating user ${userId} role to ${newRole}`);
       await userService.partialUpdate(userId, { role: newRole });
       fetchUsers(); // Refresh data
       alert(`อัปเดต Role ผู้ใช้เป็น ${getRoleName(newRole)} เรียบร้อยแล้ว`);
@@ -138,7 +131,6 @@ const AdminUsers = () => {
         return;
       }
 
-      console.log(`🗑️ Deleting user ${userId} (${username})`);
       await userService.delete(userId);
       fetchUsers(); // Refresh data
       alert(`ลบผู้ใช้ "${username}" เรียบร้อยแล้ว`);
@@ -158,10 +150,6 @@ const AdminUsers = () => {
       alert(errorMessage);
     }
   };
-
-
-
-
 
   const openModal = (user, type) => {
     setSelectedUser(user);
@@ -574,7 +562,6 @@ const UserModal = ({ user, type, onClose, onUpdate }) => {
         }
 
         // สร้างผู้ใช้ใหม่
-        console.log('📝 Creating new user with data:', formData);
         await userService.create(formData);
         alert('สร้างผู้ใช้ใหม่เรียบร้อยแล้ว');
       } else {
@@ -583,7 +570,7 @@ const UserModal = ({ user, type, onClose, onUpdate }) => {
         if (!updateData.password) {
           delete updateData.password; // ไม่เปลี่ยนรหัสผ่านหากไม่ใส่
         }
-        console.log(`📝 Updating user ${user.id} with data:`, updateData);
+        
         await userService.partialUpdate(user.id, updateData);
         alert('อัปเดตข้อมูลผู้ใช้เรียบร้อยแล้ว');
       }

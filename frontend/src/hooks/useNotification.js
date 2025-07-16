@@ -82,8 +82,6 @@ export const toast = {
       return window.showNotification('success', message, options);
     }
     
-    console.log('✅ Success:', message);
-    
     // Create temporary visual notification
     const notification = document.createElement('div');
     notification.className = 'fixed top-0 left-0 right-0 bg-green-500 text-white p-4 flex items-center justify-between z-50';
@@ -119,8 +117,7 @@ export const toast = {
       return window.showNotification('error', message, options);
     }
     
-    console.error('❌ Error:', message);
-    
+    // Create temporary visual notification
     const notification = document.createElement('div');
     notification.className = 'fixed top-0 left-0 right-0 bg-red-500 text-white p-4 flex items-center justify-between z-50';
     notification.innerHTML = `
@@ -155,8 +152,7 @@ export const toast = {
       return window.showNotification('warning', message, options);
     }
     
-    console.warn('⚠️ Warning:', message);
-    
+    // Create temporary visual notification
     const notification = document.createElement('div');
     notification.className = 'fixed top-0 left-0 right-0 bg-yellow-500 text-white p-4 flex items-center justify-between z-50';
     notification.innerHTML = `
@@ -191,8 +187,7 @@ export const toast = {
       return window.showNotification('info', message, options);
     }
     
-    console.info('ℹ️ Information:', message);
-    
+    // Create temporary visual notification
     const notification = document.createElement('div');
     notification.className = 'fixed top-0 left-0 right-0 bg-blue-500 text-white p-4 flex items-center justify-between z-50';
     notification.innerHTML = `

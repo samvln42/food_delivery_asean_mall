@@ -146,6 +146,19 @@ class OrderConsumer(AsyncWebsocketConsumer):
             'timestamp': event['timestamp']
         }))
 
+    # Handler for new guest orders (for admin)
+    async def new_guest_order(self, event):
+        """Send new guest order notification to WebSocket"""
+        await self.send(text_data=json.dumps({
+            'type': 'new_guest_order',
+            'order_id': event['order_id'],
+            'temporary_id': event['temporary_id'],
+            'customer_name': event['customer_name'],
+            'restaurant_name': event['restaurant_name'],
+            'total_amount': event['total_amount'],
+            'timestamp': event['timestamp']
+        }))
+
     @database_sync_to_async
     def get_user_from_token(self, token_key):
         """Get user from authentication token"""
@@ -198,4 +211,133 @@ async def send_new_order_notification(order_id, customer_name, restaurant_name, 
             'timestamp': timezone.now().isoformat()
         }
     )
-    logger.info(f"Sent new order notification: Order {order_id} to admin") 
+    logger.info(f"Sent new order notification: Order {order_id} to admin")
+
+# Utility function to send new guest order notifications to admins
+async def send_new_guest_order_notification(order_id, temporary_id, customer_name, restaurant_name, total_amount):
+    """Send new guest order notification to all admin users"""
+    from channels.layers import get_channel_layer
+    from django.utils import timezone
+    
+    channel_layer = get_channel_layer()
+    
+    # Send to admin room (all users with is_staff=True)
+    await channel_layer.group_send(
+        "orders_admin",
+        {
+            'type': 'new_guest_order',
+            'order_id': order_id,
+            'temporary_id': temporary_id,
+            'customer_name': customer_name,
+            'restaurant_name': restaurant_name,
+            'total_amount': str(total_amount),
+            'timestamp': timezone.now().isoformat()
+        }
+    )
+    logger.info(f"Sent new guest order notification: Order {order_id} (temp: {temporary_id}) to admin")
+
+
+class GuestOrderConsumer(AsyncWebsocketConsumer):
+    """WebSocket consumer สำหรับ guest orders ที่ไม่ต้องใช้ token"""
+    
+    async def connect(self):
+        try:
+            logger.info("🔗 Guest WebSocket connection attempt")
+            logger.info(f"📝 Connection scope: {self.scope}")
+            
+            # Accept connection immediately for guest orders
+            await self.accept()
+            logger.info("✅ Guest WebSocket connected successfully")
+            
+            # Send welcome message
+            await self.send(text_data=json.dumps({
+                'type': 'connection_established',
+                'message': 'Guest WebSocket connection established successfully'
+            }))
+            
+        except Exception as e:
+            logger.error(f"❌ Error during Guest WebSocket connection: {str(e)}")
+            logger.error(f"❌ Error details: {type(e).__name__}: {str(e)}")
+            await self.close()
+
+    async def disconnect(self, close_code):
+        logger.info(f"🔌 Guest WebSocket disconnected, code: {close_code}")
+
+    async def receive(self, text_data):
+        try:
+            text_data_json = json.loads(text_data)
+            message_type = text_data_json.get('type')
+            
+            # Handle different message types
+            if message_type == 'ping':
+                await self.send(text_data=json.dumps({
+                    'type': 'pong',
+                    'timestamp': text_data_json.get('timestamp')
+                }))
+            elif message_type == 'subscribe_guest_order':
+                # Subscribe to specific guest order updates
+                # Subscribe to specific guest order updates
+                temporary_id = text_data_json.get('payload', {}).get('temporary_id') or text_data_json.get('temporary_id')
+                if temporary_id:
+                    if temporary_id == 'all':
+                        # Subscribe to all guest order updates
+                        room_group_name = "guest_orders_all"
+                        await self.channel_layer.group_add(
+                            room_group_name,
+                            self.channel_name
+                        )
+                        logger.info(f"🔗 Guest subscribed to all orders")
+                    else:
+                        # Subscribe to specific guest order
+                        room_group_name = f"guest_order_{temporary_id}"
+                        await self.channel_layer.group_add(
+                            room_group_name,
+                            self.channel_name
+                        )
+                        logger.info(f"🔗 Guest subscribed to order: {temporary_id}")
+            else:
+                logger.warning(f"Unknown guest message type: {message_type}")
+                
+        except json.JSONDecodeError:
+            logger.error("Invalid JSON received in guest WebSocket")
+            await self.send(text_data=json.dumps({
+                'type': 'error',
+                'message': 'Invalid JSON format'
+            }))
+
+    # Handler for guest order status updates
+    async def guest_order_status_update(self, event):
+        """Send guest order status update to WebSocket"""
+        logger.info(f"📤 Sending guest order status update to WebSocket client")
+        logger.info(f"📦 Guest Order: {event['temporary_id']} - {event['old_status']} → {event['new_status']}")
+        
+        message = {
+            'type': 'guest_order_status_update',
+            'temporary_id': event['temporary_id'],
+            'order_id': event['order_id'],
+            'old_status': event['old_status'],
+            'new_status': event['new_status'],
+            'note': event.get('note', ''),
+            'timestamp': event['timestamp']
+        }
+        
+        logger.info(f"📨 Guest message content: {message}")
+        
+        try:
+            await self.send(text_data=json.dumps(message))
+            logger.info(f"✅ Guest message sent to WebSocket client successfully")
+        except Exception as e:
+            logger.error(f"❌ Error sending guest message to WebSocket client: {str(e)}")
+
+    # Handler for new guest orders (for admin)
+    async def new_guest_order(self, event):
+        """Send new guest order notification to WebSocket"""
+        await self.send(text_data=json.dumps({
+            'type': 'new_guest_order',
+            'order_id': event['order_id'],
+            'temporary_id': event['temporary_id'],
+            'customer_name': event['customer_name'],
+            'restaurant_name': event['restaurant_name'],
+            'total_amount': event['total_amount'],
+            'timestamp': event['timestamp']
+        })) 

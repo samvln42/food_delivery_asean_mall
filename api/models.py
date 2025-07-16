@@ -161,7 +161,7 @@ class Order(models.Model):
     delivery_latitude = models.DecimalField(max_digits=10, decimal_places=8, blank=True, null=True)
     delivery_longitude = models.DecimalField(max_digits=11, decimal_places=8, blank=True, null=True)
     current_status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
-    delivery_fee = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    delivery_fee = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     estimated_delivery_time = models.DateTimeField(blank=True, null=True)
     is_reviewed = models.BooleanField(default=False)
     
@@ -559,6 +559,18 @@ class AppSettings(models.Model):
     bank_account_name = models.CharField(max_length=100, blank=True, help_text='Bank account name')
     qr_code_image = models.ImageField(upload_to='app/payment/', null=True, blank=True, help_text='QR Code image for payment')
     
+    # Delivery Settings
+    base_delivery_fee = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, help_text='Base delivery fee in THB')
+    free_delivery_minimum = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, help_text='Minimum order amount for free delivery')
+    max_delivery_distance = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True, help_text='Maximum delivery distance in km')
+    per_km_fee = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True, help_text='Additional fee per kilometer')
+    multi_restaurant_base_fee = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, help_text='Base fee for multi-restaurant orders')
+    multi_restaurant_additional_fee = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, help_text='Additional fee per additional restaurant')
+    delivery_time_slots = models.CharField(max_length=100, default='09:00-21:00', help_text='Delivery time slots (e.g., 09:00-21:00)')
+    enable_scheduled_delivery = models.BooleanField(default=True, help_text='Enable scheduled delivery option')
+    rush_hour_multiplier = models.DecimalField(max_digits=3, decimal_places=2, default=1.50, help_text='Delivery fee multiplier during rush hours')
+    weekend_multiplier = models.DecimalField(max_digits=3, decimal_places=2, default=1.20, help_text='Delivery fee multiplier on weekends')
+    
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -639,4 +651,160 @@ class Translation(models.Model):
 
     def __str__(self):
         return f"{self.language.code}: {self.key}"
+
+# Guest Order
+class GuestOrder(models.Model):
+    """
+    โมเดลสำหรับการสั่งซื้อแบบไม่ต้องล็อกอิน
+    ใช้ Temporary ID เพื่อติดตามคำสั่งซื้อ
+    รองรับ multi-restaurant orders
+    """
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('paid', 'Paid'),
+        ('preparing', 'Preparing'),
+        ('ready_for_pickup', 'Ready for Pickup'),
+        ('delivering', 'Delivering'),
+        ('completed', 'Completed'),
+        ('cancelled', 'Cancelled'),
+    ]
+    
+    guest_order_id = models.AutoField(primary_key=True)
+    temporary_id = models.CharField(max_length=50, unique=True, help_text="Temporary ID for guest order tracking")
+    
+    # รองรับทั้ง single restaurant และ multi-restaurant
+    restaurant = models.ForeignKey(Restaurant, on_delete=models.CASCADE, related_name='guest_orders', null=True, blank=True, help_text="For single restaurant orders")
+    restaurants = models.JSONField(default=list, blank=True, help_text="For multi-restaurant orders: [{'restaurant_id': 1, 'restaurant_name': 'Restaurant 1', 'delivery_fee': 50.00}, ...]")
+    
+    order_date = models.DateTimeField(auto_now_add=True)
+    total_amount = models.DecimalField(max_digits=10, decimal_places=2)
+    delivery_address = models.CharField(max_length=255)
+    delivery_latitude = models.DecimalField(max_digits=10, decimal_places=8, blank=True, null=True)
+    delivery_longitude = models.DecimalField(max_digits=11, decimal_places=8, blank=True, null=True)
+    current_status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    delivery_fee = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, help_text="Total delivery fee for all restaurants")
+    estimated_delivery_time = models.DateTimeField(blank=True, null=True)
+    
+    # ข้อมูลลูกค้าแบบไม่ต้องล็อกอิน
+    customer_name = models.CharField(max_length=100)
+    customer_phone = models.CharField(max_length=20)
+    customer_email = models.EmailField(blank=True, null=True)
+    special_instructions = models.TextField(blank=True, null=True)
+    
+    # ข้อมูลการชำระเงิน
+    payment_method = models.CharField(max_length=20, default='bank_transfer')
+    payment_status = models.CharField(max_length=20, default='pending')
+    proof_of_payment = models.ImageField(upload_to='payments/guest_proofs/', blank=True, null=True)
+    
+    # หมดอายุหลังจาก 30 วัน
+    expires_at = models.DateTimeField(help_text="Order expires after 30 days")
+    
+    class Meta:
+        db_table = 'guest_orders'
+        indexes = [
+            models.Index(fields=['temporary_id']),
+            models.Index(fields=['restaurant', '-order_date']),
+            models.Index(fields=['current_status']),
+            models.Index(fields=['expires_at']),
+        ]
+    
+    def __str__(self):
+        return f"Guest Order #{self.guest_order_id} - {self.temporary_id}"
+    
+    def save(self, *args, **kwargs):
+        if not self.temporary_id:
+            import uuid
+            self.temporary_id = f"GUEST-{uuid.uuid4().hex[:8].upper()}"
+        
+        if not self.expires_at:
+            from django.utils import timezone
+            from datetime import timedelta
+            self.expires_at = timezone.now() + timedelta(days=30)
+        
+        super().save(*args, **kwargs)
+    
+    @property
+    def is_multi_restaurant(self):
+        """ตรวจสอบว่าเป็น multi-restaurant order หรือไม่"""
+        return len(self.restaurants) > 0
+    
+    @property
+    def restaurant_count(self):
+        """จำนวนร้านในออเดอร์"""
+        if self.is_multi_restaurant:
+            return len(self.restaurants)
+        return 1 if self.restaurant else 0
+    
+    def get_restaurant_names(self):
+        """ดึงชื่อร้านทั้งหมด"""
+        if self.is_multi_restaurant:
+            return [r.get('restaurant_name', '') for r in self.restaurants]
+        elif self.restaurant:
+            return [self.restaurant.restaurant_name]
+        return []
+    
+    def get_total_delivery_fee(self):
+        """คำนวณค่าจัดส่งรวม"""
+        if self.is_multi_restaurant:
+            return sum(r.get('delivery_fee', 0) for r in self.restaurants)
+        return self.delivery_fee or 0
+
+
+class GuestOrderDetail(models.Model):
+    """
+    รายละเอียดคำสั่งซื้อสำหรับ Guest Order
+    รองรับ multi-restaurant orders
+    """
+    guest_order_detail_id = models.AutoField(primary_key=True)
+    guest_order = models.ForeignKey(GuestOrder, on_delete=models.CASCADE, related_name='order_details')
+    product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    restaurant = models.ForeignKey(Restaurant, on_delete=models.CASCADE, null=True, blank=True, help_text="Restaurant for this order detail")
+    quantity = models.IntegerField()
+    price_at_order = models.DecimalField(max_digits=10, decimal_places=2)
+    subtotal = models.DecimalField(max_digits=10, decimal_places=2)
+    
+    class Meta:
+        db_table = 'guest_order_details'
+        indexes = [
+            models.Index(fields=['guest_order', 'restaurant']),
+        ]
+    
+    def save(self, *args, **kwargs):
+        # ถ้าไม่มี restaurant ให้ใช้จาก product
+        if not self.restaurant:
+            self.restaurant = self.product.restaurant
+        self.subtotal = self.quantity * self.price_at_order
+        super().save(*args, **kwargs)
+    
+    def __str__(self):
+        restaurant_name = self.restaurant.restaurant_name if self.restaurant else 'Unknown'
+        return f"Guest Order #{self.guest_order.guest_order_id} - {self.product.product_name} ({restaurant_name})"
+
+
+class GuestDeliveryStatusLog(models.Model):
+    """
+    บันทึกสถานะการจัดส่งสำหรับ Guest Order
+    """
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('paid', 'Paid'),
+        ('preparing', 'Preparing'),
+        ('ready_for_pickup', 'Ready for Pickup'),
+        ('delivering', 'Delivering'),
+        ('completed', 'Completed'),
+        ('cancelled', 'Cancelled'),
+    ]
+    
+    log_id = models.AutoField(primary_key=True)
+    guest_order = models.ForeignKey(GuestOrder, on_delete=models.CASCADE, related_name='status_logs')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES)
+    timestamp = models.DateTimeField(auto_now_add=True)
+    note = models.CharField(max_length=255, blank=True, null=True)
+    updated_by_user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    
+    class Meta:
+        db_table = 'guest_delivery_status_log'
+    
+    def __str__(self):
+        return f"Guest Status Log for Order #{self.guest_order.guest_order_id}"
 

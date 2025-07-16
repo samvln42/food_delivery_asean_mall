@@ -29,7 +29,6 @@ common.about,About,common
 common.contact,Contact,common
 common.order_now,Order now,common
 common.follow_us,Follow us,common
-common.popular_categories,Popular categories,common
 common.recommended_restaurants,Recommended restaurants,common
 common.special_restaurant,Special restaurant,common
 common.special,Special,common
@@ -244,6 +243,9 @@ order.status.completed_desc,Delivery completed,order
 order.status.cancelled_desc,This order has been cancelled,order
 order.status_change_notification,Order #{orderId} changed to "{status}",order
 order.successful,Order placed successfully!,order
+order.cleanup_expired_message,Removed {count} expired orders,order
+order.cleanup_not_found_message,Removed {count} orders not found,order
+order.completed_removed_message,Order completed and removed from list,order
 order.order_id,Order ID: {id},order
 order.restaurant_count,Number of restaurants: {count},order
 order.total_amount,Total: {total},order 

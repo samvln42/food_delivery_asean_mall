@@ -229,7 +229,7 @@ const RestaurantOrders = () => {
                   </div>
                   <div className="text-right">
                     <p className="text-lg font-semibold text-primary-600">
-                      ฿{order.total_amount}
+                                              {order.total_amount}
                     </p>
                     {order.estimated_prep_time > 0 && (
                       <p className="text-sm text-secondary-500">
@@ -269,7 +269,7 @@ const RestaurantOrders = () => {
                           )}
                         </div>
                         <span className="text-secondary-800 font-semibold">
-                          ฿{item.price * item.quantity}
+                                                      {item.price * item.quantity}
                         </span>
                       </div>
                     ))}

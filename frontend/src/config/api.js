@@ -1,6 +1,6 @@
 // API Configuration - Remove trailing slash to prevent double slash
 const getBaseUrl = () => {
-  const url = import.meta.env.VITE_API_URL || 'https://tacashop.com/api/';
+  const url = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/';
   return url.endsWith('/') ? url.slice(0, -1) : url;
 };
 

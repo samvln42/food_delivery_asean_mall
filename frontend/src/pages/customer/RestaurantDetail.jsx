@@ -3,14 +3,19 @@ import { useParams, Link } from "react-router-dom";
 import api from "../../services/api";
 import Loading from "../../components/common/Loading";
 import { useCart } from "../../contexts/CartContext";
+import { useGuestCart } from "../../contexts/GuestCartContext";
 import { useAuth } from "../../contexts/AuthContext";
 import { useLanguage } from "../../contexts/LanguageContext";
 
 const RestaurantDetail = () => {
 
   const { id } = useParams();
-  const { addItem } = useCart();
+  const { addItem: addToCart } = useCart();
+  const { addItem: addToGuestCart } = useGuestCart();
   const { user, isAuthenticated } = useAuth();
+  
+  // เลือกฟังก์ชัน addItem ตามสถานะการล็อกอิน
+  const addItem = isAuthenticated ? addToCart : addToGuestCart;
   const [restaurant, setRestaurant] = useState(null);
   const [products, setProducts] = useState([]);
   const [reviews, setReviews] = useState([]);
@@ -29,18 +34,15 @@ const RestaurantDetail = () => {
     try {
       setLoading(true);
       setError(null);
-
       const [restaurantRes, productsRes, reviewsRes] = await Promise.all([
         api.get(`/restaurants/${id}/`),
         api.get(`/products/?restaurant_id=${id}`),
-        api.get(`/reviews/?restaurant_id=${id}`),
+        api.get(`/restaurants/${id}/reviews/`),
       ]);
-
       setRestaurant(restaurantRes.data);
       setProducts(productsRes.data.results || productsRes.data);
       setReviews(reviewsRes.data.results || reviewsRes.data);
     } catch (error) {
-      console.error("Error fetching restaurant data:", error);
       setError("Unable to load restaurant data");
     } finally {
       setLoading(false);
@@ -258,7 +260,6 @@ const RestaurantDetail = () => {
                     product={product}
                     restaurant={restaurant}
                     onAddToCart={addItem}
-                    isAuthenticated={isAuthenticated}
                     translate={translate}
                   />
                 ))}
@@ -297,20 +298,13 @@ const RestaurantDetail = () => {
 };
 
 // Product Card Component
-const ProductCard = ({ product, restaurant, onAddToCart, isAuthenticated, translate }) => {
+const ProductCard = ({ product, restaurant, onAddToCart, translate }) => {
   const handleAddToCart = () => {
-    // console.log("Product:", product);
-    // console.log("Restaurant:", restaurant);
-    // console.log("isAuthenticated:", isAuthenticated);
-
     // ตรวจสอบสถานะร้าน
     if (restaurant.status !== "open") {
       alert("This restaurant is closed and cannot order food");
       return;
     }
-
-    // การตรวจสอบ login จะทำใน CartContext แล้ว
-    // ไม่ต้องตรวจสอบที่นี่อีก
 
     if (!product.is_available) {
       alert("This product is out of stock");
@@ -318,10 +312,11 @@ const ProductCard = ({ product, restaurant, onAddToCart, isAuthenticated, transl
     }
 
     try {
-      // เพิ่มสินค้าลงตะกร้า - ใช้ field ที่ถูกต้อง
+      // เพิ่มสินค้าลงตะกร้า
       const result = onAddToCart(product, {
         id: restaurant.restaurant_id || restaurant.id,
         name: restaurant.restaurant_name || restaurant.name,
+        status: restaurant.status
       });
 
       // ตรวจสอบผลลัพธ์
@@ -331,7 +326,7 @@ const ProductCard = ({ product, restaurant, onAddToCart, isAuthenticated, transl
           return; // ไม่แสดง alert เพิ่มเติม
         }
 
-        alert(result.error || "Error adding product to cart");
+        alert(result.error || translate('common.error_adding_to_cart'));
         return;
       }
 
@@ -339,7 +334,7 @@ const ProductCard = ({ product, restaurant, onAddToCart, isAuthenticated, transl
       alert(translate('common.added_to_cart', { product: product.product_name }));
     } catch (error) {
       console.error("Error adding to cart:", error);
-      alert("Error adding product to cart");
+      alert(translate('common.error_adding_to_cart'));
     }
   };
 

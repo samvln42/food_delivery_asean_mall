@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useReducer, useEffect } from 'react';
+import React, { createContext, useContext, useReducer, useEffect, useState, useCallback } from 'react';
 import { useAuth } from './AuthContext';
+import { appSettingsService } from '../services/api';
 
 // Initial state
 const initialState = {
@@ -10,6 +11,7 @@ const initialState = {
   discount: 0,
   promoCode: '',
   restaurants: {}, // เก็บข้อมูลร้านต่างๆ ที่มีสินค้าในตะกร้า
+  deliverySettings: null, // เก็บการตั้งค่าค่าจัดส่ง
 };
 
 // Action types
@@ -22,6 +24,7 @@ const actionTypes = {
   SET_DISCOUNT: 'SET_DISCOUNT',
   SET_PROMO_CODE: 'SET_PROMO_CODE',
   LOAD_CART: 'LOAD_CART',
+  UPDATE_DELIVERY_SETTINGS: 'UPDATE_DELIVERY_SETTINGS',
 };
 
 // Reducer
@@ -90,7 +93,6 @@ const cartReducer = (state, action) => {
         ...state,
         items: newItems,
         restaurants: newRestaurants,
-        deliveryFee: calculateMultiRestaurantDeliveryFee(newRestaurants),
       };
       return calculateTotals(newState);
     }
@@ -126,7 +128,6 @@ const cartReducer = (state, action) => {
         ...state,
         items: newItems,
         restaurants: newRestaurants,
-        deliveryFee: newItems.length === 0 ? 0 : calculateMultiRestaurantDeliveryFee(newRestaurants),
       };
       return calculateTotals(newState);
     }
@@ -149,23 +150,47 @@ const cartReducer = (state, action) => {
       const loadedState = { ...state, ...action.payload };
       return calculateTotals(loadedState);
     
+    case actionTypes.UPDATE_DELIVERY_SETTINGS:
+      console.log('CartContext - UPDATE_DELIVERY_SETTINGS payload:', action.payload); // เพิ่ม log
+      const newStateWithUpdatedSettings = { ...state, deliverySettings: action.payload };
+      return calculateTotals(newStateWithUpdatedSettings); // Re-calculate totals after settings update
+    
     default:
       return state;
   }
 };
 
 // คำนวณค่าจัดส่งสำหรับหลายร้าน
-const calculateMultiRestaurantDeliveryFee = (restaurants) => {
+const calculateMultiRestaurantDeliveryFee = (restaurants, settings = null) => {
   const restaurantCount = Object.keys(restaurants).length;
   if (restaurantCount === 0) return 0;
-  if (restaurantCount === 1) return 2; // ร้านเดียว
-  return 2 + ((restaurantCount - 1) * 1); // ร้านแรก 2 ดอลลาร์, ร้านถัดไป 1 ดอลลาร์ต่อร้าน
+  
+  console.log('calculateMultiRestaurantDeliveryFee - settings:', settings);
+  console.log('calculateMultiRestaurantDeliveryFee - settings?.multi_restaurant_base_fee:', settings?.multi_restaurant_base_fee);
+  console.log('calculateMultiRestaurantDeliveryFee - settings?.multi_restaurant_additional_fee:', settings?.multi_restaurant_additional_fee);
+  
+  // ใช้ค่าจาก settings ถ้ามี และแปลงเป็น float ให้แน่ใจ
+  const baseFee = parseFloat(settings?.multi_restaurant_base_fee) || 0;
+  const additionalFee = parseFloat(settings?.multi_restaurant_additional_fee) || 0;
+
+  console.log('calculateMultiRestaurantDeliveryFee - restaurantCount:', restaurantCount);
+  console.log('calculateMultiRestaurantDeliveryFee - baseFee:', baseFee, 'type:', typeof baseFee);
+  console.log('calculateMultiRestaurantDeliveryFee - additionalFee:', additionalFee, 'type:', typeof additionalFee);
+
+  const result = restaurantCount === 1 ? baseFee : baseFee + ((restaurantCount - 1) * additionalFee);
+  console.log('calculateMultiRestaurantDeliveryFee - result:', result);
+  
+  return result;
 };
 
 // คำนวณยอดรวม
 const calculateTotals = (state) => {
   const subtotal = state.items.reduce((total, item) => total + (item.price * item.quantity), 0);
-  const total = subtotal + state.deliveryFee - state.discount;
+  
+  // คำนวณค่าจัดส่ง
+  const deliveryFee = state.items.length === 0 ? 0 : calculateMultiRestaurantDeliveryFee(state.restaurants, state.deliverySettings);
+  
+  const total = subtotal + deliveryFee - state.discount;
   const itemCount = state.items.reduce((count, item) => count + item.quantity, 0);
   
   return {
@@ -173,6 +198,7 @@ const calculateTotals = (state) => {
     total: Math.max(0, total),
     itemCount,
     subtotal,
+    deliveryFee,
   };
 };
 
@@ -224,7 +250,62 @@ export const CartProvider = ({ children }) => {
     }
   }, [user]);
 
-  // บันทึกตะกร้าใน localStorage เมื่อมีการเปลี่ยนแปลง
+  // ฟังก์ชันสำหรับรีเฟรชการตั้งค่าค่าจัดส่ง (เรียกใช้จากภายนอก)
+  const refreshDeliverySettings = useCallback(async () => {
+    try {
+      console.log('CartContext - รีเฟรชการตั้งค่าค่าจัดส่ง...');
+      const response = await appSettingsService.getPublic();
+      
+      if (response?.data) {
+        const data = response.data;
+        console.log('CartContext - ข้อมูลใหม่ที่ได้รับ:', data);
+        dispatch({ type: actionTypes.UPDATE_DELIVERY_SETTINGS, payload: data });
+        console.log('CartContext - การตั้งค่าค่าจัดส่งได้รับการอัปเดทแล้ว');
+      }
+    } catch (error) {
+      console.error('CartContext - Error refreshing delivery settings:', error);
+    }
+  }, [dispatch]);
+
+  // โหลดการตั้งค่าค่าจัดส่ง
+  useEffect(() => {
+    const fetchDeliverySettings = async () => {
+      try {
+        console.log('CartContext - เริ่มดึงข้อมูลการตั้งค่าค่าจัดส่ง...');
+        const response = await appSettingsService.getPublic();
+        console.log('CartContext - Response:', response);
+        
+        if (response?.data) {
+          const data = response.data;
+          console.log('CartContext - ข้อมูลที่ได้รับจาก API:', data);
+          console.log('CartContext - multi_restaurant_base_fee:', data.multi_restaurant_base_fee);
+          console.log('CartContext - multi_restaurant_additional_fee:', data.multi_restaurant_additional_fee);
+          console.log('CartContext - ประเภทข้อมูล base_fee:', typeof data.multi_restaurant_base_fee);
+          console.log('CartContext - ประเภทข้อมูล additional_fee:', typeof data.multi_restaurant_additional_fee);
+          
+          dispatch({ type: actionTypes.UPDATE_DELIVERY_SETTINGS, payload: data });
+        } else {
+          console.error('CartContext - ไม่มีข้อมูลใน response');
+        }
+      } catch (error) {
+        console.error('CartContext - Error fetching delivery settings:', error);
+      }
+    };
+
+    fetchDeliverySettings();
+  }, []); // เรียกครั้งเดียวเมื่อ component mount
+
+  // รีเฟรชการตั้งค่าเมื่อผู้ใช้กลับมาที่หน้าเว็บ
+  useEffect(() => {
+    const handleFocus = () => {
+      refreshDeliverySettings();
+    };
+
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [refreshDeliverySettings]);
+
+  // อัพเดท localStorage เมื่อ state เปลี่ยนแปลง
   useEffect(() => {
     const userId = user?.id || user?.user_id || 'guest';
     try {
@@ -358,6 +439,7 @@ export const CartProvider = ({ children }) => {
     applyPromoCode,
     getItemsByRestaurant,
     getRestaurantCount,
+    refreshDeliverySettings,
   };
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;

@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ทดสอบ WebSocket localStorage</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .connected { background-color: #d4edda; color: #155724; }
+        .disconnected { background-color: #f8d7da; color: #721c24; }
+        .connecting { background-color: #fff3cd; color: #856404; }
+        .log {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 10px;
+            height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .input-group {
+            margin: 10px 0;
+        }
+        input[type="text"] {
+            width: 300px;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 ทดสอบ WebSocket localStorage</h1>
+    
+    <div class="container">
+        <h2>📋 ข้อมูล localStorage</h2>
+        <div class="input-group">
+            <label>Guest Orders ใน localStorage:</label>
+            <div id="localStorageData">กำลังโหลด...</div>
+        </div>
+        <div class="input-group">
+            <label>Temporary ID ที่จะใช้:</label>
+            <input type="text" id="temporaryIdInput" placeholder="ใส่ temporary_id ที่ต้องการทดสอบ">
+            <button onclick="setTemporaryId()">ตั้งค่า Temporary ID</button>
+        </div>
+        <button onclick="addTestOrder()">เพิ่ม Test Order</button>
+        <button onclick="clearLocalStorage()">ล้าง localStorage</button>
+    </div>
+
+    <div class="container">
+        <h2>🔗 สถานะ WebSocket</h2>
+        <div id="websocketStatus" class="status disconnected">ไม่เชื่อมต่อ</div>
+        <button onclick="connectWebSocket()">เชื่อมต่อ WebSocket</button>
+        <button onclick="disconnectWebSocket()">ปิดการเชื่อมต่อ</button>
+        <button onclick="subscribeToOrder()">Subscribe to Order</button>
+    </div>
+
+    <div class="container">
+        <h2>📝 Log</h2>
+        <div id="log" class="log"></div>
+        <button onclick="clearLog()">ล้าง Log</button>
+    </div>
+
+    <div class="container">
+        <h2>🔗 ทดสอบหน้า Guest Orders</h2>
+        <button onclick="openGuestOrders()">เปิดหน้า /guest-orders</button>
+        <button onclick="openGuestOrdersWithId()">เปิดหน้า /guest-orders?temporary_id=</button>
+    </div>
+
+    <script>
+        let ws = null;
+        let temporaryId = null;
+
+        function log(message) {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            logDiv.innerHTML += `[${timestamp}] ${message}\n`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+            console.log(message);
+        }
+
+        function clearLog() {
+            document.getElementById('log').innerHTML = '';
+        }
+
+        function updateLocalStorageDisplay() {
+            const guestOrders = JSON.parse(localStorage.getItem('guest_orders') || '[]');
+            const display = document.getElementById('localStorageData');
+            if (guestOrders.length === 0) {
+                display.innerHTML = '<em>ไม่มีข้อมูล</em>';
+            } else {
+                display.innerHTML = `<pre>${JSON.stringify(guestOrders, null, 2)}</pre>`;
+            }
+        }
+
+        function setTemporaryId() {
+            const input = document.getElementById('temporaryIdInput');
+            temporaryId = input.value.trim();
+            if (temporaryId) {
+                log(`✅ ตั้งค่า temporary_id: ${temporaryId}`);
+            } else {
+                log('❌ กรุณาใส่ temporary_id');
+            }
+        }
+
+        function addTestOrder() {
+            const testOrder = {
+                temporary_id: 'GUEST-TEST-' + Date.now(),
+                order_date: new Date().toISOString()
+            };
+            
+            const guestOrders = JSON.parse(localStorage.getItem('guest_orders') || '[]');
+            guestOrders.push(testOrder);
+            localStorage.setItem('guest_orders', JSON.stringify(guestOrders));
+            
+            log(`✅ เพิ่ม test order: ${testOrder.temporary_id}`);
+            updateLocalStorageDisplay();
+        }
+
+        function clearLocalStorage() {
+            localStorage.removeItem('guest_orders');
+            log('🧹 ล้าง localStorage แล้ว');
+            updateLocalStorageDisplay();
+        }
+
+        function updateWebSocketStatus(status, message) {
+            const statusDiv = document.getElementById('websocketStatus');
+            statusDiv.className = `status ${status}`;
+            statusDiv.textContent = message;
+        }
+
+        function connectWebSocket() {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                log('⚠️ WebSocket เชื่อมต่ออยู่แล้ว');
+                return;
+            }
+
+            log('🔗 กำลังเชื่อมต่อ WebSocket...');
+            updateWebSocketStatus('connecting', 'กำลังเชื่อมต่อ...');
+
+            try {
+                ws = new WebSocket('ws://localhost:8000/ws/guest-orders/');
+
+                ws.onopen = function(event) {
+                    log('✅ WebSocket เชื่อมต่อสำเร็จ');
+                    updateWebSocketStatus('connected', 'เชื่อมต่อแล้ว');
+                };
+
+                ws.onmessage = function(event) {
+                    const data = JSON.parse(event.data);
+                    log(`📨 ได้รับข้อความ: ${JSON.stringify(data)}`);
+                };
+
+                ws.onclose = function(event) {
+                    log(`🔌 WebSocket ปิดการเชื่อมต่อ (code: ${event.code})`);
+                    updateWebSocketStatus('disconnected', 'ไม่เชื่อมต่อ');
+                };
+
+                ws.onerror = function(error) {
+                    log(`❌ WebSocket error: ${error}`);
+                    updateWebSocketStatus('disconnected', 'เกิดข้อผิดพลาด');
+                };
+
+            } catch (error) {
+                log(`❌ ไม่สามารถสร้าง WebSocket: ${error}`);
+                updateWebSocketStatus('disconnected', 'ไม่สามารถเชื่อมต่อ');
+            }
+        }
+
+        function disconnectWebSocket() {
+            if (ws) {
+                ws.close();
+                ws = null;
+                log('🔌 ปิดการเชื่อมต่อ WebSocket');
+                updateWebSocketStatus('disconnected', 'ไม่เชื่อมต่อ');
+            }
+        }
+
+        function subscribeToOrder() {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                log('❌ WebSocket ไม่เชื่อมต่อ');
+                return;
+            }
+
+            if (!temporaryId) {
+                log('❌ ไม่มี temporary_id');
+                return;
+            }
+
+            const subscribeMessage = {
+                type: 'subscribe',
+                temporary_id: temporaryId
+            };
+
+            log(`📤 ส่ง subscribe: ${JSON.stringify(subscribeMessage)}`);
+            ws.send(JSON.stringify(subscribeMessage));
+        }
+
+        function openGuestOrders() {
+            window.open('/guest-orders', '_blank');
+            log('🔗 เปิดหน้า /guest-orders');
+        }
+
+        function openGuestOrdersWithId() {
+            if (!temporaryId) {
+                log('❌ ไม่มี temporary_id');
+                return;
+            }
+            window.open(`/guest-orders?temporary_id=${temporaryId}`, '_blank');
+            log(`🔗 เปิดหน้า /guest-orders?temporary_id=${temporaryId}`);
+        }
+
+        // เริ่มต้น
+        document.addEventListener('DOMContentLoaded', function() {
+            log('🚀 เริ่มต้นการทดสอบ WebSocket localStorage');
+            updateLocalStorageDisplay();
+            
+            // ดึง temporary_id แรกจาก localStorage
+            const guestOrders = JSON.parse(localStorage.getItem('guest_orders') || '[]');
+            if (guestOrders.length > 0) {
+                temporaryId = guestOrders[0].temporary_id;
+                document.getElementById('temporaryIdInput').value = temporaryId;
+                log(`📋 ใช้ temporary_id จาก localStorage: ${temporaryId}`);
+            }
+        });
+    </script>
+</body>
+</html> 

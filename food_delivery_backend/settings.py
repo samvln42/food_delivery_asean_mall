@@ -112,25 +112,26 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'food_delivery_backend.wsgi.application'
 
-# Channels configuration
+# ASGI application (used by Daphne for WebSocket)
 ASGI_APPLICATION = 'food_delivery_backend.asgi.application'
 
 # Channel layers (using in-memory for development, Redis for production)
-CHANNEL_LAYERS = {
-    'default': {
-        'BACKEND': 'channels.layers.InMemoryChannelLayer',
-    },
-}
-
-# Uncomment below for Redis when Redis server is running ถ้าใช้ Redis ต้องติดตั้ง Redis ก่อน
-CHANNEL_LAYERS = {
-    'default': {
-        'BACKEND': 'channels_redis.core.RedisChannelLayer',
-        'CONFIG': {
-            "hosts": [('127.0.0.1', 6379)],
+if DEBUG:
+    CHANNEL_LAYERS = {
+        'default': {
+            'BACKEND': 'channels.layers.InMemoryChannelLayer',
         },
-    },
-}
+    }
+else:
+    # Redis for production
+    CHANNEL_LAYERS = {
+        'default': {
+            'BACKEND': 'channels_redis.core.RedisChannelLayer',
+            'CONFIG': {
+                "hosts": [('127.0.0.1', 6379)],
+            },
+        },
+    }
 
 
 # Database

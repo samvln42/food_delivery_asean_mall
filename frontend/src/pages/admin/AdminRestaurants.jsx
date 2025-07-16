@@ -660,73 +660,82 @@ const RestaurantModal = ({ restaurant, type, onClose, onUpdate, availableUsers }
       
       if (type === 'create') {
         // ตรวจสอบข้อมูลที่จำเป็น
-        console.log('📝 Validating form data before submission...');
-        console.log('📝 Current formData:', formData);
-        console.log('📝 Available users for validation:', availableUsers);
+        
         
         if (!formData.restaurant_name || !formData.restaurant_name.trim()) {
           alert('กรุณาใส่ชื่อร้านอาหาร');
           return;
         }
-        if (!formData.user || formData.user === '') {
+        if (!formData.user || formData.user === '') { 
           alert('กรุณาเลือกเจ้าของร้าน');
-          console.log('❌ No user selected. Current value:', formData.user);
           return;
         }
 
         // เตรียมข้อมูลสำหรับส่ง API
-        const createData = {
-          restaurant_name: formData.restaurant_name.trim(),
-          description: formData.description || '',
-          address: formData.address || '',
-          phone_number: formData.phone_number || '',
-          opening_hours: formData.opening_hours || '',
-          status: formData.status || 'open',
-          is_special: Boolean(formData.is_special),
-          bank_account_number: formData.bank_account_number || '',
-          bank_name: formData.bank_name || '',
-          account_name: formData.account_name || '',
-          user: parseInt(formData.user, 10), // แปลงเป็น integer
-          image_url: formData.image_url || ''
-        };
-
-        console.log('📤 Sending data to API:', createData);
-        console.log('📤 user type:', typeof createData.user);
-        console.log('📤 user value:', createData.user);
+        let createData;
+        
+        // ถ้ามีไฟล์รูปภาพ ให้ใช้ FormData
+        if (selectedFile) {
+          createData = new FormData();
+          createData.append('restaurant_name', formData.restaurant_name.trim());
+          createData.append('description', formData.description || '');
+          createData.append('address', formData.address || '');
+          createData.append('phone_number', formData.phone_number || '');
+          createData.append('opening_hours', formData.opening_hours || '');
+          createData.append('status', formData.status || 'open');
+          createData.append('is_special', Boolean(formData.is_special));
+          createData.append('bank_account_number', formData.bank_account_number || '');
+          createData.append('bank_name', formData.bank_name || '');
+          createData.append('account_name', formData.account_name || '');
+          createData.append('user', parseInt(formData.user, 10));
+          createData.append('image', selectedFile);
+          // ไม่ส่ง image_url ถ้ามีไฟล์ เพราะไฟล์มีความสำคัญกว่า
+        } else {
+          // ไม่มีไฟล์รูปภาพ ใช้วิธีเดิม (อาจมี image_url)
+          createData = {
+            restaurant_name: formData.restaurant_name.trim(),
+            description: formData.description || '',
+            address: formData.address || '',
+            phone_number: formData.phone_number || '',
+            opening_hours: formData.opening_hours || '',
+            status: formData.status || 'open',
+            is_special: Boolean(formData.is_special),
+            bank_account_number: formData.bank_account_number || '',
+            bank_name: formData.bank_name || '',
+            account_name: formData.account_name || '',
+            user: parseInt(formData.user, 10), // แปลงเป็น integer
+            image_url: formData.image_url || ''
+          };
+        }
 
         // สร้างร้านใหม่
         const createResponse = await restaurantService.create(createData);
         const newRestaurant = createResponse.data;
         
-        // หากมีไฟล์รูปภาพที่เลือก ให้อัปโหลดต่อ
-        if (selectedFile) {
-          try {
-            const formDataUpload = new FormData();
-            formDataUpload.append('image', selectedFile);
-
-            const uploadResponse = await fetch(`http://127.0.0.1:8000/api/restaurants/${newRestaurant.restaurant_id}/upload_image/`, {
-              method: 'POST',
-              headers: {
-                'Authorization': `Token ${localStorage.getItem('token')}`
-              },
-              body: formDataUpload
-            });
-
-            if (uploadResponse.ok) {
-              alert('สร้างร้านอาหารและอัปโหลดรูปภาพเรียบร้อยแล้ว');
-            } else {
-              alert('สร้างร้านอาหารเรียบร้อยแล้ว แต่อัปโหลดรูปภาพไม่สำเร็จ');
-            }
-          } catch (uploadError) {
-            console.error('Error uploading image:', uploadError);
-            alert('สร้างร้านอาหารเรียบร้อยแล้ว แต่อัปโหลดรูปภาพไม่สำเร็จ');
-          }
-        } else {
-          alert('สร้างร้านอาหารใหม่เรียบร้อยแล้ว');
-        }
+        alert('สร้างร้านอาหารใหม่เรียบร้อยแล้ว');
       } else {
         // อัปเดตร้านที่มีอยู่
-        await restaurantService.partialUpdate(restaurant.restaurant_id, formData);
+        // ถ้ามีไฟล์รูปภาพใหม่ ให้ใช้ FormData
+        let updateData;
+        if (selectedFile) {
+          updateData = new FormData();
+          updateData.append('restaurant_name', formData.restaurant_name);
+          updateData.append('description', formData.description || '');
+          updateData.append('address', formData.address || '');
+          updateData.append('phone_number', formData.phone_number || '');
+          updateData.append('opening_hours', formData.opening_hours || '');
+          updateData.append('status', formData.status || 'open');
+          updateData.append('is_special', Boolean(formData.is_special));
+          updateData.append('bank_account_number', formData.bank_account_number || '');
+          updateData.append('bank_name', formData.bank_name || '');
+          updateData.append('account_name', formData.account_name || '');
+          updateData.append('user', parseInt(formData.user, 10));
+          updateData.append('image', selectedFile);
+        } else {
+          updateData = formData;
+        }
+        
+        await restaurantService.partialUpdate(restaurant.restaurant_id, updateData);
         alert('อัปเดตข้อมูลร้านอาหารเรียบร้อยแล้ว');
       }
       
@@ -939,12 +948,12 @@ const RestaurantModal = ({ restaurant, type, onClose, onUpdate, availableUsers }
                 />
                 <p className="mt-1 text-sm text-secondary-500">
                   รองรับ JPG, PNG, GIF • ขนาดไม่เกิน 10MB
-                  {isCreateMode && ' • จะอัปโหลดหลังสร้างร้านเสร็จ'}
+                  {isCreateMode && ' • จะอัปโหลดพร้อมกับการสร้างร้าน'}
                 </p>
               </div>
               
-              {/* Upload Button - แสดงเฉพาะเมื่อไม่ใช่โหมด create */}
-              {!isCreateMode && selectedFile && (
+              {/* Upload Button - แสดงเฉพาะเมื่อไม่ใช่โหมด create และมีร้านอยู่แล้ว */}
+              {!isCreateMode && selectedFile && restaurant && (
                 <button
                   type="button"
                   onClick={handleImageUpload}

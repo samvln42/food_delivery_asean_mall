@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Guest Orders Links</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .test-section {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 10px 0;
+        }
+        .link-button {
+            display: inline-block;
+            padding: 10px 20px;
+            margin: 5px;
+            background-color: #007bff;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        .link-button:hover {
+            background-color: #0056b3;
+        }
+        .instructions {
+            background-color: #e7f3ff;
+            border: 1px solid #b3d9ff;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 10px 0;
+        }
+        .warning {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Test Guest Orders Links</h1>
+    
+    <div class="instructions">
+        <h3>📋 Instructions:</h3>
+        <ol>
+            <li>คลิกลิงก์ด้านล่างเพื่อเปิดหน้า guest-orders</li>
+            <li>เปิด Developer Tools (F12) ในหน้า guest-orders</li>
+            <li>ดู log ใน Console</li>
+            <li>ตรวจสอบสถานะ WebSocket indicator</li>
+        </ol>
+    </div>
+    
+    <div class="warning">
+        <h3>⚠️ Important:</h3>
+        <p>ต้องรัน frontend development server ก่อน:</p>
+        <code>cd frontend && npm run dev</code>
+    </div>
+    
+    <div class="test-section">
+        <h3>🔗 Test Links</h3>
+        
+        <h4>1. Test with temporary_id from your test:</h4>
+        <a href="http://localhost:5173/guest-orders?temporary_id=GUEST-E5943564" 
+           class="link-button" target="_blank">
+            Open Guest Orders (GUEST-E5943564)
+        </a>
+        
+        <h4>2. Test with different temporary_id:</h4>
+        <a href="http://localhost:5173/guest-orders?temporary_id=GUEST-TEST123" 
+           class="link-button" target="_blank">
+            Open Guest Orders (GUEST-TEST123)
+        </a>
+        
+        <h4>3. Test without temporary_id:</h4>
+        <a href="http://localhost:5173/guest-orders" 
+           class="link-button" target="_blank">
+            Open Guest Orders (No temporary_id)
+        </a>
+        
+        <h4>4. Test with random temporary_id:</h4>
+        <a href="http://localhost:5173/guest-orders?temporary_id=GUEST-RANDOM-12345" 
+           class="link-button" target="_blank">
+            Open Guest Orders (Random ID)
+        </a>
+    </div>
+    
+    <div class="test-section">
+        <h3>🔍 Expected Logs</h3>
+        <p>เมื่อเปิดหน้า guest-orders ควรเห็น log เหล่านี้:</p>
+        <ul>
+            <li><code>🔍 GuestOrders component - temporary_id from URL: GUEST-E5943564</code></li>
+            <li><code>🔍 WebSocket useEffect triggered with temporaryId: GUEST-E5943564</code></li>
+            <li><code>🔗 Setting up WebSocket for temporary_id: GUEST-E5943564</code></li>
+            <li><code>🎫 setGuestTemporaryId() called with temporaryId: GUEST-E5943564</code></li>
+            <li><code>🔗 connectGuest() called</code></li>
+            <li><code>✅ Guest WebSocket connected successfully</code></li>
+            <li><code>📡 Auto-subscribing to guest order: GUEST-E5943564</code></li>
+            <li><code>📤 sendGuest() called with type: subscribe_guest_order</code></li>
+        </ul>
+    </div>
+    
+    <div class="test-section">
+        <h3>🎯 Status Indicator</h3>
+        <p>สถานะที่ควรแสดงในหน้า guest-orders:</p>
+        <ul>
+            <li><strong style="color: green;">🟢 WebSocket Connected</strong> - เมื่อ WebSocket เชื่อมต่อสำเร็จ</li>
+            <li><strong style="color: blue;">🔵 Polling Active</strong> - เมื่อใช้ polling แทน WebSocket</li>
+            <li><strong style="color: red;">🔴 No Real-time Updates</strong> - เมื่อไม่มีการเชื่อมต่อ</li>
+        </ul>
+    </div>
+    
+    <div class="test-section">
+        <h3>🐛 Troubleshooting</h3>
+        <p>หากยังมีปัญหา:</p>
+        <ol>
+            <li>ตรวจสอบว่า backend รันอยู่: <code>daphne -p 8000 food_delivery_backend.asgi:application</code></li>
+            <li>ตรวจสอบว่า frontend รันอยู่: <code>npm run dev</code></li>
+            <li>ตรวจสอบ log ใน console</li>
+            <li>ตรวจสอบ network tab ใน Developer Tools</li>
+        </ol>
+    </div>
+    
+    <script>
+        // Auto-check if development server is running
+        window.onload = function() {
+            console.log('🚀 Test Links page loaded');
+            console.log('💡 Click the links above to test guest-orders page');
+            
+            // Try to detect if development server is running
+            fetch('http://localhost:5173')
+                .then(response => {
+                    if (response.ok) {
+                        console.log('✅ Frontend development server is running');
+                    }
+                })
+                .catch(error => {
+                    console.warn('⚠️ Frontend development server might not be running');
+                    console.warn('Please run: cd frontend && npm run dev');
+                });
+        };
+    </script>
+</body>
+</html> 

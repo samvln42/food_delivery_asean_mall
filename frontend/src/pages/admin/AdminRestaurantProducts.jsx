@@ -68,7 +68,6 @@ const AdminRestaurantProducts = () => {
   const fetchProducts = async () => {
     try {
       setLoading(true);
-      console.log('🔍 Fetching products for restaurant:', restaurantId);
       
       const params = {
         page: currentPage,
@@ -86,9 +85,7 @@ const AdminRestaurantProducts = () => {
         params.is_available = availabilityFilter === 'available';
       }
 
-      console.log('📡 Sending API request with params:', params);
       const response = await productService.getAll(params);
-      console.log('📦 API response:', response.data);
       
       if (response.data.results) {
         setProducts(response.data.results);
@@ -199,8 +196,9 @@ const AdminRestaurantProducts = () => {
 
   const formatPrice = (price) => {
     return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'THB'
+      style: 'decimal',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2
     }).format(price);
   };
 
@@ -749,7 +747,7 @@ const ProductModal = ({ product, type, categories, restaurant, onClose, onSave }
 
             <div>
               <label className="block text-sm font-medium text-secondary-700 mb-2">
-                ราคา (บาท) *
+                ราคา *
               </label>
               <input
                 type="number"

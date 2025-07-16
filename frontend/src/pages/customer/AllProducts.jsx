@@ -1,12 +1,16 @@
 ﻿import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useCart } from "../../contexts/CartContext";
-import { toast } from "../../hooks/useNotification";
+import { useGuestCart } from "../../contexts/GuestCartContext";
+import { useAuth } from "../../contexts/AuthContext";
+
 import api from "../../services/api";
 import { useLanguage } from "../../contexts/LanguageContext";
 
 const AllProducts = () => {
-  const { addItem } = useCart();
+  const { addItem: addToCart } = useCart();
+  const { addItem: addToGuestCart } = useGuestCart();
+  const { isAuthenticated } = useAuth();
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [restaurants, setRestaurants] = useState([]);
@@ -19,6 +23,9 @@ const AllProducts = () => {
   const [totalPages, setTotalPages] = useState(1);
   const [totalProducts, setTotalProducts] = useState(0);
   const { translate } = useLanguage();
+
+  // เลือกฟังก์ชัน addItem ตามสถานะการล็อกอิน
+  const addItem = isAuthenticated ? addToCart : addToGuestCart;
 
   useEffect(() => {
     fetchData();
@@ -295,9 +302,14 @@ const AllProducts = () => {
                 </div>
 
                 <div className="p-4">
-                  <h3 className="font-semibold text-secondary-800 mb-2">
-                    {product.product_name}
-                  </h3>
+                  <Link
+                    to={`/products/${product.product_id}`}
+                    className="block"
+                  >
+                    <h3 className="font-semibold text-secondary-800 mb-2 hover:text-primary-600 transition-colors">
+                      {product.product_name}
+                    </h3>
+                  </Link>
 
                   <p className="text-secondary-600 text-sm mb-3 line-clamp-2">
                     {product.description || translate('common.no_description')}
@@ -389,9 +401,9 @@ const AllProducts = () => {
                                   return; // ไม่แสดง alert เพิ่มเติม
                                 }
 
-                                toast.error(
+                                alert(
                                   result.error ||
-                                    "Error occurred while adding product"
+                                    translate('common.error_adding_to_cart')
                                 );
                                 return;
                               }

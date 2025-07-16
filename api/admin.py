@@ -1,10 +1,11 @@
 from django.contrib import admin
 from accounts.models import User
 from .models import (
-    Restaurant, Category, Product, Order, OrderDetail,
-    Payment, Review, ProductReview, DeliveryStatusLog, Notification,
+    Restaurant, Category, Product, Order, OrderDetail, Payment,
+    Review, ProductReview, DeliveryStatusLog, Notification,
     SearchHistory, PopularSearch, UserFavorite, AnalyticsDaily,
-    RestaurantAnalytics, ProductAnalytics, Language, Translation
+    RestaurantAnalytics, ProductAnalytics, AppSettings, Language, Translation,
+    GuestOrder, GuestOrderDetail, GuestDeliveryStatusLog
 )
 
 
@@ -156,3 +157,59 @@ class TranslationAdmin(admin.ModelAdmin):
     list_filter = ('language', 'group')
     search_fields = ('key', 'value')
     ordering = ('language', 'group', 'key')
+
+
+@admin.register(GuestOrder)
+class GuestOrderAdmin(admin.ModelAdmin):
+    list_display = ['guest_order_id', 'temporary_id', 'restaurant', 'customer_name',
+                   'total_amount', 'current_status', 'order_date', 'expires_at']
+    list_filter = ['current_status', 'order_date', 'payment_status', 'expires_at']
+    search_fields = ['guest_order_id', 'temporary_id', 'customer_name', 'customer_phone',
+                    'restaurant__restaurant_name']
+    readonly_fields = ['guest_order_id', 'temporary_id', 'order_date', 'expires_at']
+    fieldsets = (
+        ('Order Information', {
+            'fields': ('guest_order_id', 'temporary_id', 'restaurant', 'order_date', 'expires_at')
+        }),
+        ('Customer Information', {
+            'fields': ('customer_name', 'customer_phone', 'customer_email', 'special_instructions')
+        }),
+        ('Delivery Information', {
+            'fields': ('delivery_address', 'delivery_latitude', 'delivery_longitude',
+                      'delivery_fee', 'estimated_delivery_time')
+        }),
+        ('Payment Information', {
+            'fields': ('payment_method', 'payment_status', 'proof_of_payment', 'total_amount')
+        }),
+        ('Status', {
+            'fields': ('current_status',)
+        }),
+    )
+
+
+class GuestOrderDetailInline(admin.TabularInline):
+    model = GuestOrderDetail
+    extra = 0
+    readonly_fields = ['guest_order_detail_id', 'subtotal']
+
+
+class GuestDeliveryStatusLogInline(admin.TabularInline):
+    model = GuestDeliveryStatusLog
+    extra = 0
+    readonly_fields = ['log_id', 'timestamp']
+
+
+@admin.register(GuestOrderDetail)
+class GuestOrderDetailAdmin(admin.ModelAdmin):
+    list_display = ['guest_order_detail_id', 'guest_order', 'product', 'quantity',
+                   'price_at_order', 'subtotal']
+    list_filter = ['guest_order__current_status']
+    search_fields = ['guest_order__temporary_id', 'product__product_name']
+
+
+@admin.register(GuestDeliveryStatusLog)
+class GuestDeliveryStatusLogAdmin(admin.ModelAdmin):
+    list_display = ['log_id', 'guest_order', 'status', 'timestamp', 'updated_by_user']
+    list_filter = ['status', 'timestamp']
+    search_fields = ['guest_order__temporary_id', 'note']
+    readonly_fields = ['log_id', 'timestamp']

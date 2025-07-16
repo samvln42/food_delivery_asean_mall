@@ -29,7 +29,6 @@ common.about,เกี่ยวกับเรา,common
 common.contact,ติดต่อ,common
 common.order_now,สั่งอาหารเลย,common
 common.follow_us,ติดตามเรา,common
-common.popular_categories,หมวดหมู่ยอดนิยม,common
 common.recommended_restaurants,ร้านอาหารแนะนำ,common
 common.special_restaurant,ร้านอาหารพิเศษ,common
 common.special,พิเศษ,common
@@ -57,7 +56,7 @@ common.try_choosing_another_category,ลองเลือกหมวดหม�
 common.view_other_categories,ดูหมวดหมู่อื่น,common
 common.no_restaurant_found,ไม่พบร้านอาหาร,common
 common.try_refreshing_the_page,ลองรีเฟรชหน้านี้,common
-common.dollars,บาท,common
+common.dollars,ดอลลาร์,common
 common.not_specified,ไม่ระบุ,common
 common.delivery,จัดส่ง,common
 common.restaurants,ร้านอาหาร,common
@@ -245,6 +244,9 @@ order.choose_by_category,เลือกตามหมวดหมู่,order
 order.status_updated,อัพเดทสถานะคำสั่งซื้อแล้ว!,order
 order.status_change_notification,คำสั่งซื้อ #{orderId} เปลี่ยนเป็น "{status}",order
 order.successful,สั่งซื้อสำเร็จ!,order
+order.cleanup_expired_message,ลบคำสั่งซื้อที่หมดอายุแล้ว {count} รายการ,order
+order.cleanup_not_found_message,ลบคำสั่งซื้อที่ไม่พบแล้ว {count} รายการ,order
+order.completed_removed_message,คำสั่งซื้อเสร็จสิ้นแล้ว ถูกนำออกจากรายการ,order
 order.order_id,รหัสคำสั่งซื้อ: {id},order
 order.restaurant_count,จำนวนร้านอาหาร: {count},order
 order.total_amount,ยอดรวม: {total},order 

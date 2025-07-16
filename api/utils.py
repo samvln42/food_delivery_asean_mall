@@ -122,15 +122,46 @@ def update_product_analytics(product_id, date=None):
     return analytics
 
 
-def calculate_delivery_fee(distance_km):
-    """Calculate delivery fee based on distance"""
-    base_fee = 20  # Base fee in THB
-    per_km_fee = 5  # Fee per kilometer
+def calculate_delivery_fee(distance_km, settings=None):
+    """Calculate delivery fee based on distance and settings"""
+    if not settings:
+        from .models import AppSettings
+        settings = AppSettings.get_settings()
+    
+    if not settings:
+        # Fallback values if no settings found
+        base_fee = 20.00
+        per_km_fee = 5.00
+    else:
+        base_fee = float(settings.base_delivery_fee)
+        per_km_fee = float(settings.per_km_fee)
     
     if distance_km <= 2:
         return base_fee
     else:
         return base_fee + ((distance_km - 2) * per_km_fee)
+
+
+def calculate_multi_restaurant_delivery_fee(restaurant_count, settings=None):
+    """Calculate delivery fee for multi-restaurant orders"""
+    if not settings:
+        from .models import AppSettings
+        settings = AppSettings.get_settings()
+    
+    if not settings:
+        # Fallback values if no settings found
+        base_fee = 2.00
+        additional_fee = 1.00
+    else:
+        base_fee = float(settings.multi_restaurant_base_fee)
+        additional_fee = float(settings.multi_restaurant_additional_fee)
+    
+    if restaurant_count == 0:
+        return 0
+    elif restaurant_count == 1:
+        return base_fee
+    else:
+        return base_fee + ((restaurant_count - 1) * additional_fee)
 
 
 def estimate_delivery_time(restaurant_id, current_orders_count=None):

@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>ทดสอบ GuestOrders.jsx Debug</title>
+    <style>
+        body { font-family: Arial; margin: 20px; }
+        .log { background: #f0f0f0; padding: 10px; height: 400px; overflow-y: auto; }
+        .success { color: green; }
+        .error { color: red; }
+        .info { color: blue; }
+        .warning { color: orange; }
+        button { margin: 5px; padding: 10px; }
+        .section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; }
+    </style>
+</head>
+<body>
+    <h1>🔍 ทดสอบ GuestOrders.jsx Debug</h1>
+    
+    <div class="section">
+        <h3>📡 ทดสอบ WebSocket Service</h3>
+        <button onclick="testWebSocketService()">ทดสอบ WebSocket Service</button>
+        <button onclick="testSetGuestTemporaryId()">ทดสอบ setGuestTemporaryId</button>
+        <button onclick="testSubscribe()">ทดสอบ Subscribe</button>
+    </div>
+    
+    <div class="section">
+        <h3>🎫 ทดสอบ Temporary ID</h3>
+        <input type="text" id="tempId" value="GUEST-A1B2C3D4" placeholder="ใส่ Temporary ID">
+        <button onclick="testWithTempId()">ทดสอบด้วย Temporary ID</button>
+    </div>
+    
+    <div class="section">
+        <h3>📝 Log การทำงาน</h3>
+        <div class="log" id="log"></div>
+    </div>
+
+    <script>
+        // Simulate WebSocketService
+        class MockWebSocketService {
+            constructor() {
+                this.guestWs = null;
+                this.guestTemporaryId = null;
+                this.listeners = new Map();
+                this.reconnectAttempts = 0;
+                this.maxReconnectAttempts = 3;
+                this.baseUrl = 'http://localhost:8000/api/';
+            }
+
+            setGuestTemporaryId(temporaryId) {
+                log(`🎫 setGuestTemporaryId() called with temporaryId: ${temporaryId}`, 'info');
+                log('🔍 WebSocket state before setting temporaryId:', 'info');
+                
+                this.guestTemporaryId = temporaryId;
+                
+                if (temporaryId) {
+                    log(`🔗 Setting up guest WebSocket for temporary_id: ${temporaryId}`, 'info');
+                    
+                    if (this.guestWs && this.guestWs.readyState === WebSocket.OPEN) {
+                        log(`📡 WebSocket already connected, subscribing to guest order: ${temporaryId}`, 'success');
+                        this.subscribeToGuestOrder(temporaryId);
+                    } else {
+                        log(`🔗 Connecting guest WebSocket for temporary_id: ${temporaryId}`, 'info');
+                        this.connectGuest();
+                    }
+                }
+            }
+
+            connectGuest() {
+                log('🔗 connectGuest() called', 'info');
+                
+                if (this.guestWs && this.guestWs.readyState === WebSocket.OPEN) {
+                    log('✅ Guest WebSocket already connected, skipping connection...', 'success');
+                    return;
+                }
+
+                if (this.guestWs && this.guestWs.readyState !== WebSocket.CLOSED) {
+                    log('🔌 Closing existing guest WebSocket connection...', 'warning');
+                    this.guestWs.close();
+                    this.guestWs = null;
+                }
+
+                this.reconnectAttempts = 0;
+                const wsUrl = 'ws://localhost:8000/ws/guest-orders/';
+                
+                log(`🔗 Connecting to Guest WebSocket: ${wsUrl}`, 'info');
+                
+                this.guestWs = new WebSocket(wsUrl);
+                this.guestWs._isConnected = false;
+
+                this.guestWs.onopen = () => {
+                    log('✅ Guest WebSocket connected successfully', 'success');
+                    this.guestWs._isConnected = true;
+                    this.reconnectAttempts = 0;
+                    
+                    if (this.guestTemporaryId) {
+                        log(`📡 Auto-subscribing to guest order: ${this.guestTemporaryId}`, 'success');
+                        setTimeout(() => {
+                            if (this.guestWs && this.guestWs.readyState === WebSocket.OPEN) {
+                                this.subscribeToGuestOrder(this.guestTemporaryId);
+                            }
+                        }, 500);
+                    }
+                };
+
+                this.guestWs.onclose = (event) => {
+                    log(`🔌 Guest WebSocket disconnected, code: ${event.code}`, 'warning');
+                    this.guestWs._isConnected = false;
+                };
+
+                this.guestWs.onmessage = (event) => {
+                    try {
+                        const data = JSON.parse(event.data);
+                        log(`📨 Guest WebSocket message received: ${JSON.stringify(data)}`, 'info');
+                        this.handleMessage(data);
+                    } catch (error) {
+                        log(`❌ Error parsing guest WebSocket message: ${error.message}`, 'error');
+                    }
+                };
+                
+                this.guestWs.onerror = (error) => {
+                    log(`❌ WebSocket error: ${error}`, 'error');
+                };
+            }
+
+            subscribeToGuestOrder(temporaryId) {
+                log(`📡 subscribeToGuestOrder() called with temporaryId: ${temporaryId}`, 'info');
+                
+                if (this.guestWs && this.guestWs.readyState === WebSocket.OPEN) {
+                    log(`📡 Subscribing to guest order: ${temporaryId}`, 'success');
+                    this.sendGuest('subscribe_guest_order', { temporary_id: temporaryId });
+                } else {
+                    log(`⚠️ Cannot subscribe to guest order ${temporaryId}: WebSocket not connected`, 'error');
+                }
+            }
+
+            sendGuest(type, payload) {
+                log(`📤 sendGuest() called with type: ${type}, payload: ${JSON.stringify(payload)}`, 'info');
+                
+                if (this.guestWs && this.guestWs.readyState === WebSocket.OPEN) {
+                    this.guestWs.send(JSON.stringify({ type, payload }));
+                    log('✅ Message sent successfully', 'success');
+                } else {
+                    log('❌ WebSocket is not connected', 'error');
+                }
+            }
+
+            handleMessage(data) {
+                const { type } = data;
+                log(`📨 Handling message type: ${type}`, 'info');
+                
+                if (this.listeners.has(type)) {
+                    log(`📤 Executing ${this.listeners.get(type).size} listeners for type: ${type}`, 'success');
+                    this.listeners.get(type).forEach(callback => {
+                        try {
+                            callback(data);
+                        } catch (error) {
+                            log(`❌ Error in message handler for type ${type}: ${error.message}`, 'error');
+                        }
+                    });
+                } else {
+                    log(`⚠️ No listeners found for message type: ${type}`, 'warning');
+                }
+            }
+
+            on(eventType, callback) {
+                log(`📝 Registering listener for event type: ${eventType}`, 'info');
+                if (!this.listeners.has(eventType)) {
+                    this.listeners.set(eventType, new Set());
+                }
+                this.listeners.get(eventType).add(callback);
+            }
+
+            off(eventType, callback) {
+                if (this.listeners.has(eventType)) {
+                    this.listeners.get(eventType).delete(callback);
+                }
+            }
+
+            isGuestConnected() {
+                return this.guestWs && this.guestWs.readyState === WebSocket.OPEN;
+            }
+
+            disconnectGuest() {
+                if (this.guestWs) {
+                    this.guestWs.close();
+                    this.guestWs = null;
+                    log('🔌 Guest WebSocket disconnected', 'info');
+                }
+            }
+        }
+
+        // Global WebSocket service instance
+        const websocketService = new MockWebSocketService();
+
+        function log(msg, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const time = new Date().toLocaleTimeString();
+            logDiv.innerHTML += `<div class="${type}">[${time}] ${msg}</div>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function testWebSocketService() {
+            log('🧪 เริ่มทดสอบ WebSocket Service', 'info');
+            
+            // ทดสอบการเชื่อมต่อ
+            websocketService.connectGuest();
+            
+            // ทดสอบการ subscribe
+            setTimeout(() => {
+                if (websocketService.isGuestConnected()) {
+                    websocketService.subscribeToGuestOrder('GUEST-TEST-123');
+                }
+            }, 2000);
+        }
+
+        function testSetGuestTemporaryId() {
+            log('🧪 ทดสอบ setGuestTemporaryId', 'info');
+            
+            const tempId = document.getElementById('tempId').value;
+            websocketService.setGuestTemporaryId(tempId);
+        }
+
+        function testSubscribe() {
+            log('🧪 ทดสอบ Subscribe', 'info');
+            
+            const tempId = document.getElementById('tempId').value;
+            if (websocketService.isGuestConnected()) {
+                websocketService.subscribeToGuestOrder(tempId);
+            } else {
+                log('❌ WebSocket ไม่ได้เชื่อมต่อ', 'error');
+            }
+        }
+
+        function testWithTempId() {
+            log('🧪 ทดสอบด้วย Temporary ID', 'info');
+            
+            const tempId = document.getElementById('tempId').value;
+            
+            // Simulate GuestOrders.jsx behavior
+            log('🔍 GuestOrders component - temporary_id from URL: ' + tempId, 'info');
+            
+            if (!tempId) {
+                log('⚠️ No temporary_id provided, skipping WebSocket connection', 'warning');
+                return;
+            }
+
+            log(`🔗 Setting up WebSocket for temporary_id: ${tempId}`, 'info');
+            
+            // ปิด connection เก่า
+            websocketService.disconnectGuest();
+            
+            // ตั้งค่า temporary_id
+            websocketService.setGuestTemporaryId(tempId);
+            
+            // เพิ่ม event listener
+            websocketService.on('guest_order_status_update', (data) => {
+                log('🔄 Received guest_order_status_update: ' + JSON.stringify(data), 'success');
+            });
+        }
+
+        // เริ่มต้น
+        log('🚀 เริ่มต้นระบบทดสอบ GuestOrders.jsx Debug', 'info');
+        log('💡 1. กดปุ่ม "ทดสอบ WebSocket Service" เพื่อทดสอบการเชื่อมต่อ', 'info');
+        log('💡 2. กดปุ่ม "ทดสอบ setGuestTemporaryId" เพื่อทดสอบการตั้งค่า temporary_id', 'info');
+        log('💡 3. กดปุ่ม "ทดสอบด้วย Temporary ID" เพื่อจำลองการทำงานของ GuestOrders.jsx', 'info');
+    </script>
+</body>
+</html> 

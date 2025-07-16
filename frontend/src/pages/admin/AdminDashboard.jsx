@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { dashboardService, notificationService } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNotificationContext } from '../../layouts/AdminLayout';
@@ -173,8 +173,9 @@ const AdminDashboard = () => {
 
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'THB'
+      style: 'decimal',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2
     }).format(amount || 0);
   };
 
@@ -242,6 +243,8 @@ const AdminDashboard = () => {
     }
   };
 
+  const navigate = useNavigate();
+
   if (loading) {
     return (
       <div className="container mx-auto px-4 py-8">
@@ -272,7 +275,14 @@ const AdminDashboard = () => {
   const handleNotificationClick = (notification) => {
     markAsRead(notification.notification_id);
     if (notification.type === 'order_update') {
-      window.location.href = `/admin/orders`;
+      // ใช้ navigate และส่งค่า order_id ไปยังหน้า AdminOrders ผ่าน location.state
+      navigate('/admin/orders', {
+        state: { highlightOrderId: notification.related_order || notification.order_id },
+      });
+    } else if (notification.type === 'guest_order_update') {
+      navigate('/admin/guest-orders', {
+        state: { highlightOrderId: notification.related_order || notification.order_id },
+      });
     }
   };
 
@@ -311,7 +321,8 @@ const AdminDashboard = () => {
       </div>
 
       {/* Notification Update Badge (ยกเว้น order_update เพราะมี modal แสดงแล้ว) */}
-      {notificationUpdateBadge && notificationUpdateBadge.type !== 'order_update' && (
+      {/* ลบออกเพราะมี AdminNotificationBridge แสดงแล้ว */}
+      {/* {notificationUpdateBadge && notificationUpdateBadge.type !== 'order_update' && (
         <div className="fixed top-20 right-4 z-50 bg-primary-500 text-white px-6 py-3 rounded-lg shadow-lg flex items-center gap-3 animate-pulse">
           <span className="text-xl">{getTypeIcon(notificationUpdateBadge.type)}</span>
           <div>
@@ -325,7 +336,7 @@ const AdminDashboard = () => {
             ✕
           </button>
         </div>
-      )}
+      )} */}
 
       {/* Recent Notifications Widget */}
       {notifications.length > 0 && (
