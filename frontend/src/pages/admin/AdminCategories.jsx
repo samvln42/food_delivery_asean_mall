@@ -64,10 +64,20 @@ const AdminCategories = () => {
       console.log('📦 API response:', response.data);
       
       if (response.data.results) {
-        setCategories(response.data.results);
+        const newItems = response.data.results;
         setTotalPages(Math.ceil(response.data.count / itemsPerPage));
+        if (currentPage === 1) {
+          setCategories(newItems);
+        } else {
+          setCategories(prev => [...prev, ...newItems]);
+        }
       } else {
-        setCategories(response.data);
+        // กรณี backend ไม่ paginate
+        if (currentPage === 1) {
+          setCategories(response.data);
+        } else {
+          setCategories(prev => [...prev, ...response.data]);
+        }
       }
       
       setError(null);
@@ -333,6 +343,19 @@ const AdminCategories = () => {
           </div>
         )}
       </div>
+
+      {/* Load more button */}
+      {currentPage < totalPages && (
+        <div className="text-center mt-6">
+          <button
+            onClick={() => setCurrentPage(prev => prev + 1)}
+            disabled={loading || searching}
+            className="px-6 py-2 rounded-lg bg-primary-600 text-white hover:bg-primary-700 disabled:opacity-60"
+          >
+            {searching ? 'กำลังค้นหา...' : (loading ? 'กำลังโหลด...' : 'โหลดเพิ่ม')}
+          </button>
+        </div>
+      )}
 
       {/* Category Modal */}
       {showModal && (

@@ -150,7 +150,7 @@ const guestCartReducer = (state, action) => {
       return calculateTotals(loadedState);
     
     case actionTypes.UPDATE_DELIVERY_SETTINGS:
-      console.log('GuestCartContext - UPDATE_DELIVERY_SETTINGS payload:', action.payload);
+      // console.log('GuestCartContext - UPDATE_DELIVERY_SETTINGS payload:', action.payload);
       const newStateWithUpdatedSettings = { ...state, deliverySettings: action.payload };
       return calculateTotals(newStateWithUpdatedSettings);
     
@@ -164,20 +164,20 @@ const calculateMultiRestaurantDeliveryFee = (restaurants, settings = null) => {
   const restaurantCount = Object.keys(restaurants).length;
   if (restaurantCount === 0) return 0;
   
-  console.log('calculateMultiRestaurantDeliveryFee - settings:', settings);
-  console.log('calculateMultiRestaurantDeliveryFee - settings?.multi_restaurant_base_fee:', settings?.multi_restaurant_base_fee);
-  console.log('calculateMultiRestaurantDeliveryFee - settings?.multi_restaurant_additional_fee:', settings?.multi_restaurant_additional_fee);
+  // console.log('calculateMultiRestaurantDeliveryFee - settings:', settings);
+  // console.log('calculateMultiRestaurantDeliveryFee - settings?.multi_restaurant_base_fee:', settings?.multi_restaurant_base_fee);
+  // console.log('calculateMultiRestaurantDeliveryFee - settings?.multi_restaurant_additional_fee:', settings?.multi_restaurant_additional_fee);
   
   // ใช้ค่าจาก settings ถ้ามี และแปลงเป็น float ให้แน่ใจ
   const baseFee = parseFloat(settings?.multi_restaurant_base_fee) || 0;
   const additionalFee = parseFloat(settings?.multi_restaurant_additional_fee) || 0;
 
-  console.log('calculateMultiRestaurantDeliveryFee - restaurantCount:', restaurantCount);
-  console.log('calculateMultiRestaurantDeliveryFee - baseFee:', baseFee, 'type:', typeof baseFee);
-  console.log('calculateMultiRestaurantDeliveryFee - additionalFee:', additionalFee, 'type:', typeof additionalFee);
+  // console.log('calculateMultiRestaurantDeliveryFee - restaurantCount:', restaurantCount);
+  // console.log('calculateMultiRestaurantDeliveryFee - baseFee:', baseFee, 'type:', typeof baseFee);
+  // console.log('calculateMultiRestaurantDeliveryFee - additionalFee:', additionalFee, 'type:', typeof additionalFee);
 
   const result = restaurantCount === 1 ? baseFee : baseFee + ((restaurantCount - 1) * additionalFee);
-  console.log('calculateMultiRestaurantDeliveryFee - result:', result);
+  // console.log('calculateMultiRestaurantDeliveryFee - result:', result);
   
   return result;
 };
@@ -234,14 +234,14 @@ export const GuestCartProvider = ({ children }) => {
   // ฟังก์ชันสำหรับรีเฟรชการตั้งค่าค่าจัดส่ง (เรียกใช้จากภายนอก)
   const refreshDeliverySettings = useCallback(async () => {
     try {
-      console.log('GuestCartContext - รีเฟรชการตั้งค่าค่าจัดส่ง...');
+      // console.log('GuestCartContext - รีเฟรชการตั้งค่าค่าจัดส่ง...');
       const response = await appSettingsService.getPublic();
       
       if (response?.data) {
         const data = response.data;
-        console.log('GuestCartContext - ข้อมูลใหม่ที่ได้รับ:', data);
+        // console.log('GuestCartContext - ข้อมูลใหม่ที่ได้รับ:', data);
         dispatch({ type: actionTypes.UPDATE_DELIVERY_SETTINGS, payload: data });
-        console.log('GuestCartContext - การตั้งค่าค่าจัดส่งได้รับการอัปเดทแล้ว');
+        // console.log('GuestCartContext - การตั้งค่าค่าจัดส่งได้รับการอัปเดทแล้ว');
       }
     } catch (error) {
       console.error('GuestCartContext - Error refreshing delivery settings:', error);
@@ -252,22 +252,22 @@ export const GuestCartProvider = ({ children }) => {
   useEffect(() => {
     const fetchDeliverySettings = async () => {
       try {
-        console.log('GuestCartContext - เริ่มดึงข้อมูลการตั้งค่าค่าจัดส่ง...');
+        // console.log('GuestCartContext - เริ่มดึงข้อมูลการตั้งค่าค่าจัดส่ง...');
         const response = await appSettingsService.getPublic();
-        console.log('GuestCartContext - Response:', response);
+        // console.log('GuestCartContext - Response:', response);
         
-        if (response?.data) {
-          const data = response.data;
-          console.log('GuestCartContext - ข้อมูลที่ได้รับจาก API:', data);
-          console.log('GuestCartContext - multi_restaurant_base_fee:', data.multi_restaurant_base_fee);
-          console.log('GuestCartContext - multi_restaurant_additional_fee:', data.multi_restaurant_additional_fee);
-          console.log('GuestCartContext - ประเภทข้อมูล base_fee:', typeof data.multi_restaurant_base_fee);
-          console.log('GuestCartContext - ประเภทข้อมูล additional_fee:', typeof data.multi_restaurant_additional_fee);
+        // if (response?.data) {
+        //   const data = response.data;
+        //   console.log('GuestCartContext - ข้อมูลที่ได้รับจาก API:', data);
+        //   console.log('GuestCartContext - multi_restaurant_base_fee:', data.multi_restaurant_base_fee);
+        //   console.log('GuestCartContext - multi_restaurant_additional_fee:', data.multi_restaurant_additional_fee);
+        //   console.log('GuestCartContext - ประเภทข้อมูล base_fee:', typeof data.multi_restaurant_base_fee);
+        //   console.log('GuestCartContext - ประเภทข้อมูล additional_fee:', typeof data.multi_restaurant_additional_fee);
           
-          dispatch({ type: actionTypes.UPDATE_DELIVERY_SETTINGS, payload: data });
-        } else {
-          console.error('GuestCartContext - ไม่มีข้อมูลใน response');
-        }
+        //   dispatch({ type: actionTypes.UPDATE_DELIVERY_SETTINGS, payload: data });
+        // } else {
+        //   console.error('GuestCartContext - ไม่มีข้อมูลใน response');
+        // }
       } catch (error) {
         console.error('GuestCartContext - Error fetching delivery settings:', error);
       }
@@ -292,7 +292,7 @@ export const GuestCartProvider = ({ children }) => {
     if (savedCart) {
       try {
         const cartData = JSON.parse(savedCart);
-        console.log('GuestCartContext - Loading from localStorage:', cartData);
+        // console.log('GuestCartContext - Loading from localStorage:', cartData);
         dispatch({ type: actionTypes.LOAD_CART, payload: cartData });
       } catch (error) {
         console.error('Error loading guest cart from localStorage:', error);
@@ -304,7 +304,7 @@ export const GuestCartProvider = ({ children }) => {
   useEffect(() => {
     try {
       localStorage.setItem('guest_cart', JSON.stringify(state));
-      console.log('GuestCartContext - Saved to localStorage:', state);
+      // console.log('GuestCartContext - Saved to localStorage:', state);
     } catch (error) {
       console.error('GuestCartContext - Error saving to localStorage:', error);
     }
@@ -312,14 +312,14 @@ export const GuestCartProvider = ({ children }) => {
 
   // Functions
   const addItem = (product, restaurant) => {
-    console.log('GuestCartContext - Adding item:', { product, restaurant });
-    console.log('GuestCartContext - Restaurant ID from restaurant object:', restaurant.id || restaurant.restaurant_id);
+    // console.log('GuestCartContext - Adding item:', { product, restaurant });
+    // console.log('GuestCartContext - Restaurant ID from restaurant object:', restaurant.id || restaurant.restaurant_id);
     try {
       dispatch({
         type: actionTypes.ADD_ITEM,
         payload: { product, restaurant }
       });
-      console.log('GuestCartContext - Item added successfully');
+      // console.log('GuestCartContext - Item added successfully');
       return { success: true };
     } catch (error) {
       console.error('GuestCartContext - Error adding item:', error);
@@ -345,7 +345,7 @@ export const GuestCartProvider = ({ children }) => {
     dispatch({ type: actionTypes.CLEAR_CART });
     try {
       localStorage.removeItem('guest_cart');
-      console.log('GuestCartContext - Cleared localStorage');
+      // console.log('GuestCartContext - Cleared localStorage');
     } catch (error) {
       console.error('GuestCartContext - Error clearing localStorage:', error);
     }

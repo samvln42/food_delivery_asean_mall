@@ -5,6 +5,7 @@ import { useCart } from "../../contexts/CartContext";
 import { useGuestCart } from "../../contexts/GuestCartContext";
 import { useAuth } from "../../contexts/AuthContext";
 import { useLanguage } from "../../contexts/LanguageContext";
+import { formatPrice } from "../../utils/formatPrice";
 
 const Search = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -316,7 +317,7 @@ const Search = () => {
                       </p>
                       <div className="flex items-center justify-between mb-3">
                         <span className="text-primary-500 font-bold text-lg">
-                          {Number(product.price).toFixed(2)}
+                          {formatPrice(product.price)}
                         </span>
                         <span className="text-xs text-secondary-500">
                           {product.restaurant_name}

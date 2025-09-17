@@ -9,6 +9,22 @@ from .models import (
 )
 
 
+def get_absolute_image_url(image_url, request=None):
+    """Helper function to get absolute image URL"""
+    if image_url and not image_url.startswith('http'):
+        if request:
+            return request.build_absolute_uri(image_url)
+        else:
+            # Fallback: use settings or environment variable
+            from django.conf import settings
+            base_url = getattr(settings, 'BASE_URL', None)
+            if not base_url:
+                import os
+                base_url = os.environ.get('BASE_URL', 'https://matjyp.com')
+            return f"{base_url}{image_url}"
+    return image_url
+
+
 # User serializer moved to accounts app
 
 
@@ -23,16 +39,7 @@ class CategorySerializer(serializers.ModelSerializer):
     def get_image_display_url(self, obj):
         """Get the category image URL"""
         image_url = obj.get_image_url()
-        if image_url and not image_url.startswith('http'):
-            # เพิ่ม domain สำหรับ relative URL
-            request = self.context.get('request')
-            if request:
-                return request.build_absolute_uri(image_url)
-            else:
-                # Fallback สำหรับกรณีไม่มี request context
-                from django.conf import settings
-                return f"http://127.0.0.1:8000{image_url}"
-        return image_url
+        return get_absolute_image_url(image_url, self.context.get('request'))
 
 
 class ProductSerializer(serializers.ModelSerializer):
@@ -52,16 +59,7 @@ class ProductSerializer(serializers.ModelSerializer):
     def get_image_display_url(self, obj):
         """Get the best available image URL"""
         image_url = obj.get_image_url()
-        if image_url and not image_url.startswith('http'):
-            # เพิ่ม domain สำหรับ relative URL
-            request = self.context.get('request')
-            if request:
-                return request.build_absolute_uri(image_url)
-            else:
-                # Fallback สำหรับกรณีไม่มี request context
-                from django.conf import settings
-                return f"http://127.0.0.1:8000{image_url}"
-        return image_url
+        return get_absolute_image_url(image_url, self.context.get('request'))
     
     def create(self, validated_data):
         """Custom create method to handle image upload"""
@@ -89,16 +87,7 @@ class RestaurantSerializer(serializers.ModelSerializer):
     def get_image_display_url(self, obj):
         """Get the best available image URL"""
         image_url = obj.get_image_url()
-        if image_url and not image_url.startswith('http'):
-            # เพิ่ม domain สำหรับ relative URL
-            request = self.context.get('request')
-            if request:
-                return request.build_absolute_uri(image_url)
-            else:
-                # Fallback สำหรับกรณีไม่มี request context
-                from django.conf import settings
-                return f"http://127.0.0.1:8000{image_url}"
-        return image_url
+        return get_absolute_image_url(image_url, self.context.get('request'))
     
     def update(self, instance, validated_data):
         """อัปเดทร้านและซิงก์ User role อัตโนมัติ"""
@@ -124,15 +113,31 @@ class RestaurantSerializer(serializers.ModelSerializer):
 
 class OrderDetailSerializer(serializers.ModelSerializer):
     product_name = serializers.CharField(source='product.product_name', read_only=True)
-    product_image_url = serializers.CharField(source='product.image_url', read_only=True)
+    product_image_url = serializers.SerializerMethodField()
+    image_display_url = serializers.SerializerMethodField()
+    image_url = serializers.SerializerMethodField()
     restaurant_id = serializers.IntegerField(source='product.restaurant.restaurant_id', read_only=True)
     restaurant_name = serializers.CharField(source='product.restaurant.restaurant_name', read_only=True)
     
     class Meta:
         model = OrderDetail
         fields = ['order_detail_id', 'order', 'product', 'product_name', 'product_image_url',
-                 'restaurant_id', 'restaurant_name', 'quantity', 'price_at_order', 'subtotal']
+                 'image_display_url', 'image_url', 'restaurant_id', 'restaurant_name', 
+                 'quantity', 'price_at_order', 'subtotal']
         read_only_fields = ['order_detail_id', 'subtotal']
+    
+    def get_product_image_url(self, obj):
+        """Get product image URL using the model's method"""
+        image_url = obj.product.get_image_url()
+        return get_absolute_image_url(image_url, self.context.get('request'))
+    
+    def get_image_display_url(self, obj):
+        """Alias for compatibility"""
+        return self.get_product_image_url(obj)
+    
+    def get_image_url(self, obj):
+        """Alias for compatibility"""
+        return self.get_product_image_url(obj)
 
 
 class PaymentSerializer(serializers.ModelSerializer):
@@ -160,13 +165,14 @@ class OrderSerializer(serializers.ModelSerializer):
     order_details_by_restaurant = serializers.SerializerMethodField()
     payment = PaymentSerializer(read_only=True)
     customer_name = serializers.CharField(source='user.username', read_only=True)
+    customer_phone = serializers.CharField(source='user.phone_number', read_only=True)
     restaurant_name = serializers.CharField(source='restaurant.restaurant_name', read_only=True)
     restaurant_count = serializers.SerializerMethodField()
     is_multi_restaurant = serializers.SerializerMethodField()
     
     class Meta:
         model = Order
-        fields = ['order_id', 'user', 'customer_name', 'restaurant', 
+        fields = ['order_id', 'user', 'customer_name', 'customer_phone', 'restaurant', 
                  'restaurant_name', 'order_date', 'total_amount', 
                  'delivery_address', 'delivery_latitude', 'delivery_longitude', 
                  'current_status', 'delivery_fee', 'estimated_delivery_time', 
@@ -404,7 +410,7 @@ class NotificationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Notification
         fields = ['notification_id', 'user', 'title', 'message', 'type', 
-                 'related_order', 'is_read', 'created_at', 'read_at']
+                 'related_order', 'related_guest_order', 'is_read', 'created_at', 'read_at']
         read_only_fields = ['notification_id', 'created_at']
 
 
@@ -548,16 +554,31 @@ class TranslationSerializer(serializers.ModelSerializer):
 # Guest Order
 class GuestOrderDetailSerializer(serializers.ModelSerializer):
     product_name = serializers.CharField(source='product.product_name', read_only=True)
-    product_image_url = serializers.CharField(source='product.image_url', read_only=True)
+    product_image_url = serializers.SerializerMethodField()
+    image_display_url = serializers.SerializerMethodField()
+    image_url = serializers.SerializerMethodField()
     restaurant_id = serializers.IntegerField(source='restaurant.restaurant_id', read_only=True)
     restaurant_name = serializers.CharField(source='restaurant.restaurant_name', read_only=True)
 
     class Meta:
         model = GuestOrderDetail
         fields = ['guest_order_detail_id', 'guest_order', 'product', 'product_name', 
-                 'product_image_url', 'restaurant_id', 'restaurant_name', 'quantity', 
-                 'price_at_order', 'subtotal']
+                 'product_image_url', 'image_display_url', 'image_url', 'restaurant_id', 
+                 'restaurant_name', 'quantity', 'price_at_order', 'subtotal']
         read_only_fields = ['guest_order_detail_id', 'subtotal']
+    
+    def get_product_image_url(self, obj):
+        """Get product image URL using the model's method"""
+        image_url = obj.product.get_image_url()
+        return get_absolute_image_url(image_url, self.context.get('request'))
+    
+    def get_image_display_url(self, obj):
+        """Alias for compatibility"""
+        return self.get_product_image_url(obj)
+    
+    def get_image_url(self, obj):
+        """Alias for compatibility"""
+        return self.get_product_image_url(obj)
 
 
 class GuestOrderSerializer(serializers.ModelSerializer):

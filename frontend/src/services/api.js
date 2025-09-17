@@ -17,16 +17,16 @@ api.interceptors.request.use(
     }
     
     // Debug logging for specific API calls
-    if (config.url.includes('/notifications/') || config.url.includes('/app-settings/')) {
-      console.log('🔍 API Request:', {
-        method: config.method.toUpperCase(),
-        url: config.url,
-        baseURL: config.baseURL,
-        fullURL: `${config.baseURL}${config.url}`,
-        hasToken: !!token,
-        token: token ? `${token.substring(0, 10)}...` : null
-      });
-    }
+    // if (config.url.includes('/notifications/') || config.url.includes('/app-settings/')) {
+      // console.log('🔍 API Request:', {
+      //   method: config.method.toUpperCase(),
+      //   url: config.url,
+      //   baseURL: config.baseURL,
+      //   fullURL: `${config.baseURL}${config.url}`,
+      //   hasToken: !!token,
+      //   token: token ? `${token.substring(0, 10)}...` : null
+      // });
+    // }
     
     return config;
   },
@@ -39,14 +39,14 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => {
     // Debug logging for notifications API responses
-    if (response.config.url.includes('/notifications/') || response.config.url.includes('/app-settings/')) {
-      console.log('✅ API Response:', {
-        method: response.config.method.toUpperCase(),
-        url: response.config.url,
-        status: response.status,
-        data: response.data
-      });
-    }
+    // if (response.config.url.includes('/notifications/') || response.config.url.includes('/app-settings/')) {
+    //   console.log('✅ API Response:', {
+    //     method: response.config.method.toUpperCase(),
+    //     url: response.config.url,
+    //     status: response.status,
+    //     data: response.data
+    //   });
+    // }
     return response;
   },
   (error) => {
@@ -90,6 +90,37 @@ api.interceptors.response.use(
         // Store current path for redirect after login
         localStorage.setItem('redirectAfterLogin', currentPath);
         window.location.href = '/login';
+      }
+    }
+    
+    // Handle 403 Forbidden errors
+    if (error.response?.status === 403) {
+      const errorData = error.response?.data;
+      
+      // ถ้าเป็น email verification error
+      if (errorData?.error_type === 'email_not_verified') {
+        console.warn('🚫 Email not verified:', errorData);
+        // Clear invalid session
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        
+        // Store email for verification page
+        if (errorData.user_email) {
+          localStorage.setItem('pendingVerificationEmail', errorData.user_email);
+        }
+        
+        // Redirect to email verification page
+        const currentPath = window.location.pathname;
+        if (!['/verify-email', '/login', '/register'].includes(currentPath)) {
+          window.location.href = '/verify-email';
+        }
+      } else {
+        // Other 403 errors - unauthorized access
+        console.warn('🚫 Access denied:', errorData);
+        const currentPath = window.location.pathname;
+        if (!['/unauthorized', '/login'].includes(currentPath)) {
+          window.location.href = '/unauthorized';
+        }
       }
     }
     
@@ -208,6 +239,13 @@ export const productService = {
     }
     return api.patch(`/products/${id}/`, data);
   },
+  uploadImage: (id, formData) => {
+    return api.post(`/products/${id}/upload_image/`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+  },
   delete: (id) => api.delete(`/products/${id}/`),
 };
 
@@ -281,6 +319,10 @@ export const notificationService = {
   getAll: (params = {}) => api.get('/notifications/', { params }),
   markAsRead: (id) => api.post(`/notifications/${id}/mark-read/`),
   markAllAsRead: () => api.post('/notifications/mark-all-read/'),
+  markOrderAsRead: (orderId, orderType) => api.post('/notifications/mark-order-read/', { 
+    order_id: orderId, 
+    order_type: orderType 
+  }),
   getUnreadCount: () => {
     console.log('🔍 API: Calling getUnreadCount endpoint...');
     return api.get('/notifications/unread-count/');

@@ -2,7 +2,35 @@ import React, { useState, useEffect } from "react";
 import api from "../../services/api";
 import { useAuth } from "../../contexts/AuthContext";
 import { useLanguage } from "../../contexts/LanguageContext";
+import { formatPrice } from "../../utils/formatPrice";
 import websocketService from "../../services/websocket";
+
+// Reusable Toast component
+const Toast = ({ icon = '🔔', title, message, color = 'emerald', onClose, position = 'top-right', offset = 0 }) => {
+  const colorMap = {
+    emerald: { bg: 'bg-emerald-50', border: 'border-emerald-200', title: 'text-emerald-800', text: 'text-emerald-700', ring: 'ring-emerald-200' },
+    blue: { bg: 'bg-blue-50', border: 'border-blue-200', title: 'text-blue-800', text: 'text-blue-700', ring: 'ring-blue-200' },
+    yellow: { bg: 'bg-yellow-50', border: 'border-yellow-200', title: 'text-yellow-800', text: 'text-yellow-700', ring: 'ring-yellow-200' },
+    red: { bg: 'bg-red-50', border: 'border-red-200', title: 'text-red-800', text: 'text-red-700', ring: 'ring-red-200' }
+  }[color] || { bg: 'bg-secondary-50', border: 'border-secondary-200', title: 'text-secondary-800', text: 'text-secondary-700', ring: 'ring-secondary-200' };
+
+  const posClass = position === 'top-left' ? 'left-4' : 'right-4';
+  const topPx = 16 + offset * 72; // 16px base + 72px per stacked toast
+
+  return (
+    <div className={`fixed z-50 max-w-md w-[92vw] sm:w-auto rounded-xl border shadow-lg ${colorMap.bg} ${colorMap.border} animate-in slide-in-from-top-2 ${posClass}`}
+         style={{ top: `${topPx}px` }}>
+      <div className="px-5 py-4 flex items-start gap-3">
+        <div className={`flex-shrink-0 w-9 h-9 rounded-full bg-white ${colorMap.ring} ring-4 flex items-center justify-center text-base`}>{icon}</div>
+        <div className="flex-1 min-w-0">
+          <p className={`font-semibold ${colorMap.title} truncate`}>{title}</p>
+          <p className={`text-sm ${colorMap.text} mt-0.5 break-words`}>{message}</p>
+        </div>
+        <button onClick={onClose} className="ml-2 text-secondary-400 hover:text-secondary-600">✕</button>
+      </div>
+    </div>
+  );
+};
 
 // Order Status Tracker Component
 const OrderStatusTracker = ({ currentStatus, orderDate, translate }) => {
@@ -542,30 +570,21 @@ const Orders = () => {
 
   return (
     <div className="container mx-auto px-4 py-8">
+      
       {/* Status Update Notification */}
       {statusUpdateNotification && (
-        <div className="fixed top-4 right-4 z-50 bg-green-500 text-white px-6 py-4 rounded-lg shadow-lg animate-bounce">
-          <div className="flex items-center">
-            <span className="text-xl mr-3">🔔</span>
-            <div>
-              <p className="font-semibold">
-                {translate("order.status_updated")}
-              </p>
-              <p className="text-sm">
-                {translate("order.status_change_notification", {
-                  orderId: statusUpdateNotification.orderId,
-                  status: translate(statusUpdateNotification.statusLabel),
-                })}
-              </p>
-            </div>
-            <button
-              onClick={() => setStatusUpdateNotification(null)}
-              className="ml-4 text-white hover:text-gray-200"
-            >
-              ✕
-            </button>
-          </div>
-        </div>
+        <Toast
+          icon="🔔"
+          color="emerald"
+          title={translate('order.status_updated')}
+          message={translate('order.status_change_notification', {
+            orderId: statusUpdateNotification.orderId,
+            status: translate(statusUpdateNotification.statusLabel),
+          })}
+          onClose={() => setStatusUpdateNotification(null)}
+          position="top-right"
+          offset={0}
+        />
       )}
 
       {/* Header */}
@@ -588,11 +607,11 @@ const Orders = () => {
               <div className="flex items-center space-x-2">
                 {websocketService.ws && websocketService.ws.readyState === WebSocket.OPEN ? (
                   <>
-                    {console.log("isWebSocketConnected")}
-                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                    {/* {console.log("isWebSocketConnected")} */}
+                    {/* <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
                     <span className="text-xs text-green-600 font-medium">
                       WebSocket Connected
-                    </span>
+                    </span> */}
                   </>
                 ) : pollingActive ? (
                   <>
@@ -732,7 +751,7 @@ const Orders = () => {
                       {statusInfo.text}
                     </span>
                     <p className="text-lg font-semibold text-red-600 mt-1">
-                      {parseFloat(order.total_amount).toFixed(2)}
+                      {formatPrice(order.total_amount)}
                     </p>
                   </div>
                 </div>
@@ -776,7 +795,7 @@ const Orders = () => {
                             </div>
                             <div className="text-right">
                               <p className="text-sm font-semibold text-primary-600">
-                                {restaurantGroup.subtotal?.toFixed(2)}
+                                {formatPrice(restaurantGroup.subtotal)}
                               </p>
                               <p className="text-xs text-secondary-500">
                                 {restaurantGroup.items?.length || 0}{" "}
@@ -795,30 +814,35 @@ const Orders = () => {
                                 >
                                   <div className="flex items-center space-x-3">
                                     <div className="w-10 h-10 bg-secondary-100 rounded-lg flex items-center justify-center text-sm">
-                                      {item.product_image_url ? (
+                                      {item.image_display_url || item.image_url || item.product_image_url ? (
                                         <img
-                                          src={item.product_image_url}
+                                          src={item.image_display_url || item.image_url || item.product_image_url}
                                           alt={item.product_name}
                                           className="w-full h-full object-cover rounded-lg"
+                                          onError={(e) => {
+                                            e.target.style.display = 'none';
+                                            e.target.nextSibling.style.display = 'flex';
+                                          }}
                                         />
-                                      ) : (
-                                        "🍽️"
-                                      )}
+                                      ) : null}
+                                      <div className={`w-full h-full flex items-center justify-center text-sm ${item.image_display_url || item.image_url || item.product_image_url ? 'hidden' : ''}`}>
+                                        🍽️
+                                      </div>
                                     </div>
                                     <div>
                                       <p className="font-medium text-secondary-800">
                                         {item.product_name}
                                       </p>
                                       <p className="text-sm text-secondary-500">
-                                        {parseFloat(
+                                        {formatPrice(
                                           item.price_at_order
-                                        ).toFixed(2)}{" "}
+                                        )}{" "}
                                         × {item.quantity}
                                       </p>
                                     </div>
                                   </div>
                                   <p className="font-semibold text-secondary-700">
-                                    {parseFloat(item.subtotal).toFixed(2)}
+                                    {formatPrice(item.subtotal)}
                                   </p>
                                 </div>
                               )
@@ -837,15 +861,20 @@ const Orders = () => {
                         >
                           <div className="flex items-center space-x-3">
                             <div className="w-12 h-12 bg-secondary-100 rounded-lg flex items-center justify-center">
-                              {item.product_image_url ? (
+                              {item.image_display_url || item.image_url || item.product_image_url ? (
                                 <img
-                                  src={item.product_image_url}
+                                  src={item.image_display_url || item.image_url || item.product_image_url}
                                   alt={item.product_name}
                                   className="w-full h-full object-cover rounded-lg"
+                                  onError={(e) => {
+                                    e.target.style.display = 'none';
+                                    e.target.nextSibling.style.display = 'flex';
+                                  }}
                                 />
-                              ) : (
+                              ) : null}
+                              <div className={`w-full h-full flex items-center justify-center ${item.image_display_url || item.image_url || item.product_image_url ? 'hidden' : ''}`}>
                                 <span className="text-lg">🍽️</span>
-                              )}
+                              </div>
                             </div>
                             <div>
                               <p className="font-medium text-secondary-800">
@@ -853,9 +882,9 @@ const Orders = () => {
                               </p>
                               <div className="flex items-center space-x-2 text-sm text-secondary-500">
                                 <span>
-                                  {parseFloat(
+                                  {formatPrice(
                                     item.price_at_order || item.price
-                                  ).toFixed(2)}
+                                  )}
                                 </span>
                                 <span>×</span>
                                 <span>{item.quantity}</span>
@@ -869,11 +898,11 @@ const Orders = () => {
                             </div>
                           </div>
                           <p className="font-semibold text-secondary-700">
-                            {parseFloat(
+                            {formatPrice(
                               item.subtotal ||
                                 (item.price_at_order || item.price) *
                                   item.quantity
-                            ).toFixed(2)}
+                            )}
                           </p>
                         </div>
                       ))}
@@ -889,7 +918,7 @@ const Orders = () => {
                         {translate("order.subtotal")}:
                       </span>
                       <span className="text-secondary-800">
-                        {subtotal.toFixed(2)}
+                        {formatPrice(subtotal)}
                       </span>
                     </div>
                     <div className="flex justify-between">
@@ -897,7 +926,7 @@ const Orders = () => {
                         {translate("order.delivery_fee")}:
                       </span>
                       <span className="text-secondary-800">
-                        {parseFloat(order.delivery_fee || 0).toFixed(2)}
+                        {formatPrice(order.delivery_fee || 0)}
                       </span>
                     </div>
                     {isMultiRestaurant && (
@@ -913,7 +942,7 @@ const Orders = () => {
                         {translate("cart.total")}:
                       </span>
                       <span className="text-red-600">
-                        {parseFloat(order.total_amount).toFixed(2)}
+                        {formatPrice(order.total_amount)}
                       </span>
                     </div>
                   </div>

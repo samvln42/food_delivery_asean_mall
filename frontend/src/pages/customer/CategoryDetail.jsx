@@ -5,6 +5,11 @@ import { useCart } from '../../contexts/CartContext';
 import { useGuestCart } from '../../contexts/GuestCartContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useLanguage } from '../../contexts/LanguageContext';
+import { formatPrice } from '../../utils/formatPrice';
+import {
+  HomeIcon,
+  ShoppingCartIcon,
+} from "@heroicons/react/24/outline";
 
 const CategoryDetail = () => {
   const { translate } = useLanguage();
@@ -131,7 +136,7 @@ const CategoryDetail = () => {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="container mx-auto px-4 py-4 sm:py-8">
       {/* Breadcrumb */}
       <nav className="text-sm mb-6">
         <Link to="/" className="text-primary-500 hover:text-primary-600">{translate('common.home')}</Link>
@@ -144,7 +149,7 @@ const CategoryDetail = () => {
       {/* Category Header */}
       {category && (
         <div className="mb-8">
-          <div className="relative h-48 bg-gradient-to-br from-primary-100 to-primary-200 rounded-xl overflow-hidden mb-4">
+          <div className="relative h-40 sm:h-48 md:h-56 bg-gradient-to-br from-primary-100 to-primary-200 rounded-xl overflow-hidden mb-4">
             {category.image_display_url ? (
               <img
                 src={category.image_display_url}
@@ -158,11 +163,11 @@ const CategoryDetail = () => {
             )}
             <div className="absolute inset-0 bg-black bg-opacity-30"></div>
             <div className="absolute bottom-6 left-6 right-6">
-              <h1 className="text-3xl font-bold text-white drop-shadow-lg mb-2">
+              <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white drop-shadow-lg mb-2">
                 {category.category_name}
               </h1>
               {category.description && (
-                <p className="text-white text-lg drop-shadow-lg">
+                <p className="text-white text-base sm:text-lg drop-shadow-lg">
                   {category.description}
                 </p>
               )}
@@ -173,19 +178,19 @@ const CategoryDetail = () => {
 
       {/* Products Grid */}
       <div className="mb-6">
-        <h2 className="text-2xl font-bold text-secondary-800 mb-4">
+        <h2 className="text-xl sm:text-2xl font-bold text-secondary-800 mb-4">
           {translate('common.menu_in_this_category')} ({products.length} {translate('order.items_count')})
         </h2>
       </div>
 
       {products.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 gap-2 sm:gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {products.map((product) => (
             <div
               key={product.product_id}
-              className="bg-white rounded-xl shadow-md hover:shadow-lg transition-all duration-300 overflow-hidden"
+              className="bg-white rounded-xl shadow-md hover:shadow-lg transition-all duration-300 overflow-hidden flex sm:block p-1 sm:p-0"
             >
-              <div className="relative h-48 bg-gray-200">
+              <div className="relative h-20 w-20 sm:h-40 sm:w-full md:h-48 bg-gray-200 flex-shrink-0 rounded-lg sm:rounded-none">
                 {(product.image_display_url || product.image_url) ? (
                   <img
                     src={product.image_display_url || product.image_url}
@@ -211,46 +216,76 @@ const CategoryDetail = () => {
                   </div>
                 )}
               </div>
-              <div className="p-4">
-                <h3 className="font-semibold text-secondary-800 mb-2">
-                  {product.product_name}
-                </h3>
-                <p className="text-secondary-600 text-sm mb-3 line-clamp-2">
+              <div className="p-2 sm:p-4 flex-1 flex flex-col sm:block">
+                <div className="flex justify-between items-center mb-2 sm:mb-2">
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-secondary-800 text-sm sm:text-base leading-tight">
+                      {product.product_name}
+                    </h3>
+                    <span className="text-primary-500 font-bold text-sm sm:text-lg">
+                      {formatPrice(product.price)}
+                    </span>
+                  </div>
+                  <div className="flex flex-col gap-1 ml-2 sm:hidden">
+                    {/* ปุ่มดูร้านนี้ - ไอคอนเฉพาะมือถือ */}
+                    <Link
+                      to={`/restaurants/${product.restaurant_id || product.restaurant}`}
+                      className="py-1 px-6 bg-secondary-100 text-secondary-700 text-center rounded-lg font-medium hover:bg-secondary-200 transition-colors"
+                    >
+                      <HomeIcon className="w-3 h-3" />
+                    </Link>
+                    
+                    {/* ปุ่มเพิ่มลงตะกร้า - ไอคอนเฉพาะมือถือ */}
+                    <button
+                      onClick={() => handleAddToCart(product)}
+                      className={`py-1 px-6 rounded-lg font-semibold transition-colors ${
+                        (product.restaurant_status && product.restaurant_status !== 'open') || product.is_available === false
+                          ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                          : 'bg-primary-500 text-white hover:bg-primary-600'
+                      }`}
+                      disabled={(product.restaurant_status && product.restaurant_status !== 'open') || product.is_available === false}
+                    >
+                      <ShoppingCartIcon className="w-3 h-3" />
+                    </button>
+                  </div>
+                </div>
+                <p className="hidden sm:block text-secondary-600 text-xs sm:text-sm mb-2 sm:mb-3 line-clamp-2">
                   {product.description}
                 </p>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-primary-500 font-bold text-lg">
-                    {Number(product.price).toFixed(2)}
-                  </span>
+                <div className="hidden sm:flex items-center justify-between mb-2 sm:mb-2">
                   <span className="text-xs text-secondary-500">
                     {product.restaurant_name}
                   </span>
                 </div>
                 
-                {/* ปุ่มดูร้านนี้ */}
-                <Link
-                  to={`/restaurants/${product.restaurant_id || product.restaurant}`}
-                  className="block w-full mb-2 py-2 px-4 bg-secondary-100 text-secondary-700 text-center rounded-lg font-medium hover:bg-secondary-200 transition-colors text-sm"
-                >
-                  🏪 {translate('common.view_this_restaurant')}
-                </Link>
-                
-                <button
-                  onClick={() => handleAddToCart(product)}
-                  className={`w-full py-2 px-4 rounded-lg font-semibold transition-colors ${
-                    (product.restaurant_status && product.restaurant_status !== 'open') || product.is_available === false
-                      ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                      : 'bg-primary-500 text-white hover:bg-primary-600'
-                  }`}
-                  disabled={(product.restaurant_status && product.restaurant_status !== 'open') || product.is_available === false}
-                >
-                  {(product.restaurant_status && product.restaurant_status !== 'open')
-                    ? translate('common.closed')
-                    : product.is_available === false 
-                    ? translate('common.out_of_stock') 
-                    : translate('cart.add')
-                  }
-                </button>
+                {/* ปุ่มดูร้านนี้ - ข้อความเต็มสำหรับหน้าจอใหญ่ */}
+                <div className="hidden sm:flex flex-row gap-2 justify-center">
+                  {/* ปุ่มดูร้านนี้ - ข้อความเต็มสำหรับหน้าจอใหญ่ */}
+                  <Link
+                    to={`/restaurants/${product.restaurant_id || product.restaurant}`}
+                    className="py-2 px-6 bg-secondary-100 text-secondary-700 text-center rounded-lg font-medium hover:bg-secondary-200 transition-colors text-sm"
+                  >
+                    {translate('common.view_this_restaurant')}
+                  </Link>
+                  
+                  {/* ปุ่มเพิ่มลงตะกร้า - ข้อความเต็มสำหรับหน้าจอใหญ่ */}
+                  <button
+                    onClick={() => handleAddToCart(product)}
+                    className={`py-2 px-8 rounded-lg font-semibold transition-colors ${
+                      (product.restaurant_status && product.restaurant_status !== 'open') || product.is_available === false
+                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                        : 'bg-primary-500 text-white hover:bg-primary-600'
+                    }`}
+                    disabled={(product.restaurant_status && product.restaurant_status !== 'open') || product.is_available === false}
+                  >
+                    {(product.restaurant_status && product.restaurant_status !== 'open')
+                      ? translate('common.closed')
+                      : product.is_available === false 
+                      ? translate('common.out_of_stock') 
+                      : translate('cart.add')
+                    }
+                  </button>
+                </div>
               </div>
             </div>
           ))}

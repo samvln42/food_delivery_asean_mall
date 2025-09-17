@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Header from '../components/common/Header';
 import BottomNavigation from '../components/common/BottomNavigation';
+import FloatingActionButtons from '../components/common/FloatingCallButton';
 import CustomerWebSocketBridge from '../components/customer/CustomerWebSocketBridge';
 import { appSettingsService } from '../services/api';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -10,12 +11,27 @@ const CustomerLayout = ({ children }) => {
 
   const [appSettings, setAppSettings] = useState(null);
 
-    // Fetch app settings
+    // Fetch app settings (with client-side cache)
     useEffect(() => {
       const fetchAppSettings = async () => {
         try {
-          const response = await appSettingsService.getPublic({ _t: new Date().getTime() });
+          const cacheKey = 'appSettingsCache';
+          const cached = localStorage.getItem(cacheKey);
+          const now = Date.now();
+          if (cached) {
+            try {
+              const { data, timestamp } = JSON.parse(cached);
+              if (data && timestamp && now - timestamp < 10 * 60 * 1000) {
+                setAppSettings(data);
+              }
+            } catch (_) {}
+          }
+
+          const response = await appSettingsService.getPublic();
           setAppSettings(response.data);
+          try {
+            localStorage.setItem(cacheKey, JSON.stringify({ data: response.data, timestamp: now }));
+          } catch (_) {}
         } catch (error) {
           console.error('Error fetching app settings:', error);
         }
@@ -29,10 +45,8 @@ const CustomerLayout = ({ children }) => {
       {/* WebSocket Bridge for real-time notifications */}
       <CustomerWebSocketBridge />
       
-      {/* Fixed Header */}
-      <div className="fixed top-0 left-0 right-0 z-30">
-        <Header />
-      </div>
+      {/* Header */}
+      <Header appSettings={appSettings} />
       
       <main className="pt-16 pb-20 md:pb-0">
         {children}
@@ -40,7 +54,11 @@ const CustomerLayout = ({ children }) => {
       
       {/* Bottom Navigation for Mobile */}
       <BottomNavigation />
-      <footer className="bg-secondary-800 text-white py-12 mt-16">
+      
+      {/* Floating Action Buttons */}
+      <FloatingActionButtons />
+      
+      <footer className="hidden md:block bg-secondary-800 text-white py-12 mt-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             <div>

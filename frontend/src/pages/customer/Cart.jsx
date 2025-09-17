@@ -6,6 +6,7 @@ import api, { appSettingsService } from "../../services/api";
 import { ErrorHandler, handleError } from "../../utils/errorHandler";
 import { toast } from "../../hooks/useNotification";
 import { useLanguage } from "../../contexts/LanguageContext";
+import { formatCurrency } from "../../utils/formatPrice";
 
 const Cart = () => {
   const { translate } = useLanguage();
@@ -290,9 +291,7 @@ const Cart = () => {
     }
   };
 
-  const formatCurrency = (amount) => {
-    return Number(amount).toFixed(2);
-  };
+
 
   if (loading) {
     return (
@@ -507,7 +506,7 @@ const Cart = () => {
             </div>
 
             {/* Special Instructions */}
-            <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+            {/* <div className="bg-white rounded-lg shadow-md p-6 mb-6">
               <h3 className="text-lg font-semibold text-secondary-700 mb-4">
                 {translate("cart.special_instructions")}
               </h3>
@@ -518,7 +517,7 @@ const Cart = () => {
                 placeholder={translate("cart.special_instructions_detail")}
                 rows="2"
               />
-            </div>
+            </div> */}
 
             {/* Payment Information */}
             {paymentInfo && (
@@ -704,7 +703,7 @@ const Cart = () => {
                       {formatCurrency(deliveryFee)}
                     </span>
                   </div>
-                  {restaurantCount > 1 && (
+                  {/* {restaurantCount > 1 && (
                     <div className="text-xs text-secondary-500 pl-2">
                       • {translate("cart.first_restaurant")}:{" "}
                       {formatCurrency(2)}
@@ -714,7 +713,7 @@ const Cart = () => {
                       {formatCurrency(1)})
                       <br />• {translate("cart.delivery_fee_calculated_by_admin")}
                     </div>
-                  )}
+                  )} */}
                 </div>
 
                 <div className="border-t pt-3">
@@ -774,7 +773,7 @@ const Cart = () => {
 
               <div className="mt-4 text-center">
                 <Link
-                  to="/restaurants"
+                  to="/products"
                   className="text-primary-600 hover:text-primary-700 text-sm"
                 >
                   ← {translate("cart.back_to_choose_restaurant")}

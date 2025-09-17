@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
-import api from "../../services/api";
+import api, { appSettingsService } from "../../services/api";
 import Loading from "../../components/common/Loading";
 import { useCart } from "../../contexts/CartContext";
 import { useGuestCart } from "../../contexts/GuestCartContext";
 import { useAuth } from "../../contexts/AuthContext";
 import { useLanguage } from "../../contexts/LanguageContext";
+import { formatPrice } from "../../utils/formatPrice";
 
 const RestaurantDetail = () => {
 
@@ -22,6 +23,7 @@ const RestaurantDetail = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState("menu");
+  const [appSettings, setAppSettings] = useState(null);
   const { translate } = useLanguage();
 
   useEffect(() => {
@@ -34,14 +36,16 @@ const RestaurantDetail = () => {
     try {
       setLoading(true);
       setError(null);
-      const [restaurantRes, productsRes, reviewsRes] = await Promise.all([
+      const [restaurantRes, productsRes, reviewsRes, settingsRes] = await Promise.all([
         api.get(`/restaurants/${id}/`),
         api.get(`/products/?restaurant_id=${id}`),
         api.get(`/restaurants/${id}/reviews/`),
+        appSettingsService.getPublic(),
       ]);
       setRestaurant(restaurantRes.data);
       setProducts(productsRes.data.results || productsRes.data);
       setReviews(reviewsRes.data.results || reviewsRes.data);
+      setAppSettings(settingsRes.data);
     } catch (error) {
       setError("Unable to load restaurant data");
     } finally {
@@ -210,7 +214,7 @@ const RestaurantDetail = () => {
                 <div className="flex items-center">
                   <span className="text-secondary-500 mr-2">🚚</span>
                   <span className="text-secondary-700">
-                    {translate('cart.delivery_fee')} 1-2 {translate('common.dollars')}
+                    {translate('cart.delivery_fee')} {appSettings ? formatPrice(appSettings.multi_restaurant_base_fee || 0) : '...'}
                   </span>
                 </div>
               </div>
@@ -370,7 +374,7 @@ const ProductCard = ({ product, restaurant, onAddToCart, translate }) => {
         </p>
         <div className="flex items-center justify-between mb-3">
           <span className="text-primary-600 font-bold text-lg">
-            {Number(product.price).toFixed(2)}
+            {formatPrice(product.price)}
           </span>
           {product.category_name && (
             <span className="text-xs text-secondary-500 bg-secondary-100 px-2 py-1 rounded">

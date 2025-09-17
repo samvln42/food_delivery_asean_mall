@@ -2,6 +2,7 @@ import React, { createContext, useContext, useReducer, useEffect } from 'react';
 import { authService } from '../services/api';
 import { ErrorHandler } from '../utils/errorHandler';
 import { parseApiError } from '../hooks/useNotification';
+import { validateAndCleanSession } from '../utils/auth';
 
 // Initial state
 const initialState = {
@@ -88,21 +89,13 @@ export const AuthProvider = ({ children }) => {
 
   // Check if user is already logged in on app start
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    const user = localStorage.getItem('user');
-
-    if (token && user) {
-      try {
-        const parsedUser = JSON.parse(user);
-        dispatch({
-          type: actionTypes.LOGIN_SUCCESS,
-          payload: { user: parsedUser, token },
-        });
-      } catch (error) {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        dispatch({ type: actionTypes.SET_LOADING, payload: false });
-      }
+    const sessionData = validateAndCleanSession();
+    
+    if (sessionData) {
+      dispatch({
+        type: actionTypes.LOGIN_SUCCESS,
+        payload: { user: sessionData.user, token: sessionData.token },
+      });
     } else {
       dispatch({ type: actionTypes.SET_LOADING, payload: false });
     }
@@ -116,6 +109,20 @@ export const AuthProvider = ({ children }) => {
       
       const { user, token } = response.data;
       
+      // ตรวจสอบว่า user verify email แล้วหรือยัง
+      if (!user.is_email_verified && user.role !== 'admin') {
+        dispatch({
+          type: actionTypes.LOGIN_FAILURE,
+          payload: 'Please verify your email before logging in',
+        });
+        return { 
+          success: false, 
+          error: 'Please verify your email before logging in',
+          needsEmailVerification: true,
+          userEmail: user.email
+        };
+      }
+      
       // Store in localStorage
       localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(user));
@@ -127,6 +134,23 @@ export const AuthProvider = ({ children }) => {
       
       return { success: true, user, token };
     } catch (error) {
+      // ตรวจสอบ error แบบละเอียดมากขึ้น
+      if (error.response?.status === 403) {
+        const errorData = error.response.data;
+        if (errorData.error_type === 'email_not_verified') {
+          dispatch({
+            type: actionTypes.LOGIN_FAILURE,
+            payload: 'Please verify your email before logging in',
+          });
+          return { 
+            success: false, 
+            error: 'Please verify your email before logging in',
+            needsEmailVerification: true,
+            userEmail: errorData.user_email
+          };
+        }
+      }
+      
       // Use centralized error handling
       const { message } = ErrorHandler.handleApiError(error, 'Login');
       

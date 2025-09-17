@@ -110,12 +110,12 @@ const BottomNavigation = () => {
       current: location.pathname === "/guest-cart",
       showBadge: true,
     },
-    {
-      name: "Orders",
-      href: "/guest-orders",
-      icon: UserIcon,
-      current: location.pathname === "/guest-orders",
-    },
+    // {
+    //   name: "Orders",
+    //   href: "/guest-orders",
+    //   icon: UserIcon,
+    //   current: location.pathname === "/guest-orders",
+    // },
   ];
 
   const getNavItems = () => {

@@ -337,16 +337,16 @@ const Settings = () => {
         </div> */}
 
         {/* Preferences */}
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <h2 className="text-xl font-semibold text-secondary-700 mb-4">Preferences</h2>
-          <div className="space-y-4">
+        {/* <div className="bg-white rounded-lg shadow-md p-6"> */}
+          {/* <h2 className="text-xl font-semibold text-secondary-700 mb-4">Preferences</h2> */}
+          {/* <div className="space-y-4"> */}
             {/* LanguageSwitcher เฉพาะ mobile */}
-            <div className="block sm:hidden">
+            {/* <div className="block sm:hidden">
               <label className="block text-sm font-medium text-secondary-700 mb-2">Language</label>
               <LanguageSwitcher />
-            </div>
+            </div> */}
             {/* Theme (เต็มแถวใน desktop) */}
-            <div>
+            {/* <div>
               <label className="block text-sm font-medium text-secondary-700 mb-2">Theme</label>
               <select
                 value={settings.preferences.theme}
@@ -357,9 +357,9 @@ const Settings = () => {
                 <option value="dark">Dark</option>
                 <option value="auto">Auto</option>
               </select>
-            </div>
+            </div> */}
             {/* Delivery instructions */}
-            <div>
+            {/* <div>
               <label className="block text-sm font-medium text-secondary-700 mb-2">Delivery instructions</label>
               <textarea
                 value={settings.preferences.delivery_instructions}
@@ -368,12 +368,12 @@ const Settings = () => {
                 rows="3"
                 placeholder="For example, place it at the front door, call before delivery, etc."
               />
-            </div>
-          </div>
-        </div>
+            </div> */}
+          {/* </div> */}
+        {/* </div> */}
 
         {/* Account Security */}
-        <div className="bg-white rounded-lg shadow-md p-6">
+        {/* <div className="bg-white rounded-lg shadow-md p-6">
           <h2 className="text-xl font-semibold text-secondary-700 mb-4">Account Security</h2>
           <div className="space-y-4">
             <div className="flex items-center justify-between">
@@ -415,7 +415,7 @@ const Settings = () => {
               </select>
             </div>
           </div>
-        </div>
+        </div> */}
 
         {/* Action Buttons */}
         {/* <div className="bg-white rounded-lg shadow-md p-6">

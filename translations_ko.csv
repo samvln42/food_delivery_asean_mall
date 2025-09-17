@@ -92,6 +92,8 @@ common.error_searching,검색 중 오류 발생,common
 common.all,모두,common
 common.try_again,다시 시도,common
 common.refresh,새로고침,common 
+common.reviews,리뷰,common
+common.load_more,더 보기,common
 ,,
 # Search,,
 search.search_for_restaurant_or_menu,레스토랑 또는 메뉴 검색,search
@@ -131,7 +133,7 @@ auth.email_verified,이메일 인증이 완료되었습니다,auth
 auth.google_login,구글로 로그인,auth
 auth.verification_sent,인증 이메일이 전송되었습니다,auth
 auth.verification_required,이메일 인증이 필요합니다,auth
-auth.username,사용자명 / 이메일,auth
+auth.username,사용자명,auth
 auth.remember_me,로그인 상태 유지,auth
 auth.or,또는,auth
 auth.register_now,지금 회원가입,auth
@@ -158,6 +160,10 @@ auth.please_login,로그인해주세요,auth
 auth.user_id,사용자 ID,auth
 auth.token,토큰,auth 
 auth.confirm_logout,로그아웃하시겠습니까?,auth
+auth.terms,이용약관,auth
+auth.privacy,개인정보 처리방침,auth
+auth.and,그리고,auth
+auth.sign_up_with_google,구글로 회원가입,auth
 ,,
 # Validation,,
 validation.required,이 필드는 필수입니다,validation
@@ -248,8 +254,8 @@ order.cleanup_not_found_message,찾을 수 없는 주문 {count}개 제거됨,or
 order.completed_removed_message,주문 완료되어 목록에서 제거됨,order
 order.order_id,주문 ID: {id},order
 order.restaurant_count,레스토랑 수: {count},order
-order.total_amount,총액: {total},order 
-
+order.total_amount,총액: {total},order
+order.history_cleaned,주문 내역 정리됨,order
 ,,
 # Cart,,
 cart.empty,장바구니가 비어있습니다,cart
@@ -295,7 +301,7 @@ cart.please_enter_the_delivery_address,배달 주소를 입력해주세요,cart
 cart.processing,처리 중...,cart
 cart.please_attach_proof_of_payment,결제 증명서를 첨부해주세요,cart
 cart.order_from_restaurants,레스토랑에서 주문,cart
-cart.back_to_choose_restaurant,레스토랑 선택으로 돌아가기,cart
+cart.back_to_choose_restaurant,메뉴 선택으로 돌아가기,cart
 cart.start_ordering_from_favorite_restaurants,좋아하는 레스토랑에서 주문을 시작하세요,cart
 cart.choose_restaurant,레스토랑 선택,cart
 cart.restaurant,레스토랑,cart

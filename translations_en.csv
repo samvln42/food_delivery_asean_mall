@@ -92,6 +92,8 @@ common.error_searching,Error searching,common
 common.all,All,common
 common.try_again,Try again,common
 common.refresh,Refresh,common 
+common.reviews,Reviews,common
+common.load_more,Load more,common
 ,,
 # Search,,
 search.search_for_restaurant_or_menu,Search for restaurant or menu,search
@@ -131,7 +133,7 @@ auth.email_verified,Email verified successfully,auth
 auth.google_login,Login with Google,auth
 auth.verification_sent,Verification email sent,auth
 auth.verification_required,Email verification required,auth
-auth.username,Username / Email,auth
+auth.username,Username,auth
 auth.remember_me,Remember me,auth
 auth.or,Or,auth
 auth.register_now,Register now,auth
@@ -158,6 +160,10 @@ auth.please_login,Please login,auth
 auth.user_id,User ID,auth
 auth.token,Token,auth
 auth.confirm_logout,Are you sure you want to log out?,auth
+auth.terms,Terms and Conditions,auth
+auth.privacy,Privacy Policy,auth
+auth.and,and,auth
+auth.sign_up_with_google,Sign Up with Google,auth
 ,,
 # Validation,,
 validation.required,This field is required,validation
@@ -249,6 +255,7 @@ order.completed_removed_message,Order completed and removed from list,order
 order.order_id,Order ID: {id},order
 order.restaurant_count,Number of restaurants: {count},order
 order.total_amount,Total: {total},order 
+order.history_cleaned,History cleaned,order
 ,,
 # Cart,,
 cart.empty,Your cart is empty,cart
@@ -294,7 +301,7 @@ cart.please_enter_the_delivery_address,Please enter the delivery address,cart
 cart.processing,Processing….,cart
 cart.please_attach_proof_of_payment,Please attach proof of payment,cart
 cart.order_from_restaurants,Order from restaurants,cart
-cart.back_to_choose_restaurant,Back to choose restaurant,cart
+cart.back_to_choose_restaurant,Back to choose menu,cart
 cart.start_ordering_from_favorite_restaurants,Start ordering from your favorite restaurants,cart
 cart.choose_restaurant,Choose restaurant,cart
 cart.restaurant,Restaurant,cart

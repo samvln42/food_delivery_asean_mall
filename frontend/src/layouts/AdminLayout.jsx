@@ -1,10 +1,21 @@
-import React, { useState, useEffect, createContext, useContext, useCallback } from 'react';
-import { Link } from 'react-router-dom';
-import Header from '../components/common/Header';
-import { notificationService } from '../services/api';
-import { useAuth } from '../contexts/AuthContext';
-import websocketService from '../services/websocket';
-import AdminNotificationBridge from '../components/admin/AdminNotificationBridge';
+import React, {
+  useState,
+  useEffect,
+  createContext,
+  useContext,
+  useCallback,
+} from "react";
+import { Link } from "react-router-dom";
+import Header from "../components/common/Header";
+import { notificationService } from "../services/api";
+import { useAuth } from "../contexts/AuthContext";
+import websocketService from "../services/websocket";
+import AdminNotificationBridge from "../components/admin/AdminNotificationBridge";
+import { useLocation } from "react-router-dom";
+import { FaBars, FaTimes, FaChartBar, FaUsers, FaStore, FaFolder, FaCog } from "react-icons/fa";
+import { FaUserCheck, FaUserXmark } from "react-icons/fa6";
+import { IoIosCreate  } from "react-icons/io";
+import { BiSolidPhoneCall } from "react-icons/bi";
 
 // Create context for notification count
 const NotificationContext = createContext();
@@ -12,20 +23,39 @@ const NotificationContext = createContext();
 export const useNotificationContext = () => {
   const context = useContext(NotificationContext);
   if (!context) {
-    throw new Error('useNotificationContext must be used within NotificationProvider');
+    throw new Error(
+      "useNotificationContext must be used within NotificationProvider"
+    );
   }
   return context;
 };
 
 const AdminLayout = ({ children }) => {
   const { user, token } = useAuth();
+  const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   
+  // Badge counts for specific order types
+  const [ordersBadgeCount, setOrdersBadgeCount] = useState(0);
+  const [guestOrdersBadgeCount, setGuestOrdersBadgeCount] = useState(0);
+  
+  // ตรวจสอบว่าอยู่ในหน้า Phone Orders หรือไม่
+  const isPhoneOrdersPage = location.pathname.includes('/phone-order');
+
   // Debug logging for unreadCount changes
   useEffect(() => {
-    console.log('📊 UnreadCount state changed to:', unreadCount);
+    console.log("📊 UnreadCount state changed to:", unreadCount);
   }, [unreadCount]);
+
+  // Debug logging for badge counts
+  useEffect(() => {
+    console.log("🏷️ Orders badge count changed to:", ordersBadgeCount);
+  }, [ordersBadgeCount]);
+
+  useEffect(() => {
+    console.log("🏷️ Guest orders badge count changed to:", guestOrdersBadgeCount);
+  }, [guestOrdersBadgeCount]);
 
   // Fetch unread notifications count function
   const fetchUnreadCount = useCallback(async () => {
@@ -35,41 +65,96 @@ const AdminLayout = ({ children }) => {
       setUnreadCount(count);
     } catch (error) {
       try {
-        const notifResponse = await notificationService.getAll({ is_read: 'false' });
-        const unreadNotifs = (notifResponse.data.results || notifResponse.data).filter(n => !n.is_read);
+        const notifResponse = await notificationService.getAll({
+          is_read: "false",
+        });
+        const unreadNotifs = (
+          notifResponse.data.results || notifResponse.data
+        ).filter((n) => !n.is_read);
         setUnreadCount(unreadNotifs.length);
       } catch (fallbackError) {
-        console.error('❌ Fallback count also failed:', fallbackError);
+        console.error("❌ Fallback count also failed:", fallbackError);
       }
+    }
+  }, []);
+
+  // Fetch badge counts from database
+  const fetchBadgeCounts = useCallback(async () => {
+    try {
+      console.log("🔍 Fetching badge counts from database...");
+      const response = await notificationService.getAll({
+        is_read: "false",
+        limit: 100, // Get more notifications to count properly
+      });
+      const unreadNotifs = (response.data.results || response.data).filter((n) => !n.is_read);
+      
+      // Count notifications by type
+      let regularOrdersCount = 0;
+      let guestOrdersCount = 0;
+      
+      unreadNotifs.forEach(notif => {
+        if (notif.type === 'guest_order' || notif.related_guest_order) {
+          guestOrdersCount++;
+        } else if (notif.type === 'order' && notif.related_order) {
+          regularOrdersCount++;
+        }
+      });
+      
+      setOrdersBadgeCount(regularOrdersCount);
+      setGuestOrdersBadgeCount(guestOrdersCount);
+      
+    } catch (error) {
+      console.error("❌ Error fetching badge counts:", error);
     }
   }, []);
 
   // Fetch unread notifications count for admin
   useEffect(() => {
-    if (user?.role === 'admin' && token) {
-      // เรียกดึงข้อมูล unread count ตอนโหลดหน้า
+    if (user?.role === "admin" && token) {
+      // เรียกดึงข้อมูล unread count และ badge counts ตอนโหลดหน้า
       fetchUnreadCount();
+      fetchBadgeCounts();
 
       // ฟังก์ชันเมื่อได้รับออเดอร์ใหม่ → อัปเดตตัวเลข unread เฉย ๆ (toast & sound ทำโดย AdminNotificationBridge)
-      const handleNewOrder = (data) => {
-        setUnreadCount(prev => {
+      const handleNewOrder = (data, eventType) => {
+        console.log("🔔 AdminLayout - New order received:", data, "Event type:", eventType);
+        setUnreadCount((prev) => {
           const newCount = prev + 1;
           return newCount;
         });
+        
+        // Update badge counts based on event type or order type
+        if (eventType === 'new_guest_order' || data.order_type === 'guest' || data.type === 'guest_order' || data.is_guest) {
+          setGuestOrdersBadgeCount(prev => prev + 1);
+        } else if (eventType === 'new_order' || data.type === 'order') {
+          setOrdersBadgeCount(prev => prev + 1);
+        }
       };
+
+      // ไม่ต้องจัดการ status updates เพราะไม่สร้าง notification
 
       // ลงทะเบียน listener สำหรับ notification_update event
       const handleNotificationUpdate = () => {
         fetchUnreadCount();
+        fetchBadgeCounts(); // Also refresh badge counts
       };
 
-      // ลงทะเบียน listener (ไม่ต้องเชื่อมต่อ WebSocket ที่นี่ เพราะเชื่อมจาก AdminNotificationBridge แล้ว)
-      websocketService.on('new_order', handleNewOrder);
-      window.addEventListener('notification_update', handleNotificationUpdate);
+      // Create wrapper functions for cleanup
+      const handleNewOrderWrapper = (data) => handleNewOrder(data, 'new_order');
+      const handleNewGuestOrderWrapper = (data) => handleNewOrder(data, 'new_guest_order');
 
-      // ตรวจสอบ WebSocket connection ทุกครั้งที่ AdminLayout mount
+      // ลงทะเบียน listener (ไม่ต้องเชื่อมต่อ WebSocket ที่นี่ เพราะเชื่อมจาก AdminNotificationBridge แล้ว)
+      websocketService.on("new_order", handleNewOrderWrapper);
+      websocketService.on("new_guest_order", handleNewGuestOrderWrapper); // Add guest order handler
+      // ไม่ฟัง status updates เพราะไม่สร้าง notification
+      window.addEventListener("notification_update", handleNotificationUpdate);
+
+      // ตรวจสอบ WebSocket connection แบบ simplified
       const checkWebSocketConnection = () => {
-        if (!websocketService.ws || websocketService.ws.readyState === WebSocket.CLOSED) {
+        if (
+          !websocketService.ws ||
+          websocketService.ws.readyState === WebSocket.CLOSED
+        ) {
           websocketService.connect(token);
         }
       };
@@ -77,34 +162,31 @@ const AdminLayout = ({ children }) => {
       // ตรวจสอบทันที
       checkWebSocketConnection();
 
-      // ตรวจสอบอีกครั้งหลังจาก 1 วินาที
-      const wsCheckTimeout1 = setTimeout(checkWebSocketConnection, 1000);
-      
-      // ตรวจสอบอีกครั้งหลังจาก 3 วินาที
-      const wsCheckTimeout2 = setTimeout(checkWebSocketConnection, 3000);
-      
-      // ตรวจสอบอีกครั้งหลังจาก 5 วินาที
-      const wsCheckTimeout3 = setTimeout(checkWebSocketConnection, 5000);
+      // ตรวจสอบอีกครั้งหลังจาก 2 วินาที (รวม 3 ครั้งเป็น 1 ครั้ง)
+      const wsCheckTimeout = setTimeout(checkWebSocketConnection, 2000);
 
-      // 🔄 เพิ่ม polling mechanism เป็น fallback สำหรับการอัพเดท unread count
-      // ในกรณีที่ WebSocket ยังไม่ได้ deploy
+      // 🔄 เพิ่ม polling mechanism เป็น fallback (เพิ่มเวลาเป็น 60 วินาที)
       const pollingInterval = setInterval(() => {
-        fetchUnreadCount();
-      }, 30000); // ทุก 30 วินาที
+        // เช็คว่า WebSocket ยังทำงานอยู่หรือไม่ ถ้าไม่ทำงานค่อย fetch
+        if (!websocketService.isConnected()) {
+          fetchUnreadCount();
+        }
+      }, 60000); // ทุก 60 วินาที
 
       // cleanup เมื่อ component unmount หรือ token เปลี่ยน
       return () => {
-        websocketService.off('new_order', handleNewOrder);
-        window.removeEventListener('notification_update', handleNotificationUpdate);
+        websocketService.off("new_order", handleNewOrderWrapper);
+        websocketService.off("new_guest_order", handleNewGuestOrderWrapper);
+        // ไม่ต้อง cleanup status update listeners เพราะไม่ได้ลงทะเบียน
+        window.removeEventListener(
+          "notification_update",
+          handleNotificationUpdate
+        );
         clearInterval(pollingInterval);
-        clearTimeout(wsCheckTimeout1);
-        clearTimeout(wsCheckTimeout2);
-        clearTimeout(wsCheckTimeout3);
+        clearTimeout(wsCheckTimeout);
       };
     }
   }, [user?.role, token, fetchUnreadCount]);
-
-
 
   // Function to update unread count (for use by children components)
   const updateUnreadCount = useCallback((newCount) => {
@@ -113,10 +195,31 @@ const AdminLayout = ({ children }) => {
 
   // Function to decrease unread count by 1
   const decreaseUnreadCount = useCallback(() => {
-    setUnreadCount(prev => {
+    setUnreadCount((prev) => {
       const newCount = Math.max(0, prev - 1);
       return newCount;
     });
+  }, []);
+
+  // Functions for badge management
+  const updateOrdersBadge = useCallback((count) => {
+    console.log("🏷️ Updating orders badge count:", count);
+    setOrdersBadgeCount(count);
+  }, []);
+
+  const updateGuestOrdersBadge = useCallback((count) => {
+    console.log("🏷️ Updating guest orders badge count:", count);
+    setGuestOrdersBadgeCount(count);
+  }, []);
+
+  const clearOrdersBadge = useCallback(() => {
+    console.log("🧹 Clearing orders badge");
+    setOrdersBadgeCount(0);
+  }, []);
+
+  const clearGuestOrdersBadge = useCallback(() => {
+    console.log("🧹 Clearing guest orders badge");
+    setGuestOrdersBadgeCount(0);
   }, []);
 
   // Context value
@@ -124,27 +227,35 @@ const AdminLayout = ({ children }) => {
     unreadCount,
     updateUnreadCount,
     decreaseUnreadCount,
-    fetchUnreadCount
+    fetchUnreadCount,
+    fetchBadgeCounts, // Add this function to context
+    // Badge management
+    ordersBadgeCount,
+    guestOrdersBadgeCount,
+    updateOrdersBadge,
+    updateGuestOrdersBadge,
+    clearOrdersBadge,
+    clearGuestOrdersBadge,
   };
 
   return (
     <NotificationContext.Provider value={notificationContextValue}>
-      <AdminNotificationBridge />
+      {!isPhoneOrdersPage && <AdminNotificationBridge />}
       <div className="min-h-screen bg-secondary-50">
-        {/* Fixed Header */}
-        <div className="fixed top-0 left-0 right-0 z-30">
-          <Header />
-        </div>
-        
+        {/* Header */}
+        <Header />
+
         <div className="flex pt-16">
           {/* Mobile menu button */}
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
             className="lg:hidden fixed top-20 left-4 z-30 p-2 rounded-md bg-white shadow-lg text-secondary-600 hover:text-secondary-900 hover:bg-secondary-50"
           >
-            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
+            {sidebarOpen ? (
+              <FaTimes className="h-6 w-6" />
+            ) : (
+              <FaBars className="h-6 w-6" />
+            )}
           </button>
 
           {/* Mobile overlay */}
@@ -156,9 +267,11 @@ const AdminLayout = ({ children }) => {
           )}
 
           {/* Fixed Sidebar */}
-          <aside className={`fixed left-0 top-16 w-64 h-screen bg-white shadow-lg z-20 overflow-y-auto transition-transform duration-300 ease-in-out lg:translate-x-0 ${
-            sidebarOpen ? 'translate-x-0' : '-translate-x-full'
-          }`}>
+          <aside
+            className={`fixed left-0 top-16 w-64 h-screen bg-white shadow-lg z-20 overflow-y-auto transition-transform duration-300 ease-in-out lg:translate-x-0 ${
+              sidebarOpen ? "translate-x-0" : "-translate-x-full"
+            }`}
+          >
             <nav className="p-4">
               <div className="space-y-2">
                 <Link
@@ -166,68 +279,85 @@ const AdminLayout = ({ children }) => {
                   onClick={() => setSidebarOpen(false)}
                   className="flex items-center px-4 py-2 text-secondary-700 rounded-lg hover:bg-primary-50 hover:text-primary-600 transition-colors"
                 >
-                  📊 แดชบอร์ด
+                  <FaChartBar className="h-6 w-6 mr-2" /> แดชบอร์ด
                 </Link>
                 <Link
                   to="/admin/users"
                   onClick={() => setSidebarOpen(false)}
                   className="flex items-center px-4 py-2 text-secondary-700 rounded-lg hover:bg-primary-50 hover:text-primary-600 transition-colors"
                 >
-                  👥 จัดการผู้ใช้
+                  <FaUsers className="h-6 w-6 mr-2" /> จัดการผู้ใช้
                 </Link>
                 <Link
                   to="/admin/restaurants"
                   onClick={() => setSidebarOpen(false)}
                   className="flex items-center px-4 py-2 text-secondary-700 rounded-lg hover:bg-primary-50 hover:text-primary-600 transition-colors"
                 >
-                  🏪 จัดการร้าน
+                  <FaStore className="h-6 w-6 mr-2" /> จัดการร้าน
                 </Link>
                 <Link
                   to="/admin/orders"
                   onClick={() => setSidebarOpen(false)}
-                  className="flex items-center px-4 py-2 text-secondary-700 rounded-lg hover:bg-primary-50 hover:text-primary-600 transition-colors"
+                  className="flex items-center justify-between px-4 py-2 text-secondary-700 rounded-lg hover:bg-primary-50 hover:text-primary-600 transition-colors"
                 >
-                  📦 คำสั่งซื้อ
+                  <div className="flex items-center">
+                    <FaUserCheck className="h-6 w-6 mr-2" /> คำสั่งซื้อล็อกอิน
+                  </div>
+                  {ordersBadgeCount > 0 && (
+                    <span className="bg-orange-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold animate-pulse shadow-lg">
+                      {ordersBadgeCount > 9 ? '9+' : ordersBadgeCount}
+                    </span>
+                  )}
                 </Link>
                 <Link
                   to="/admin/guest-orders"
                   onClick={() => setSidebarOpen(false)}
+                  className="flex items-center justify-between px-4 py-2 text-secondary-700 rounded-lg hover:bg-primary-50 hover:text-primary-600 transition-colors"
+                >
+                  <div className="flex items-center">
+                    <FaUserXmark  className="h-6 w-6 mr-2" /> คำสั่งซื้อไม่ล็อกอิน
+                  </div>
+                  {guestOrdersBadgeCount > 0 && (
+                    <span className="bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold animate-pulse shadow-lg">
+                      {guestOrdersBadgeCount > 9 ? '9+' : guestOrdersBadgeCount}
+                    </span>
+                  )}
+                </Link>
+                <Link
+                  to="/admin/phone-orders"
+                  onClick={() => setSidebarOpen(false)}
                   className="flex items-center px-4 py-2 text-secondary-700 rounded-lg hover:bg-primary-50 hover:text-primary-600 transition-colors"
                 >
-                  🛒 Guest Orders
+                  <BiSolidPhoneCall className="h-6 w-6 mr-2" /> จัดการออร์เดอร์โทรศัพท์
+                </Link>
+                <Link
+                  to="/admin/create-phone-order"
+                  onClick={() => setSidebarOpen(false)}
+                  className="flex items-center px-4 py-2 text-secondary-700 rounded-lg hover:bg-primary-50 hover:text-primary-600 transition-colors"
+                >
+                  <IoIosCreate  className="h-6 w-6 mr-2" /> สร้างออร์เดอร์
                 </Link>
                 <Link
                   to="/admin/categories"
                   onClick={() => setSidebarOpen(false)}
                   className="flex items-center px-4 py-2 text-secondary-700 rounded-lg hover:bg-primary-50 hover:text-primary-600 transition-colors"
                 >
-                  📂 หมวดหมู่
+                  <FaFolder className="h-6 w-6 mr-2" /> หมวดหมู่
                 </Link>
-                <Link
-                  to="/admin/notifications"
-                  onClick={() => setSidebarOpen(false)}
-                  className="flex items-center justify-between px-4 py-2 text-secondary-700 rounded-lg hover:bg-primary-50 hover:text-primary-600 transition-colors"
-                >
-                  <span>🔔 การแจ้งเตือน</span>
-                  <span className={`text-xs rounded-full h-5 w-5 flex items-center justify-center ${
-                    unreadCount > 0 ? 'bg-red-500 text-white' : 'bg-gray-300 text-gray-600'
-                  }`}>
-                    {unreadCount > 9 ? '9+' : unreadCount}
-                  </span>
-                </Link>
-                <Link
+                
+                {/* <Link
                   to="/admin/analytics"
                   onClick={() => setSidebarOpen(false)}
                   className="flex items-center px-4 py-2 text-secondary-700 rounded-lg hover:bg-primary-50 hover:text-primary-600 transition-colors"
                 >
                   📈 รายงานสถิติ
-                </Link>
+                </Link> */}
                 <Link
                   to="/admin/settings"
                   onClick={() => setSidebarOpen(false)}
                   className="flex items-center px-4 py-2 text-secondary-700 rounded-lg hover:bg-primary-50 hover:text-primary-600 transition-colors"
                 >
-                  ⚙️ ตั้งค่าระบบ
+                  <FaCog className="h-6 w-6 mr-2" /> ตั้งค่าระบบ
                 </Link>
               </div>
             </nav>
@@ -235,16 +365,14 @@ const AdminLayout = ({ children }) => {
 
           {/* Main Content */}
           <main className="flex-1 lg:ml-64 min-h-screen">
-            <div className="p-4 lg:p-8">
-              {children}
-            </div>
+            <div className="p-4 lg:p-8">{children}</div>
           </main>
         </div>
-        
-        {/* Development Test Button removed */}
+
+
       </div>
     </NotificationContext.Provider>
   );
 };
 
-export default AdminLayout; 
+export default AdminLayout;

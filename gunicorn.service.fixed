@@ -8,7 +8,7 @@ User=ubuntu
 Group=www-data
 WorkingDirectory=/home/ubuntu/food_delivery_asean_mall
 # Path ถูกต้องแล้ว - venv อยู่ข้างนอก project
-ExecStart=/home/ubuntu/venv/bin/gunicorn --access-logfile - --workers 3 --bind unix:/run/gunicorn.sock food_delivery_backend.wsgi:application
+ExecStart=/home/ubuntu/venv/bin/gunicorn --access-logfile - --workers 3 --timeout 300 --keep-alive 5 --max-requests 1000 --max-requests-jitter 100 --bind unix:/run/gunicorn.sock food_delivery_backend.wsgi:application
 ExecReload=/bin/kill -s HUP $MAINPID
 Restart=on-failure
 RestartSec=3

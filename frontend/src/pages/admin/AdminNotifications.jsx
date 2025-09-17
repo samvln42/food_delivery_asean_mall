@@ -8,17 +8,19 @@ const AdminNotifications = () => {
   const { user } = useAuth();
   
   // Try to use notification context (may not be available in some cases)
-  let decreaseUnreadCount, updateUnreadCount, fetchUnreadCount;
+  let decreaseUnreadCount, updateUnreadCount, fetchUnreadCount, fetchBadgeCounts;
   try {
     const context = useNotificationContext();
     decreaseUnreadCount = context.decreaseUnreadCount;
     updateUnreadCount = context.updateUnreadCount;
     fetchUnreadCount = context.fetchUnreadCount;
+    fetchBadgeCounts = context.fetchBadgeCounts;
   } catch (error) {
     // Context not available, use fallback functions
     decreaseUnreadCount = () => console.log('Notification context not available');
     updateUnreadCount = () => console.log('Notification context not available');
     fetchUnreadCount = () => console.log('Notification context not available');
+    fetchBadgeCounts = () => console.log('Notification context not available');
   }
   const [notifications, setNotifications] = useState([]);
   const [users, setUsers] = useState([]);
@@ -52,11 +54,16 @@ const AdminNotifications = () => {
           }))
         );
         
+        // ซิงก์ตัวเลขจาก backend ให้ตรง
+        try { await fetchUnreadCount(); } catch (e) {}
+        try { await fetchBadgeCounts(); } catch (e) {}
+        
       }, 500);
     } catch (error) {
       console.error('❌ Error marking notifications as read on page enter:', error);
       // ถ้า API fail อย่างน้อย reset UI
       updateUnreadCount(0);
+      try { await fetchBadgeCounts(); } catch (e) {}
     }
   };
 
@@ -96,6 +103,9 @@ const AdminNotifications = () => {
       
       // อัปเดต unread count ใน sidebar
       decreaseUnreadCount();
+      // รีเฟรช badge count ให้ตรงฐานข้อมูล
+      try { await fetchBadgeCounts(); } catch (e) {}
+      try { await fetchUnreadCount(); } catch (e) {}
       
     } catch (error) {
       console.error('Error marking notification as read:', error);
@@ -119,6 +129,9 @@ const AdminNotifications = () => {
       
       // ตั้ง unread count เป็น 0 ใน sidebar
       updateUnreadCount(0);
+      // รีเฟรชตัวเลขจาก backend ให้ตรง
+      try { await fetchUnreadCount(); } catch (e) {}
+      try { await fetchBadgeCounts(); } catch (e) {}
       
     } catch (error) {
       console.error('Error marking all notifications as read:', error);

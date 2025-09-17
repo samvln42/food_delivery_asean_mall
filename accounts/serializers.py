@@ -10,7 +10,8 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ['id', 'username', 'email', 'phone_number', 'address', 
-                 'role', 'password', 'date_joined', 'last_login', 'restaurant_info', 'is_active']
+                 'role', 'password', 'date_joined', 'last_login', 'restaurant_info', 
+                 'is_active', 'is_email_verified']
         read_only_fields = ['id', 'date_joined', 'last_login']
     
     def get_restaurant_info(self, obj):

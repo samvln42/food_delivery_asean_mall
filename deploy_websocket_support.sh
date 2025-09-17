@@ -11,7 +11,7 @@ sudo cp /etc/nginx/sites-available/default /etc/nginx/sites-available/default.ba
 
 # 2. Create Daphne service (WebSocket server)
 echo "🔧 Creating Daphne service..."
-sudo tee /etc/systemd/system/daphne.service > /dev/null << 'EOF'
+sudo nano /etc/systemd/system/daphne.service > /dev/null << 'EOF'
 [Unit]
 Description=Daphne ASGI Server for Django WebSocket
 After=network.target
@@ -35,7 +35,7 @@ EOF
 
 # 3. Update nginx config - เพิ่ม WebSocket support
 echo "🔧 Updating nginx config with WebSocket support..."
-sudo tee /etc/nginx/sites-available/default > /dev/null << 'EOF'
+sudo nano /etc/nginx/sites-available/default > /dev/null << 'EOF'
 server {
     listen 80;
     server_name tacashop.com 15.165.242.203;

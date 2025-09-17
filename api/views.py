@@ -89,16 +89,24 @@ class RestaurantViewSet(viewsets.ModelViewSet):
     
     @action(detail=False, methods=['get'], permission_classes=[AllowAny])
     def special(self, request):
-        special_restaurants = Restaurant.objects.filter(is_special=True)
-        serializer = self.get_serializer(special_restaurants, many=True)
+        queryset = Restaurant.objects.filter(is_special=True)
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+        serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
     
     @action(detail=False, methods=['get'], permission_classes=[AllowAny])
     def nearby(self, request):
         # This is a placeholder for location-based search
         # In real implementation, you would use geographic queries
-        restaurants = Restaurant.objects.filter(status='open')[:10]
-        serializer = self.get_serializer(restaurants, many=True)
+        queryset = Restaurant.objects.filter(status='open')
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+        serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
     
     @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated])
@@ -364,23 +372,14 @@ class OrderViewSet(viewsets.ModelViewSet):
                 )
                 # print(f"✅ Payment record created for single order: {payment.payment_id}")
             
-            # ส่ง notification ไปยังลูกค้า
-            Notification.objects.create(
-                user=order.user,
-                title='Order Created Successfully',
-                message=f'Your order #{order.order_id} has been created successfully',
-                type='order_update',
-                related_order=order
-            )
-
-            # ส่ง notification ไปยังแอดมินทุกคน
+            # ส่ง notification ไปยังแอดมินทุกคน (ลูกค้าใช้ delivery_status_log แทน)
             admin_users = User.objects.filter(role='admin')
             for admin_user in admin_users:
                 Notification.objects.create(
                     user=admin_user,
                     title='New Order Received',
                     message=f'Order #{order.order_id} was placed by {order.user.username}',
-                    type='order_update',
+                    type='order',
                     related_order=order
                 )
 
@@ -441,25 +440,16 @@ class OrderViewSet(viewsets.ModelViewSet):
                     )
                     # print(f"✅ Payment record created: {payment.payment_id}")
                 
-                # ส่ง notification ไปยังลูกค้า
+                            # ส่ง notification ไปยังแอดมินทุกคน (ลูกค้าใช้ delivery_status_log แทน)
+            admin_users = User.objects.filter(role='admin')
+            for admin_user in admin_users:
                 Notification.objects.create(
-                    user=order.user,
-                    title='Order Created Successfully',
-                    message=f'Your multi-restaurant order #{order.order_id} has been created successfully',
-                    type='order_update',
+                    user=admin_user,
+                    title='New Multi-Restaurant Order Received',
+                    message=f'Multi-restaurant order #{order.order_id} was placed by {order.user.username}',
+                    type='order',
                     related_order=order
                 )
-
-                # ส่ง notification ไปยังแอดมินทุกคน
-                admin_users = User.objects.filter(role='admin')
-                for admin_user in admin_users:
-                    Notification.objects.create(
-                        user=admin_user,
-                        title='New Order Received',
-                        message=f'Order #{order.order_id} was placed by {order.user.username}',
-                        type='order_update',
-                        related_order=order
-                    )
 
                 # ส่ง WebSocket notification ไปยังกลุ่มแอดมิน
                 channel_layer = get_channel_layer()
@@ -523,15 +513,7 @@ class OrderViewSet(viewsets.ModelViewSet):
             updated_by_user=request.user
         )
         
-        # Create notification for customer
-        if order.user != request.user:
-            Notification.objects.create(
-                user=order.user,
-                title='Order Status Updated',
-                message=f'Your order #{order.order_id} status has been updated to {new_status}',
-                type='order_update',
-                related_order=order
-            )
+        # ไม่ส่ง notification ให้ customer (ใช้ delivery_status_log แทน)
         
         # Send WebSocket notification to customer
         if order.user:
@@ -704,14 +686,7 @@ class PaymentViewSet(viewsets.ModelViewSet):
         order.current_status = 'paid'
         order.save()
         
-        # Create notification
-        Notification.objects.create(
-            user=order.user,
-            title='Payment Confirmed',
-            message=f'Your payment for order #{order.order_id} has been confirmed',
-            type='payment_confirm',
-            related_order=order
-        )
+        # ไม่ส่ง notification ให้ customer (ใช้ delivery_status_log แทน)
         
         return Response(PaymentSerializer(payment).data)
 
@@ -831,7 +806,16 @@ class NotificationViewSet(viewsets.ModelViewSet):
     ordering = ['-created_at']  # เรียงตามวันที่สร้างล่าสุด
     
     def get_queryset(self):
-        return Notification.objects.filter(user=self.request.user).order_by('-created_at')
+        queryset = Notification.objects.filter(user=self.request.user).order_by('-created_at')
+        # รองรับการกรองสถานะการอ่านผ่าน query param: ?is_read=true|false
+        is_read = self.request.query_params.get('is_read')
+        if is_read is not None:
+            try:
+                is_read_bool = str(is_read).lower() == 'true'
+                queryset = queryset.filter(is_read=is_read_bool)
+            except Exception:
+                pass
+        return queryset
     
     @action(detail=True, methods=['post'], url_path='mark-read')
     def mark_read(self, request, pk=None):
@@ -856,6 +840,76 @@ class NotificationViewSet(viewsets.ModelViewSet):
         """Get unread notifications count"""
         count = Notification.objects.filter(user=request.user, is_read=False).count()
         return Response({'unread_count': count})
+    
+    @action(detail=False, methods=['post'], url_path='mark-order-read')
+    def mark_order_read(self, request):
+        """Mark notifications related to specific order as read"""
+        order_id = request.data.get('order_id')
+        order_type = request.data.get('order_type')  # 'regular' หรือ 'guest'
+        
+        if not order_id:
+            return Response({'error': 'order_id is required'}, status=400)
+        
+        # Mark all notifications related to this order as read
+        from django.db.models import Q
+        
+        # ใช้ order_type เพื่อกำหนด field ที่ถูกต้อง
+        if order_type == 'guest':
+            # สำหรับ guest orders ใช้ related_guest_order_id
+            notifications = Notification.objects.filter(
+                related_guest_order_id=order_id,
+                user=request.user,
+                is_read=False
+            )
+        elif order_type == 'regular':
+            # สำหรับ regular orders ใช้ related_order_id  
+            notifications = Notification.objects.filter(
+                related_order_id=order_id,
+                user=request.user,
+                is_read=False
+            )
+        else:
+            # ถ้าไม่ระบุ order_type ให้ใช้ logic เดิม (fallback)
+            # Try to find the order to determine if it's a regular order or guest order
+            try:
+                # First try to find as a regular order
+                from .models import Order
+                regular_order = Order.objects.get(order_id=order_id)
+                # If found, search by related_order_id
+                notifications = Notification.objects.filter(
+                    related_order_id=order_id,
+                    user=request.user,
+                    is_read=False
+                )
+            except Order.DoesNotExist:
+                # If not found as regular order, try as guest order
+                try:
+                    from .models import GuestOrder
+                    guest_order = GuestOrder.objects.get(guest_order_id=order_id)
+                    # If found, search by related_guest_order_id
+                    notifications = Notification.objects.filter(
+                        related_guest_order_id=order_id,
+                        user=request.user,
+                        is_read=False
+                    )
+                except GuestOrder.DoesNotExist:
+                    # If neither found, use original logic (fallback)
+                    notifications = Notification.objects.filter(
+                        Q(related_order_id=order_id) | Q(related_guest_order_id=order_id),
+                        user=request.user,
+                        is_read=False
+                    )
+        
+        count = notifications.count()
+        notifications.update(
+            is_read=True,
+            read_at=timezone.now()
+        )
+        
+        return Response({
+            'message': f'Marked {count} notifications as read for order {order_id}',
+            'marked_count': count
+        })
 
 
 class UserFavoriteViewSet(viewsets.ModelViewSet):
@@ -1174,20 +1228,29 @@ class DashboardViewSet(viewsets.ViewSet):
         
         today = timezone.now().date()
         
-        # Today's statistics
-        today_orders = Order.objects.filter(order_date__date=today)
-        today_revenue = today_orders.aggregate(Sum('total_amount'))['total_amount__sum'] or 0
+        # Today's statistics (include both logged-in orders and guest orders)
+        today_orders_count = (
+            Order.objects.filter(order_date__date=today).count() +
+            GuestOrder.objects.filter(order_date__date=today).count()
+        )
+        today_revenue_logged_in = Order.objects.filter(order_date__date=today).aggregate(Sum('total_amount'))['total_amount__sum'] or 0
+        today_revenue_guest = GuestOrder.objects.filter(order_date__date=today).aggregate(Sum('total_amount'))['total_amount__sum'] or 0
+        today_revenue = today_revenue_logged_in + today_revenue_guest
         
         # Overall statistics
         total_users = User.objects.count()
         total_restaurants = Restaurant.objects.count()
-        total_orders = Order.objects.count()
-        active_orders = Order.objects.filter(
-            current_status__in=['pending', 'paid', 'preparing', 'ready_for_pickup', 'delivering']
-        ).count()
+        total_orders = Order.objects.count() + GuestOrder.objects.count()
+        active_statuses = ['pending', 'paid', 'preparing', 'ready_for_pickup', 'delivering']
+        active_orders = (
+            Order.objects.filter(current_status__in=active_statuses).count() +
+            GuestOrder.objects.filter(current_status__in=active_statuses).count()
+        )
         
-        # Revenue statistics
-        total_revenue = Order.objects.aggregate(Sum('total_amount'))['total_amount__sum'] or 0
+        # Revenue statistics (include guest orders)
+        total_revenue_logged_in = Order.objects.aggregate(Sum('total_amount'))['total_amount__sum'] or 0
+        total_revenue_guest = GuestOrder.objects.aggregate(Sum('total_amount'))['total_amount__sum'] or 0
+        total_revenue = total_revenue_logged_in + total_revenue_guest
         
         # Popular items
         from django.db.models import Count
@@ -1199,7 +1262,7 @@ class DashboardViewSet(viewsets.ViewSet):
         
         return Response({
             'today': {
-                'orders': today_orders.count(),
+                'orders': today_orders_count,
                 'revenue': today_revenue,
                 'new_users': User.objects.filter(date_joined__date=today).count(),
             },
@@ -1647,30 +1710,32 @@ class GuestOrderViewSet(viewsets.ModelViewSet):
             if proof_of_payment:
                 guest_order.proof_of_payment = proof_of_payment
                 guest_order.save()
-            # ส่ง notification ไปยังแอดมินทุกคน
-            admin_users = User.objects.filter(role='admin')
-            for admin_user in admin_users:
-                Notification.objects.create(
-                    user=admin_user,
-                    title='New Guest Order Received',
-                    message=f'Guest order #{guest_order.guest_order_id} ({guest_order.temporary_id}) was placed by {guest_order.customer_name}',
-                    type='guest_order_update'
+            # ไม่ส่ง notification และ WebSocket สำหรับ phone orders (ไม่มี email)
+            if guest_order.customer_email:
+                admin_users = User.objects.filter(role='admin')
+                for admin_user in admin_users:
+                    Notification.objects.create(
+                        user=admin_user,
+                        title='New Guest Order Received',
+                        message=f'Guest order #{guest_order.guest_order_id} ({guest_order.temporary_id}) was placed by {guest_order.customer_name}',
+                        type='guest_order',
+                        related_guest_order=guest_order
+                    )
+                # ส่ง WebSocket notification ไปยังกลุ่มแอดมิน (รองรับ multi-restaurant)
+                channel_layer = get_channel_layer()
+                restaurant_name = 'Multi-Restaurant Guest Order' if guest_order.is_multi_restaurant else (guest_order.restaurant.restaurant_name if guest_order.restaurant else '-')
+                async_to_sync(channel_layer.group_send)(
+                    "orders_admin",
+                    {
+                        'type': 'new_guest_order',
+                        'order_id': guest_order.guest_order_id,
+                        'temporary_id': guest_order.temporary_id,
+                        'customer_name': guest_order.customer_name,
+                        'restaurant_name': restaurant_name,
+                        'total_amount': str(guest_order.total_amount),
+                        'timestamp': timezone.now().isoformat()
+                    }
                 )
-            # ส่ง WebSocket notification ไปยังกลุ่มแอดมิน (รองรับ multi-restaurant)
-            channel_layer = get_channel_layer()
-            restaurant_name = 'Multi-Restaurant Guest Order' if guest_order.is_multi_restaurant else (guest_order.restaurant.restaurant_name if guest_order.restaurant else '-')
-            async_to_sync(channel_layer.group_send)(
-                "orders_admin",
-                {
-                    'type': 'new_guest_order',
-                    'order_id': guest_order.guest_order_id,
-                    'temporary_id': guest_order.temporary_id,
-                    'customer_name': guest_order.customer_name,
-                    'restaurant_name': restaurant_name,
-                    'total_amount': str(guest_order.total_amount),
-                    'timestamp': timezone.now().isoformat()
-                }
-            )
             headers = self.get_success_headers(serializer.data)
             return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
         except Exception as e:
@@ -1712,6 +1777,9 @@ class GuestOrderViewSet(viewsets.ModelViewSet):
             note=note,
             updated_by_user=request.user
         )
+        
+        # ไม่ต้องส่ง notification ให้แอดมิน เพราะแอดมินเป็นคนอัปเดตเอง
+        
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
             f"guest_order_{guest_order.temporary_id}",
@@ -1758,27 +1826,30 @@ class GuestOrderViewSet(viewsets.ModelViewSet):
                 if proof_of_payment:
                     guest_order.proof_of_payment = proof_of_payment
                     guest_order.save()
-                admin_users = User.objects.filter(role='admin')
-                for admin_user in admin_users:
-                    Notification.objects.create(
-                        user=admin_user,
-                        title='New Multi-Restaurant Guest Order Received',
-                        message=f'Multi-restaurant guest order #{guest_order.guest_order_id} ({guest_order.temporary_id}) was placed by {guest_order.customer_name}',
-                        type='guest_order_update'
+                # ไม่ส่ง notification และ WebSocket สำหรับ phone orders (ไม่มี email)
+                if guest_order.customer_email:
+                    admin_users = User.objects.filter(role='admin')
+                    for admin_user in admin_users:
+                        Notification.objects.create(
+                            user=admin_user,
+                            title='New Multi-Restaurant Guest Order Received',
+                            message=f'Multi-restaurant guest order #{guest_order.guest_order_id} ({guest_order.temporary_id}) was placed by {guest_order.customer_name}',
+                            type='guest_order',
+                            related_guest_order=guest_order
+                        )
+                    channel_layer = get_channel_layer()
+                    async_to_sync(channel_layer.group_send)(
+                        "orders_admin",
+                        {
+                            'type': 'new_guest_order',
+                            'order_id': guest_order.guest_order_id,
+                            'temporary_id': guest_order.temporary_id,
+                            'customer_name': guest_order.customer_name,
+                            'restaurant_name': 'Multi-Restaurant Guest Order',
+                            'total_amount': str(guest_order.total_amount),
+                            'timestamp': timezone.now().isoformat()
+                        }
                     )
-                channel_layer = get_channel_layer()
-                async_to_sync(channel_layer.group_send)(
-                    "orders_admin",
-                    {
-                        'type': 'new_guest_order',
-                        'order_id': guest_order.guest_order_id,
-                        'temporary_id': guest_order.temporary_id,
-                        'customer_name': guest_order.customer_name,
-                        'restaurant_name': 'Multi-Restaurant Guest Order',
-                        'total_amount': str(guest_order.total_amount),
-                        'timestamp': timezone.now().isoformat()
-                    }
-                )
                 return Response(GuestOrderSerializer(guest_order).data, status=status.HTTP_201_CREATED)
             else:
                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

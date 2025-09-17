@@ -5,9 +5,12 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build --outDir dist",
+    "build:analyze": "vite build --outDir dist && npx vite-bundle-analyzer dist",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "lint:fix": "eslint . --fix",
+    "preview": "vite preview",
+    "clean": "rm -rf dist"
   },
   "dependencies": {
     "@headlessui/react": "^2.2.4",
@@ -20,6 +23,7 @@
     "react-chartjs-2": "^5.3.0",
     "react-dom": "^19.1.0",
     "react-hook-form": "^7.58.1",
+    "react-icons": "^5.5.0",
     "react-router-dom": "^7.6.2",
     "yup": "^1.6.1"
   },
@@ -34,6 +38,7 @@
     "eslint-plugin-react-refresh": "^0.4.20",
     "globals": "^16.2.0",
     "tailwindcss": "^3.4.0",
+    "terser": "^5.43.1",
     "vite": "^5.4.0"
   }
 }

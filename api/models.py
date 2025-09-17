@@ -306,7 +306,8 @@ class DeliveryStatusLog(models.Model):
 
 class Notification(models.Model):
     TYPE_CHOICES = [
-        ('order_update', 'Order Update'),
+        ('order', 'Order'),
+        ('guest_order', 'Guest Order'),
         ('payment_confirm', 'Payment Confirmation'),
         ('review_reminder', 'Review Reminder'),
         ('promotion', 'Promotion'),
@@ -322,6 +323,7 @@ class Notification(models.Model):
     message = models.TextField()
     type = models.CharField(max_length=30, choices=TYPE_CHOICES)
     related_order = models.ForeignKey(Order, on_delete=models.CASCADE, null=True, blank=True)
+    related_guest_order = models.ForeignKey('GuestOrder', on_delete=models.CASCADE, null=True, blank=True)
     is_read = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     read_at = models.DateTimeField(null=True, blank=True)

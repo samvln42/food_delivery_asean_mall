@@ -3,6 +3,65 @@ import { Link, useSearchParams } from "react-router-dom";
 import api from "../../services/api";
 import { useLanguage } from "../../contexts/LanguageContext";
 import websocketService from "../../services/websocket";
+import { formatPrice } from "../../utils/formatPrice";
+import { API_ENDPOINTS } from '../../config/api';
+
+// Reusable Toast component
+const Toast = ({ icon = '🔔', title, message, color = 'emerald', onClose, position = 'top-right', offset = 0 }) => {
+  const colorMap = {
+    emerald: {
+      bg: 'bg-emerald-50',
+      border: 'border-emerald-200',
+      textTitle: 'text-emerald-800',
+      text: 'text-emerald-700',
+      ring: 'ring-emerald-200'
+    },
+    blue: {
+      bg: 'bg-blue-50',
+      border: 'border-blue-200',
+      textTitle: 'text-blue-800',
+      text: 'text-blue-700',
+      ring: 'ring-blue-200'
+    },
+    yellow: {
+      bg: 'bg-yellow-50',
+      border: 'border-yellow-200',
+      textTitle: 'text-yellow-800',
+      text: 'text-yellow-700',
+      ring: 'ring-yellow-200'
+    },
+    red: {
+      bg: 'bg-red-50',
+      border: 'border-red-200',
+      textTitle: 'text-red-800',
+      text: 'text-red-700',
+      ring: 'ring-red-200'
+    }
+  }[color] || {
+    bg: 'bg-secondary-50',
+    border: 'border-secondary-200',
+    textTitle: 'text-secondary-800',
+    text: 'text-secondary-700',
+    ring: 'ring-secondary-200'
+  };
+
+  const posClass = position === 'top-left' ? 'left-4' : 'right-4';
+  const topPx = 16 + offset * 72; // 16px base + 72px per stacked toast
+
+  return (
+    <div className={`fixed z-50 max-w-md w-[92vw] sm:w-auto rounded-xl border shadow-lg ${colorMap.bg} ${colorMap.border} animate-in slide-in-from-top-2 ${posClass}`}
+         style={{ top: `${topPx}px` }}>
+      <div className={`px-5 py-4 flex items-start gap-3`}> 
+        <div className={`flex-shrink-0 w-9 h-9 rounded-full bg-white ${colorMap.ring} ring-4 flex items-center justify-center text-base`}>{icon}</div>
+        <div className="flex-1 min-w-0">
+          <p className={`font-semibold ${colorMap.textTitle} truncate`}>{title}</p>
+          <p className={`text-sm ${colorMap.text} mt-0.5 break-words`}>{message}</p>
+        </div>
+        <button onClick={onClose} className="ml-2 text-secondary-400 hover:text-secondary-600">✕</button>
+      </div>
+    </div>
+  );
+};
 
 // Order Status Tracker Component
 const OrderStatusTracker = ({ currentStatus, orderDate, translate }) => {
@@ -227,7 +286,7 @@ const OrderStatusTracker = ({ currentStatus, orderDate, translate }) => {
 };
 
 const GuestOrders = () => {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { translate, currentLanguage } = useLanguage();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -237,7 +296,20 @@ const GuestOrders = () => {
   const [pollingActive, setPollingActive] = useState(false);
   const [cleanupNotification, setCleanupNotification] = useState(null);
 
+  // เพิ่ม state สำหรับ WebSocket connection
+  const [isWebSocketConnecting, setIsWebSocketConnecting] = useState(false);
+  const [webSocketError, setWebSocketError] = useState(null);
+
   const temporaryIdFromUrl = searchParams.get("temporary_id");
+  
+  // ทำความสะอาด temporary_id (ลบ :1 หรือ port number ที่อาจติดมา)
+  const sanitizeTemporaryId = (id) => {
+    if (!id) return null;
+    // ลบ :number ที่อาจติดท้ายมาจาก URL parsing error
+    const cleaned = id.split(':')[0];
+    console.log('🧹 Sanitized temporary_id:', { original: id, cleaned });
+    return cleaned;
+  };
   
   // ดึง temporary_id จาก localStorage ถ้าไม่มีใน URL
   const getTemporaryIdFromLocalStorage = () => {
@@ -247,7 +319,7 @@ const GuestOrders = () => {
         const guestOrders = JSON.parse(guestOrdersData);
         // ใช้ temporary_id แรกที่มีใน localStorage
         if (guestOrders.length > 0) {
-          return guestOrders[0].temporary_id;
+          return sanitizeTemporaryId(guestOrders[0].temporary_id);
         }
       }
     } catch (error) {
@@ -256,56 +328,101 @@ const GuestOrders = () => {
     return null;
   };
 
-  const temporaryId = temporaryIdFromUrl || getTemporaryIdFromLocalStorage();
+  const temporaryId = sanitizeTemporaryId(temporaryIdFromUrl) || getTemporaryIdFromLocalStorage();
+
+  // ลบ temporary_id ออกจาก URL (replace state เพื่อไม่เพิ่ม history)
+  const clearTemporaryIdFromUrl = useCallback(() => {
+    try {
+      if (searchParams.has("temporary_id")) {
+        const newParams = new URLSearchParams(searchParams);
+        newParams.delete("temporary_id");
+        setSearchParams(newParams, { replace: true });
+      }
+    } catch (e) {
+      // fallback ปลอดภัย หาก setSearchParams ใช้ไม่ได้ในบางบริบท
+      const url = new URL(window.location.href);
+      url.searchParams.delete("temporary_id");
+      window.history.replaceState({}, "", url);
+    }
+  }, [searchParams, setSearchParams]);
   
   // Debug temporary_id
-  console.log('🔍 GuestOrders component - temporary_id from URL:', temporaryIdFromUrl);
-  console.log('🔍 GuestOrders component - temporary_id from localStorage:', getTemporaryIdFromLocalStorage());
-  console.log('🔍 GuestOrders component - final temporary_id:', temporaryId);
-  console.log('🔍 GuestOrders component - searchParams:', Object.fromEntries(searchParams.entries()));
+  // console.log('🔍 GuestOrders component - temporary_id from URL:', temporaryIdFromUrl);
+  // console.log('🔍 GuestOrders component - temporary_id from localStorage:', getTemporaryIdFromLocalStorage());
+  // console.log('🔍 GuestOrders component - final temporary_id:', temporaryId);
+  // console.log('🔍 GuestOrders component - searchParams:', Object.fromEntries(searchParams.entries()));
 
   // WebSocket connection และ polling สำหรับ guest orders
   useEffect(() => {
-    console.log('🔍 WebSocket useEffect triggered with temporaryId:', temporaryId);
-    console.log('🔍 WebSocket useEffect - searchParams:', Object.fromEntries(searchParams.entries()));
+    // console.log('🔍 WebSocket useEffect triggered with temporaryId:', temporaryId);
+    // console.log('🔍 WebSocket useEffect - searchParams:', Object.fromEntries(searchParams.entries()));
     
     if (!temporaryId) {
-      console.log('⚠️ No temporary_id provided, skipping WebSocket connection');
+      // console.log('⚠️ No temporary_id provided, skipping WebSocket connection');
       return;
     }
 
-    console.log(`🔗 Setting up WebSocket for temporary_id: ${temporaryId}`);
+    // console.log(`🔗 Setting up WebSocket for temporary_id: ${temporaryId}`);
     
     // ทดสอบ WebSocket connection ก่อน
     const testWebSocketConnection = () => {
-      try {
-        const testWs = new WebSocket('ws://localhost:8000/ws/guest-orders/');
-        
-        testWs.onopen = () => {
-          console.log('✅ Test WebSocket connection successful');
+      // ป้องกันการเรียก WebSocket connection ซ้ำ
+      if (isWebSocketConnecting) return;
+
+      setIsWebSocketConnecting(true);
+      setWebSocketError(null);
+
+      // const baseUrl = import.meta.env.VITE_API_URL || 'https://matjyp.com/api/';
+      const baseUrl = import.meta.env.VITE_API_URL;
+      const wsUrl = baseUrl.replace('https://', 'wss://').replace('http://', 'ws://').replace(/\/api\/?$/, '/ws/guest-orders/');
+      
+      // console.log('🔍 WebSocket Connection Debug:', {
+      //   baseUrl,
+      //   wsUrl,
+      //   environmentApiUrl: import.meta.env.VITE_API_URL
+      // });
+
+      const testWs = new WebSocket(wsUrl);
+      
+      // Timeout สำหรับ connection
+      const connectionTimeout = setTimeout(() => {
+        if (testWs.readyState === WebSocket.CONNECTING) {
+          console.log('⏰ WebSocket connection timeout');
           testWs.close();
-        };
+          setIsWebSocketConnecting(false);
+          setWebSocketError(new Error('WebSocket connection timeout'));
+        }
+      }, 5000); // 5 วินาที
+
+      testWs.onopen = () => {
+        clearTimeout(connectionTimeout);
+        console.log('✅ Test WebSocket connection successful:', wsUrl);
+        setIsWebSocketConnecting(false);
+        testWs.close();
+      };
+
+      testWs.onerror = (error) => {
+        clearTimeout(connectionTimeout);
+        console.error('❌ Test WebSocket connection error:', {
+          url: wsUrl,
+          error: error,
+          errorType: error.type,
+          target: error.target
+        });
+        setIsWebSocketConnecting(false);
+        setWebSocketError(error);
+      };
+
+      testWs.onclose = (event) => {
+        clearTimeout(connectionTimeout);
+        console.log('🔌 Test WebSocket connection closed:', {
+          code: event.code,
+          reason: event.reason,
+          wasClean: event.wasClean
+        });
+        setIsWebSocketConnecting(false);
+      };
         
-        testWs.onerror = (error) => {
-          console.error('❌ Test WebSocket connection failed:', error);
-          console.log('💡 Backend WebSocket server might not be running or accessible');
-        };
-        
-        testWs.onclose = (event) => {
-          console.log('🔌 Test WebSocket closed with code:', event.code);
-        };
-        
-        // Timeout after 5 seconds
-        setTimeout(() => {
-          if (testWs.readyState === WebSocket.CONNECTING) {
-            console.log('⏰ Test WebSocket connection timeout');
-            testWs.close();
-          }
-        }, 5000);
-        
-      } catch (error) {
-        console.error('❌ Error creating test WebSocket:', error);
-      }
     };
     
     // ทดสอบ connection ก่อน
@@ -315,12 +432,12 @@ const GuestOrders = () => {
     const currentTemporaryId = websocketService.guestTemporaryId;
     const isConnected = websocketService.isGuestConnected();
     
-    console.log('🔍 Current WebSocket state:', {
-      currentTemporaryId,
-      newTemporaryId: temporaryId,
-      isConnected,
-      readyState: websocketService.guestWs?.readyState
-    });
+    // console.log('🔍 Current WebSocket state:', {
+    //   currentTemporaryId,
+    //   newTemporaryId: temporaryId,
+    //   isConnected,
+    //   readyState: websocketService.guestWs?.readyState
+    // });
     
     // ถ้า temporary_id เปลี่ยน หรือ WebSocket ไม่เชื่อมต่อ ให้เชื่อมต่อใหม่
     if (currentTemporaryId !== temporaryId || !isConnected) {
@@ -348,6 +465,26 @@ const GuestOrders = () => {
       // websocketService.disconnectGuest();
     };
   }, [temporaryId]); // ขึ้นกับ temporary_id เท่านั้น
+
+  // เพิ่มการแสดงข้อผิดพลาดของ WebSocket
+  useEffect(() => {
+    if (webSocketError) {
+      // แสดง error message หรือ toast notification
+      console.error('WebSocket Connection Error:', webSocketError);
+      
+      // แสดงการแจ้งเตือน
+      setStatusUpdateNotification({
+        orderId: temporaryId,
+        statusLabel: 'WebSocket Error',
+        type: 'error'
+      });
+
+      // ซ่อนการแจ้งเตือนหลังจาก 5 วินาที
+      setTimeout(() => {
+        setStatusUpdateNotification(null);
+      }, 5000);
+    }
+  }, [webSocketError, temporaryId]);
 
   // เพิ่ม useEffect สำหรับจัดการ WebSocket เมื่อไม่มี temporary_id ใน URL แต่มีใน localStorage
   useEffect(() => {
@@ -392,17 +529,19 @@ const GuestOrders = () => {
 
     // Check WebSocket connection status
     const isWebSocketConnected = websocketService.isGuestConnected();
-    console.log('🔍 Polling useEffect - WebSocket status:', {
-      isWebSocketConnected,
-      readyState: websocketService.guestWs?.readyState,
-      temporaryId,
-      temporaryIdFromUrl,
-      hasLocalStorageTemporaryId: !!getTemporaryIdFromLocalStorage()
-    });
+    // console.log('🔍 Polling useEffect - WebSocket status:', {
+    //   isWebSocketConnected,
+    //   readyState: websocketService.guestWs?.readyState,
+    //   temporaryId,
+    //   temporaryIdFromUrl,
+    //   hasLocalStorageTemporaryId: !!getTemporaryIdFromLocalStorage()
+    // });
     
     if (isWebSocketConnected) {
       console.log('✅ WebSocket connected, disabling polling');
       setPollingActive(false);
+      // ทำความสะอาด localStorage ก่อน fetch
+      cleanupLocalStorage();
       fetchOrders(); // Initial fetch only
       return;
     }
@@ -411,6 +550,9 @@ const GuestOrders = () => {
     console.log('⚠️ WebSocket not connected, enabling polling');
     setPollingActive(true);
 
+    // ทำความสะอาด localStorage ก่อน fetch
+    cleanupLocalStorage();
+    
     // Initial fetch
     fetchOrders();
 
@@ -418,11 +560,11 @@ const GuestOrders = () => {
     const pollingInterval = setInterval(() => {
       // Check again if WebSocket became available
       const isConnected = websocketService.isGuestConnected();
-      console.log('🔄 Polling interval - checking WebSocket:', {
-        isConnected,
-        readyState: websocketService.guestWs?.readyState,
-        temporaryId
-      });
+      // console.log('🔄 Polling interval - checking WebSocket:', {
+      //   isConnected,
+      //   readyState: websocketService.guestWs?.readyState,
+      //   temporaryId
+      // });
       
       if (isConnected) {
         console.log('✅ WebSocket became available, disabling polling');
@@ -468,6 +610,11 @@ const GuestOrders = () => {
         setOrders((prevOrders) =>
           prevOrders.filter((order) => order.temporary_id !== temporaryId)
         );
+
+        // ลบ temporary_id ออกจาก URL หากตรงกับที่แสดงอยู่
+        if (temporaryIdFromUrl && String(temporaryIdFromUrl) === String(temporaryId)) {
+          clearTemporaryIdFromUrl();
+        }
       } else {
         // Refresh orders list สำหรับสถานะอื่นๆ
         fetchOrdersQuietly();
@@ -498,7 +645,7 @@ const GuestOrders = () => {
       );
       websocketService.off("order_status_update", handleOrderStatusUpdate);
     };
-  }, [translate]); // ใช้เฉพาะ translate เป็น dependency
+  }, [translate, clearTemporaryIdFromUrl, temporaryIdFromUrl]);
 
   const fetchOrders = useCallback(async () => {
     try {
@@ -508,10 +655,45 @@ const GuestOrders = () => {
       let response;
       if (temporaryId) {
         // Fetch specific guest order using track endpoint
-        response = await api.get(
-          `/guest-orders/track/?temporary_id=${temporaryId}`
-        );
-        setOrders([response.data]);
+        const trackUrl = API_ENDPOINTS.GUEST_ORDERS.TRACK(temporaryId);
+        console.log('🎯 Tracking specific order:', { temporaryId, trackUrl });
+        
+        try {
+          response = await api.get(trackUrl);
+          const trackedOrder = response.data;
+
+          // หากคำสั่งเสร็จสิ้นหรือยกเลิก ให้ลบ temporary_id ออกจาก URL และ localStorage
+          if (
+            trackedOrder?.current_status === "completed" ||
+            trackedOrder?.current_status === "cancelled"
+          ) {
+            removeCompletedOrderFromLocalStorage(trackedOrder.temporary_id);
+            if (temporaryIdFromUrl && String(temporaryIdFromUrl) === String(trackedOrder.temporary_id)) {
+              clearTemporaryIdFromUrl();
+            }
+            setOrders([]);
+          } else {
+            setOrders([trackedOrder]);
+          }
+        } catch (error) {
+          console.error(`Error tracking specific order ${temporaryId}:`, error);
+          
+          // ถ้าเป็น 404 หรือ 410 แสดงว่าออเดอร์ไม่มีอยู่แล้ว หรือหมดอายุ
+          if (error.response?.status === 404 || error.response?.status === 410) {
+            console.log(`🗑️ Order ${temporaryId} not found or expired, cleaning up`);
+            // ลบออกจาก localStorage และ URL
+            removeCompletedOrderFromLocalStorage(temporaryId);
+            if (temporaryIdFromUrl && String(temporaryIdFromUrl) === String(temporaryId)) {
+              clearTemporaryIdFromUrl();
+            }
+            setOrders([]);
+            setError(`Order ${temporaryId} not found or has expired`);
+            return; // หยุดการทำงานต่อ
+          } else {
+            // สำหรับ error อื่นๆ ให้แสดงข้อความ error
+            throw error;
+          }
+        }
       } else {
         // Fetch all guest orders from localStorage (เก็บแค่ temporary_id) และดึงข้อมูลจาก API
         const guestOrdersData = localStorage.getItem("guest_orders");
@@ -524,11 +706,16 @@ const GuestOrders = () => {
 
           for (const guestOrder of guestOrders) {
             try {
+              const cleanTempId = sanitizeTemporaryId(guestOrder.temporary_id);
               console.log(
-                `🔍 Fetching order data for: ${guestOrder.temporary_id}`
+                `🔍 Fetching order data for:`, {
+                  original: guestOrder.temporary_id,
+                  cleaned: cleanTempId,
+                  url: `/guest-orders/track/?temporary_id=${cleanTempId}`
+                }
               );
               const orderResponse = await api.get(
-                `/guest-orders/track/?temporary_id=${guestOrder.temporary_id}`
+                `/guest-orders/track/?temporary_id=${cleanTempId}`
               );
               const orderData = orderResponse.data;
 
@@ -553,20 +740,28 @@ const GuestOrders = () => {
                 `Error fetching order ${guestOrder.temporary_id}:`,
                 error
               );
-              // ถ้า API ส่ง 404 หรือ 410 (expired) ให้ข้ามไป ไม่เพิ่มในรายการ
+              // ถ้า API ส่ง 404 หรือ 410 (expired) ให้ลบออกจาก localStorage
               if (
                 error.response?.status === 404 ||
                 error.response?.status === 410
               ) {
                 console.log(
-                  `Order ${guestOrder.temporary_id} not found or expired, removing from localStorage`
+                  `🗑️ Order ${guestOrder.temporary_id} not found or expired, removing from localStorage`
                 );
+                // ลบออกจาก localStorage ทันที
+                removeCompletedOrderFromLocalStorage(guestOrder.temporary_id);
                 continue;
               }
               // สำหรับ error อื่นๆ ให้ข้ามไป ไม่ใช้ข้อมูลเก่าจาก localStorage
               console.log(
                 `Skipping order ${guestOrder.temporary_id} due to API error`
               );
+              
+              // ถ้าเป็น temporary_id ที่มี format ผิด ให้ทำความสะอาด localStorage
+              if (guestOrder.temporary_id.includes(':')) {
+                console.warn('🧹 Found corrupted temporary_id in localStorage:', guestOrder.temporary_id);
+                removeCompletedOrderFromLocalStorage(guestOrder.temporary_id);
+              }
             }
           }
 
@@ -619,19 +814,52 @@ const GuestOrders = () => {
   const fetchOrdersQuietly = useCallback(async () => {
     try {
       if (temporaryId) {
-        const response = await api.get(
-          `/guest-orders/track/?temporary_id=${temporaryId}`
-        );
-        const newOrder = response.data;
+        console.log('🔄 Quiet fetch for:', { temporaryId });
+        
+        let newOrder;
+        try {
+          const response = await api.get(
+            `/guest-orders/track/?temporary_id=${temporaryId}`
+          );
+          newOrder = response.data;
 
-        // Compare with current orders to detect changes
-        setOrders((prevOrders) => {
-          if (prevOrders.length === 0) {
-            return [newOrder];
+          // หากคำสั่งเสร็จสิ้นหรือยกเลิก ให้ลบ temporary_id ออกจาก URL และ localStorage แล้วเคลียร์รายการ
+          if (
+            newOrder?.current_status === "completed" ||
+            newOrder?.current_status === "cancelled"
+          ) {
+            removeCompletedOrderFromLocalStorage(newOrder.temporary_id);
+            if (temporaryIdFromUrl && String(temporaryIdFromUrl) === String(newOrder.temporary_id)) {
+              clearTemporaryIdFromUrl();
+            }
+            setOrders([]);
+            return;
           }
+        } catch (error) {
+          // ถ้าเป็น 404 หรือ 410 แสดงว่าออเดอร์ไม่มีอยู่แล้ว
+          if (error.response?.status === 404 || error.response?.status === 410) {
+            console.log(`🗑️ Quiet fetch: Order ${temporaryId} not found, cleaning up`);
+            removeCompletedOrderFromLocalStorage(temporaryId);
+            if (temporaryIdFromUrl && String(temporaryIdFromUrl) === String(temporaryId)) {
+              clearTemporaryIdFromUrl();
+            }
+            setOrders([]);
+            return;
+          }
+          // สำหรับ error อื่นๆ ให้ skip quietly
+          console.warn(`Quiet fetch error for ${temporaryId}:`, error.message);
+          return;
+        }
 
-          const oldOrder = prevOrders[0];
-          if (oldOrder && oldOrder.current_status !== newOrder.current_status) {
+        // Compare with current orders to detect changes (ใช้ได้เฉพาะเมื่อ newOrder มีค่า)
+        if (newOrder) {
+          setOrders((prevOrders) => {
+            if (prevOrders.length === 0) {
+              return [newOrder];
+            }
+
+            const oldOrder = prevOrders[0];
+            if (oldOrder && oldOrder.current_status !== newOrder.current_status) {
             // Show notification for status changes (Only if WebSocket is not connected)
             if (
               !websocketService.guestWs ||
@@ -656,6 +884,7 @@ const GuestOrders = () => {
 
           return [newOrder];
         });
+        }
       } else {
         const guestOrdersData = localStorage.getItem("guest_orders");
         if (guestOrdersData) {
@@ -772,7 +1001,7 @@ const GuestOrders = () => {
       console.error("Error fetching orders quietly:", error);
       // Don't show error UI for polling failures
     }
-  }, [temporaryId]); // ลบ translate ออกจาก dependencies
+  }, [temporaryId, clearTemporaryIdFromUrl, temporaryIdFromUrl]);
 
   // ฟังก์ชันสำหรับลบ guest orders ที่หมดอายุออกจาก localStorage
   const cleanupExpiredOrders = useCallback(() => {
@@ -822,6 +1051,39 @@ const GuestOrders = () => {
       console.error("Error cleaning up expired orders:", error);
     }
   }, []); // ลบ translate ออกจาก dependencies
+
+  // ฟังก์ชันสำหรับทำความสะอาด localStorage โดยการลบ temporary_id ที่มี format ผิด
+  const cleanupLocalStorage = useCallback(() => {
+    try {
+      const guestOrdersData = localStorage.getItem("guest_orders");
+      if (guestOrdersData) {
+        const guestOrders = JSON.parse(guestOrdersData);
+        
+        // กรอง temporary_id ที่มี format ถูกต้อง (ไม่มี : หรือ characters พิเศษ)
+        const cleanedOrders = guestOrders.filter(order => {
+          const isValid = order.temporary_id && 
+                         typeof order.temporary_id === 'string' &&
+                         order.temporary_id.startsWith('GUEST-') &&
+                         !order.temporary_id.includes(':') &&
+                         order.temporary_id.length > 10;
+          
+          if (!isValid) {
+            console.log(`🧹 Removing invalid temporary_id from localStorage: ${order.temporary_id}`);
+          }
+          
+          return isValid;
+        });
+
+        // อัปเดต localStorage ถ้ามีการเปลี่ยนแปลง
+        if (cleanedOrders.length !== guestOrders.length) {
+          localStorage.setItem("guest_orders", JSON.stringify(cleanedOrders));
+          console.log(`✅ Cleaned localStorage: removed ${guestOrders.length - cleanedOrders.length} invalid entries`);
+        }
+      }
+    } catch (error) {
+      console.error("Error cleaning localStorage:", error);
+    }
+  }, []);
 
   // ฟังก์ชันสำหรับลบ temporary_id ออกจาก localStorage เมื่อออเดอร์เสร็จสิ้นหรือยกเลิก
   const removeCompletedOrderFromLocalStorage = useCallback((temporaryId) => {
@@ -992,60 +1254,31 @@ const GuestOrders = () => {
     <div className="container mx-auto px-4 py-8">
       {/* Status Update Notification */}
       {statusUpdateNotification && (
-        <div className="fixed top-4 right-4 z-50 bg-green-500 text-white px-6 py-4 rounded-lg shadow-lg animate-bounce">
-          <div className="flex items-center">
-            <span className="text-xl mr-3">🔔</span>
-            <div>
-              <p className="font-semibold">
-                {translate("order.status_updated")}
-              </p>
-              <p className="text-sm">
-                {statusUpdateNotification.oldStatus &&
-                statusUpdateNotification.newStatus
-                  ? translate("order.status_change_notification", {
-                      orderId: statusUpdateNotification.orderId,
-                      oldStatus: translate(
-                        `order.status.${statusUpdateNotification.oldStatus}`
-                      ),
-                      newStatus: translate(
-                        `order.status.${statusUpdateNotification.newStatus}`
-                      ),
-                    })
-                  : translate("order.status_updated_notification", {
-                      orderId: statusUpdateNotification.orderId,
-                      status: translate(statusUpdateNotification.statusLabel),
-                    })}
-              </p>
-            </div>
-            <button
-              onClick={() => setStatusUpdateNotification(null)}
-              className="ml-4 text-white hover:text-gray-200"
-            >
-              ✕
-            </button>
-          </div>
-        </div>
+        <Toast
+          icon="🔔"
+          color="emerald"
+          title={translate('order.status_updated')}
+          message={translate('order.status_change_notification', {
+            orderId: statusUpdateNotification.orderId,
+            status: translate(`order.status.${statusUpdateNotification.newStatus || statusUpdateNotification.oldStatus}`),
+          })}
+          onClose={() => setStatusUpdateNotification(null)}
+          position="top-right"
+          offset={0}
+        />
       )}
 
       {/* Cleanup Notification */}
       {cleanupNotification && (
-        <div className="fixed top-4 left-4 z-50 bg-blue-500 text-white px-6 py-4 rounded-lg shadow-lg animate-bounce">
-          <div className="flex items-center">
-            <span className="text-xl mr-3">🧹</span>
-            <div>
-              <p className="font-semibold">
-                {translate("order.history_cleaned")}
-              </p>
-              <p className="text-sm">{cleanupNotification.message}</p>
-            </div>
-            <button
-              onClick={() => setCleanupNotification(null)}
-              className="ml-4 text-white hover:text-gray-200"
-            >
-              ✕
-            </button>
-          </div>
-        </div>
+        <Toast
+          icon="🧹"
+          color={cleanupNotification.type === 'warning' ? 'yellow' : cleanupNotification.type === 'success' ? 'emerald' : 'blue'}
+          title={translate('order.history_cleaned')}
+          message={cleanupNotification.message}
+          onClose={() => setCleanupNotification(null)}
+          position="top-right"
+          offset={statusUpdateNotification ? 1 : 0}
+        />
       )}
 
       {/* Header */}
@@ -1062,42 +1295,42 @@ const GuestOrders = () => {
               const readyStateText = websocketService.getReadyStateText?.(readyState) || 'UNKNOWN';
               const hasWebSocket = !!websocketService.guestWs;
               
-              console.log('🔍 Status indicator check:', {
-                isWebSocketConnected,
-                readyState,
-                readyStateText,
-                hasWebSocket,
-                pollingActive,
-                temporaryId,
-                guestTemporaryId: websocketService.guestTemporaryId,
-                url: websocketService.guestWs?.url || 'N/A'
-              });
+              // console.log('🔍 Status indicator check:', {
+              //   isWebSocketConnected,
+              //   readyState,
+              //   readyStateText,
+              //   hasWebSocket,
+              //   pollingActive,
+              //   temporaryId,
+              //   guestTemporaryId: websocketService.guestTemporaryId,
+              //   url: websocketService.guestWs?.url || 'N/A'
+              // });
               
               if (isWebSocketConnected) {
                 return (
                   <>
-                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                    {/* <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
                     <span className="text-xs text-green-600 font-medium">
                       {translate("order.websocket_connected")}
-                    </span>
+                    </span> */}
                   </>
                 );
               } else if (pollingActive) {
                 return (
                   <>
-                    <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                    {/* <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
                     <span className="text-xs text-blue-600 font-medium">
                       {translate("order.polling_active")}
-                    </span>
+                    </span> */}
                   </>
                 );
               } else {
                 return (
                   <>
-                    <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                    {/* <div className="w-2 h-2 bg-red-500 rounded-full"></div>
                     <span className="text-xs text-red-600 font-medium">
                       {translate("order.no_realtime_updates")}
-                    </span>
+                    </span> */}
                   </>
                 );
               }
@@ -1184,7 +1417,7 @@ const GuestOrders = () => {
                       {statusInfo.text}
                     </span>
                     <p className="text-lg font-semibold text-red-600 mt-1">
-                      {parseFloat(order.total_amount).toFixed(2)}
+                      {formatPrice(order.total_amount)}
                     </p>
                   </div>
                 </div>
@@ -1228,7 +1461,7 @@ const GuestOrders = () => {
                             </div>
                             <div className="text-right">
                               <p className="text-sm font-semibold text-red-600">
-                                {restaurantGroup.subtotal?.toFixed(2)}
+                                {formatPrice(restaurantGroup.subtotal)}
                               </p>
                               <p className="text-xs text-secondary-500">
                                 {restaurantGroup.items?.length || 0}{" "}
@@ -1262,15 +1495,15 @@ const GuestOrders = () => {
                                         {item.product_name}
                                       </p>
                                       <p className="text-sm text-secondary-500">
-                                        {parseFloat(
+                                        {formatPrice(
                                           item.price_at_order
-                                        ).toFixed(2)}{" "}
+                                        )}{" "}
                                         × {item.quantity}
                                       </p>
                                     </div>
                                   </div>
                                   <p className="font-semibold text-secondary-700">
-                                    {parseFloat(item.subtotal).toFixed(2)}
+                                    {formatPrice(item.subtotal)}
                                   </p>
                                 </div>
                               )
@@ -1305,9 +1538,9 @@ const GuestOrders = () => {
                               </p>
                               <div className="flex items-center space-x-2 text-sm text-secondary-500">
                                 <span>
-                                  {parseFloat(
+                                  {formatPrice(
                                     item.price_at_order || item.price
-                                  ).toFixed(2)}
+                                  )}
                                 </span>
                                 <span>×</span>
                                 <span>{item.quantity}</span>
@@ -1321,11 +1554,11 @@ const GuestOrders = () => {
                             </div>
                           </div>
                           <p className="font-semibold text-secondary-700">
-                            {parseFloat(
+                            {formatPrice(
                               item.subtotal ||
                                 (item.price_at_order || item.price) *
                                   item.quantity
-                            ).toFixed(2)}
+                            )}
                           </p>
                         </div>
                       ))}
@@ -1341,7 +1574,7 @@ const GuestOrders = () => {
                         {translate("order.subtotal")}:
                       </span>
                       <span className="text-secondary-800">
-                        {subtotal.toFixed(2)}
+                        {formatPrice(subtotal)}
                       </span>
                     </div>
                     <div className="flex justify-between">
@@ -1349,7 +1582,7 @@ const GuestOrders = () => {
                         {translate("order.delivery_fee")}:
                       </span>
                       <span className="text-secondary-800">
-                        {parseFloat(order.delivery_fee || 0).toFixed(2)}
+                        {formatPrice(order.delivery_fee || 0)}
                       </span>
                     </div>
                     {isMultiRestaurant && (
@@ -1365,7 +1598,7 @@ const GuestOrders = () => {
                         {translate("cart.total")}:
                       </span>
                       <span className="text-red-600">
-                        {parseFloat(order.total_amount).toFixed(2)}
+                        {formatPrice(order.total_amount)}
                       </span>
                     </div>
                   </div>

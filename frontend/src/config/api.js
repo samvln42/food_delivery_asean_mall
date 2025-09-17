@@ -1,14 +1,35 @@
 // API Configuration - Remove trailing slash to prevent double slash
 const getBaseUrl = () => {
-  const url = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/';
-  return url.endsWith('/') ? url.slice(0, -1) : url;
+  const url = import.meta.env.VITE_API_URL;
+  
+  // แสดง debug info เฉพาะใน development mode
+  // if (import.meta.env.DEV) {
+  //   console.log('🔧 Environment VITE_API_URL:', url);
+  //   console.log('🔧 All env vars:', import.meta.env);
+  // }
+  
+  if (!url) {
+    console.error('❌ VITE_API_URL is not defined in .env file!');
+    throw new Error('VITE_API_URL environment variable is required');
+  }
+  
+  const finalUrl = url.endsWith('/') ? url.slice(0, -1) : url;
+  return finalUrl;
 };
 
 export const API_CONFIG = {
   BASE_URL: getBaseUrl(),
-  TIMEOUT: 30000, // Increased from 10s to 30s
+  TIMEOUT: 15000, // ลดเหลือ 15 วินาที เพื่อประสิทธิภาพที่ดีขึ้น
   HEADERS: {
     'Content-Type': 'application/json',
+    'Accept': 'application/json',
+    // หมายเหตุ: Accept-Encoding จะถูกตั้งค่าโดยเบราว์เซอร์อัตโนมัติ
+    // ไม่ต้องตั้งค่าเองเพราะถือว่าเป็น "unsafe header"
+  },
+  // เพิ่ม retry configuration
+  RETRY: {
+    ATTEMPTS: 3,
+    DELAY: 1000, // 1 วินาที
   }
 };
 
@@ -125,5 +146,12 @@ export const API_ENDPOINTS = {
     LIST: '/languages/',
     DEFAULT: '/languages/default/',
     TRANSLATIONS: '/translations/by_language/',
+  },
+
+  // Guest Orders
+  GUEST_ORDERS: {
+    LIST: '/guest-orders/',
+    TRACK: (temporaryId) => `/guest-orders/track/?temporary_id=${temporaryId}`,
+    MULTI: '/guest-orders/multi/',
   },
 }; 

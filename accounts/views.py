@@ -6,6 +6,9 @@ from rest_framework.authtoken.models import Token
 from django.contrib.auth import authenticate, login, logout
 from django.db.models import Count, Sum
 from django.utils import timezone
+from django.views.decorators.csrf import csrf_exempt
+from django.utils.decorators import method_decorator
+from django.conf import settings
 from django_filters.rest_framework import DjangoFilterBackend
 from .models import User
 from .serializers import (
@@ -17,6 +20,7 @@ from .serializers import (
 )
 
 
+@method_decorator(csrf_exempt, name='dispatch')
 class AuthViewSet(viewsets.GenericViewSet):
     """ViewSet for authentication endpoints"""
     permission_classes = [AllowAny]
@@ -24,38 +28,56 @@ class AuthViewSet(viewsets.GenericViewSet):
     
     @action(detail=False, methods=['post'])
     def register(self, request):
-        """Register a new user (requires email verification)"""
+        """Register a new user (with optional email verification)"""
         serializer = RegisterSerializer(data=request.data)
         if serializer.is_valid():
             try:
-                # สร้างผู้ใช้ใหม่ แต่ยังไม่ยืนยันอีเมล
+                # สร้างผู้ใช้ใหม่
                 user = serializer.save()
                 
-                # ผู้ใช้ที่สมัครเองจะไม่มี token จนกว่าจะยืนยันอีเมล
-                user.is_email_verified = False
-                user.save()
-                
-                # ส่งอีเมลยืนยัน
-                success = self._send_verification_email(user)
-                
-                if not success:
-                    # ถ้าส่งอีเมลไม่ได้ ให้ลบผู้ใช้ที่สร้างไว้
-                    user.delete()
+                # ตรวจสอบว่าต้องการ email verification หรือไม่
+                if getattr(settings, 'REQUIRE_EMAIL_VERIFICATION', True):
+                    # ผู้ใช้ที่สมัครเองจะไม่มี token จนกว่าจะยืนยันอีเมล
+                    user.is_email_verified = False
+                    user.save()
+                    
+                    # ส่งอีเมลยืนยัน
+                    success = self._send_verification_email(user)
+                    
+                    if not success:
+                        # ถ้าส่งอีเมลไม่ได้ ให้ลบผู้ใช้ที่สร้างไว้
+                        user.delete()
+                        return Response({
+                            'success': False,
+                            'error': 'Failed to send verification email',
+                            'message': 'An error occurred while sending the verification email. Please try again later',
+                            'error_type': 'email_send_failed'
+                        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                    
                     return Response({
-                        'success': False,
-                        'error': 'Failed to send verification email',
-                        'message': 'An error occurred while sending the verification email. Please try again later',
-                        'error_type': 'email_send_failed'
-                    }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-                
-                return Response({
-                    'success': True,
-                    'message': f'Registration successful! We have sent a verification email to {user.email}. Please check your email and enter the verification code to complete registration',
-                    'user': UserSerializer(user).data,
-                    'next_step': 'verify_email',
-                    'note': 'You will receive an API token after email verification is complete'
-                }, status=status.HTTP_201_CREATED)
-                
+                        'success': True,
+                        'message': f'Registration successful! We have sent a verification email to {user.email}. Please check your email and enter the verification code to complete registration',
+                        'user': UserSerializer(user).data,
+                        'next_step': 'verify_email',
+                        'note': 'You will receive an API token after email verification is complete'
+                    }, status=status.HTTP_201_CREATED)
+                else:
+                    # Auto-verify user และสร้าง token ทันที
+                    user.is_email_verified = True
+                    user.save()
+                    
+                    # สร้าง token
+                    token, created = Token.objects.get_or_create(user=user)
+                    
+                    return Response({
+                        'success': True,
+                        'message': f'Registration successful! You can now login with your credentials',
+                        'user': UserSerializer(user).data,
+                        'token': token.key,
+                        'next_step': 'login_ready',
+                        'note': 'Email verification is disabled. You can login immediately.'
+                    }, status=status.HTTP_201_CREATED)
+                    
             except Exception as e:
                 return Response({
                     'success': False,
@@ -144,7 +166,7 @@ class AuthViewSet(viewsets.GenericViewSet):
                     pass
             
             if user and user.is_active:
-                # ตรวจสอบว่ายืนยันอีเมลแล้วหรือยัง
+                # ตรวจสอบว่ายืนยันอีเมลแล้วหรือยัง (สำหรับ user ที่สร้างโดย admin จะมี is_email_verified = True อัตโนมัติ)
                 if not user.is_email_verified:
                     return Response({
                         'success': False,

@@ -5,6 +5,7 @@ import api, { appSettingsService } from "../../services/api";
 import { ErrorHandler, handleError } from "../../utils/errorHandler";
 import { toast } from "../../hooks/useNotification";
 import { useLanguage } from "../../contexts/LanguageContext";
+import { formatCurrency } from "../../utils/formatPrice";
 
 const GuestCart = () => {
   const { translate } = useLanguage();
@@ -118,6 +119,11 @@ const GuestCart = () => {
       return;
     }
 
+    // if (!customerEmail.trim()) {
+    //   toast.warning("Please enter your email");
+    //   return;
+    // }
+
     if (!proofOfPayment) {
       toast.warning("Please attach payment proof");
       return;
@@ -162,7 +168,7 @@ const GuestCart = () => {
           total_delivery_fee: deliveryFee,
           customer_name: customerName.trim(),
           customer_phone: customerPhone.trim(),
-          customer_email: customerEmail.trim() || "",
+          customer_email: customerEmail.trim() || "guest@gmail.com",
           special_instructions: specialInstructions.trim() || "",
           payment_method: paymentMethod,
           restaurants: Object.entries(itemsByRestaurant).map(([restaurantId, restaurantData]) => ({
@@ -184,7 +190,7 @@ const GuestCart = () => {
           delivery_fee: deliveryFee,
           customer_name: customerName.trim(),
           customer_phone: customerPhone.trim(),
-          customer_email: customerEmail.trim() || "",
+          customer_email: customerEmail.trim() || "guest@gmail.com",
           special_instructions: specialInstructions.trim() || "",
           payment_method: paymentMethod,
           order_items: cartItems.map((item) => ({
@@ -255,9 +261,7 @@ const GuestCart = () => {
     }
   };
 
-  const formatCurrency = (amount) => {
-    return Number(amount).toFixed(2);
-  };
+
 
   if (loading) {
     return (
@@ -463,44 +467,47 @@ const GuestCart = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-secondary-700 mb-1">
-                    {translate("cart.name")} *
+                    {translate("contact.name")} *
                   </label>
                   <input
                     type="text"
                     value={customerName}
                     onChange={(e) => setCustomerName(e.target.value)}
                     className="w-full p-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                    placeholder={translate("cart.enter_name")}
+                    placeholder={translate("contact.name_placeholder")}
                     required
                   />
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-secondary-700 mb-1">
-                    {translate("cart.phone")} *
+                    {translate("contact.phone")} *
                   </label>
                   <input
                     type="tel"
                     value={customerPhone}
                     onChange={(e) => setCustomerPhone(e.target.value)}
                     className="w-full p-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                    placeholder={translate("cart.enter_phone")}
+                    placeholder={translate("contact.phone_placeholder")}
+                    minLength="8"
                     required
                   />
                 </div>
 
-                <div className="md:col-span-2">
+                {/* <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-secondary-700 mb-1">
-                    {translate("cart.email")}
+                    {translate("contact.email")}
                   </label>
                   <input
+                    disabled
                     type="email"
                     value={customerEmail}
                     onChange={(e) => setCustomerEmail(e.target.value)}
                     className="w-full p-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                    placeholder={translate("cart.enter_email")}
+                    placeholder={translate("contact.email_placeholder")}
+                    // required
                   />
-                </div>
+                </div> */}
               </div>
             </div>
 
@@ -522,7 +529,7 @@ const GuestCart = () => {
             </div>
 
             {/* Special Instructions */}
-            <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+            {/* <div className="bg-white rounded-lg shadow-md p-6 mb-6">
               <h3 className="text-lg font-semibold text-secondary-700 mb-4">
                 {translate("cart.special_instructions")}
               </h3>
@@ -533,7 +540,7 @@ const GuestCart = () => {
                 placeholder={translate("cart.special_instructions_detail")}
                 rows="2"
               />
-            </div>
+            </div> */}
 
             {/* Payment Information */}
             {paymentInfo && (
@@ -719,7 +726,7 @@ const GuestCart = () => {
                       {formatCurrency(deliveryFee)}
                     </span>
                   </div>
-                  {restaurantCount > 1 && (
+                  {/* {restaurantCount > 1 && (
                     <div className="text-xs text-secondary-500 pl-2">
                       • {translate("cart.first_restaurant")}:{" "}
                       {formatCurrency(2)}
@@ -729,7 +736,7 @@ const GuestCart = () => {
                       {formatCurrency(1)})
                       <br />• {translate("cart.delivery_fee_calculated_by_admin")}
                     </div>
-                  )}
+                  )} */}
                 </div>
 
                 <div className="border-t pt-3">
@@ -758,6 +765,7 @@ const GuestCart = () => {
                   !deliveryAddress.trim() ||
                   !customerName.trim() ||
                   !customerPhone.trim() ||
+                  // !customerEmail.trim() ||
                   !proofOfPayment ||
                   Object.values(restaurantStatuses).some(
                     (status) => status.status !== "open"
@@ -768,6 +776,7 @@ const GuestCart = () => {
                   !deliveryAddress.trim() ||
                   !customerName.trim() ||
                   !customerPhone.trim() ||
+                  // !customerEmail.trim() ||
                   !proofOfPayment ||
                   Object.values(restaurantStatuses).some(
                     (status) => status.status !== "open"

@@ -92,6 +92,8 @@ common.error_searching,เกิดข้อผิดพลาดในการ
 common.all,ทั้งหมด,common
 common.try_again,ลองใหม่อีกครั้ง,common
 common.refresh,รีเฟรช,common 
+common.reviews,รีวิว,common
+common.load_more,ดูเพิ่มเติม,common
 ,,
 # Search,,
 search.search_for_restaurant_or_menu,ค้นหาร้านอาหารหรือเมนู,search
@@ -131,7 +133,7 @@ auth.email_verified,ยืนยันอีเมลสำเร็จ,auth
 auth.google_login,เข้าสู่ระบบด้วย Google,auth
 auth.verification_sent,ส่งอีเมลยืนยันแล้ว,auth
 auth.verification_required,ต้องยืนยันอีเมล,auth
-auth.username,ชื่อผู้ใช้ / อีเมล,auth
+auth.username,ชื่อผู้ใช้,auth
 auth.remember_me,จดจำการเข้าสู่ระบบ,auth
 auth.or,หรือ,auth
 auth.register_now,ลงทะเบียนเลย,auth
@@ -158,6 +160,10 @@ auth.please_login,กรุณาเข้าสู่ระบบ,auth
 auth.user_id,รหัสผู้ใช้,auth
 auth.token,โทเค็น,auth 
 auth.confirm_logout,คุณต้องการออกจากระบบหรือไม่?,auth
+auth.terms,ข้อกำหนดและเงื่อนไข,auth
+auth.privacy,นโยบายความเป็นส่วนตัว,auth
+auth.and,และ,auth
+auth.sign_up_with_google,ลงทะเบียนด้วย Google,auth
 ,,
 # Validation,,
 validation.required,ฟิลด์นี้จำเป็น,validation
@@ -249,7 +255,8 @@ order.cleanup_not_found_message,ลบคำสั่งซื้อที่ไ
 order.completed_removed_message,คำสั่งซื้อเสร็จสิ้นแล้ว ถูกนำออกจากรายการ,order
 order.order_id,รหัสคำสั่งซื้อ: {id},order
 order.restaurant_count,จำนวนร้านอาหาร: {count},order
-order.total_amount,ยอดรวม: {total},order 
+order.total_amount,ยอดรวม: {total},order
+order.history_cleaned,ล้างประวัติแล้ว,order
 ,,
 # Notification,,
 notification.success,สำเร็จ,notification
@@ -313,7 +320,7 @@ cart.please_enter_the_delivery_address,กรุณากรอกที่อ�
 cart.processing,กำลังดำเนินการ....,cart
 cart.please_attach_proof_of_payment,กรุณาแนบหลักฐานการชำระเงิน,cart
 cart.order_from_restaurants,สั่งอาหารจากร้านอาหาร,cart
-cart.back_to_choose_restaurant,กลับไปเลือกร้านอาหาร,cart
+cart.back_to_choose_restaurant,กลับไปเลือกเมนู,cart
 cart.start_ordering_from_favorite_restaurants,เริ่มสั่งอาหารจากร้านอาหารที่คุณชื่นชอบ,cart
 cart.choose_restaurant,เลือกร้านอาหาร,cart
 cart.restaurant,ร้านอาหาร,cart

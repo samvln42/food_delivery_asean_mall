@@ -1,7 +1,7 @@
 // Override default browser alert with toast popup
 // ใช้ toast จาก useNotification เพื่อแสดง popup สวยงาม
 
-/* eslint-disable no-alert */
+ 
 
 if (typeof window !== 'undefined') {
   window.alert = (message = '') => {

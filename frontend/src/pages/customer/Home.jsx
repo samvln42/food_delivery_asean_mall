@@ -55,22 +55,15 @@ const Home = () => {
 
       // Try to fetch from API first
       try {
-        const [restaurantsRes, specialRes, categoriesRes, settingsRes] =
+        const [categoriesRes, settingsRes] =
           await Promise.all([
-            restaurantService.getAll({ page_size: 8 }),
-            restaurantService.getSpecial({ page_size: 4 }),
-            categoryService.getAll({ page_size: 6 }),
-            appSettingsService.getPublic({ _t: new Date().getTime() }), // Only app settings need cache busting
+            categoryService.getAll({ page_size: 12 }),
+            appSettingsService.getPublic(),
           ]);
 
-        // Handle different response structures
-        const restaurantData = restaurantsRes.data?.results || restaurantsRes.data || [];
-        const specialData = specialRes.data?.results || specialRes.data || [];
         const categoryData = categoriesRes.data?.results || categoriesRes.data || [];
         const settingsData = settingsRes.data || null;
 
-        setRestaurants(restaurantData);
-        setSpecialRestaurants(specialData);
         setCategories(categoryData);
         setAppSettings(settingsData);
 
@@ -138,7 +131,7 @@ const Home = () => {
           <div className="absolute inset-0 bg-gradient-to-r from-primary-600 to-primary-800"></div>
         )}
 
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-20">
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-16 md:py-20">
           <div className="text-center">
             <h1 className="text-3xl md:text-4xl font-bold mb-4 text-white drop-shadow-lg">
               {appSettings?.hero_title || 'Welcome to ' + (appSettings?.app_name || 'FoodDelivery')}
@@ -220,6 +213,10 @@ const Home = () => {
                     }
                     alt={category.category_name}
                     className="w-16 h-16 mx-auto rounded-full object-cover"
+                    loading="lazy"
+                    decoding="async"
+                    width="64"
+                    height="64"
                   />
                 </div>
                 <h3 className="font-medium text-secondary-900 group-hover:text-primary-600">

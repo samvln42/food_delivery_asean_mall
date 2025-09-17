@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { restaurantService, productService, categoryService } from '../../services/api';
+import { formatPrice } from '../../utils/formatPrice';
 
 const AdminRestaurantProducts = () => {
   const { restaurantId } = useParams();
@@ -194,13 +195,7 @@ const AdminRestaurantProducts = () => {
     setCurrentPage(1);
   };
 
-  const formatPrice = (price) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'decimal',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 2
-    }).format(price);
-  };
+
 
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -630,32 +625,21 @@ const ProductModal = ({ product, type, categories, restaurant, onClose, onSave }
       const formData = new FormData();
       formData.append('image', selectedFile);
 
-      const response = await fetch(`http://127.0.0.1:8000/api/products/${product.product_id}/upload_image/`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Token ${localStorage.getItem('token')}`
-        },
-        body: formData
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        alert('อัปโหลดรูปภาพสำเร็จ');
-        
-        // อัปเดต preview ด้วย URL ใหม่
-        if (data.product?.image_display_url) {
-          setImagePreview(data.product.image_display_url);
-        }
-        
-        // รีเฟรชข้อมูลสินค้า
-        window.location.reload();
-      } else {
-        const errorData = await response.json();
-        alert(errorData.error || 'เกิดข้อผิดพลาดในการอัปโหลด');
+      // ใช้ productService.uploadImage() แทน fetch โดยตรง
+      const response = await productService.uploadImage(product.product_id, formData);
+      
+      alert('อัปโหลดรูปภาพสำเร็จ');
+      
+      // อัปเดต preview ด้วย URL ใหม่
+      if (response.data.product?.image_display_url) {
+        setImagePreview(response.data.product.image_display_url);
       }
+      
+      // รีเฟรชข้อมูลสินค้า
+      window.location.reload();
     } catch (error) {
       console.error('Upload error:', error);
-      alert('เกิดข้อผิดพลาดในการอัปโหลด');
+      alert(error.response?.data?.error || 'เกิดข้อผิดพลาดในการอัปโหลด');
     } finally {
       setUploadLoading(false);
       setSelectedFile(null);

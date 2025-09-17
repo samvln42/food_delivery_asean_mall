@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import websocketService from '../../services/websocket';
@@ -20,6 +20,35 @@ const AdminNotificationBridge = () => {
     updateUnreadCount = () => {};
   }
   const [orderAlerts, setOrderAlerts] = useState([]); // list ของออเดอร์ใหม่ที่ต้องโชว์ด้านขวา
+  const audioContextRef = useRef(null);
+
+  const playBeep = async () => {
+    try {
+      if (!audioContextRef.current) {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) return; // ไม่รองรับ Web Audio
+        audioContextRef.current = new AudioCtx();
+      }
+      const ctx = audioContextRef.current;
+      if (ctx.state === 'suspended') {
+        try { await ctx.resume(); } catch (_) {}
+      }
+
+      const oscillator = ctx.createOscillator();
+      const gain = ctx.createGain();
+      oscillator.type = 'sine';
+      oscillator.frequency.setValueAtTime(880, ctx.currentTime); // A5
+      gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.15, ctx.currentTime + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.22);
+      oscillator.connect(gain);
+      gain.connect(ctx.destination);
+      oscillator.start();
+      oscillator.stop(ctx.currentTime + 0.24);
+    } catch (_) {
+      // เงียบถ้าบราวเซอร์บล็อค
+    }
+  };
 
   useEffect(() => {
     if (user?.role === 'admin' && token) {
@@ -48,6 +77,8 @@ const AdminNotificationBridge = () => {
       }, 2000);
 
       const handleNewOrder = (data) => {
+        console.log("🔔 AdminNotificationBridge - New order received:", data);
+        
         // เพิ่มออเดอร์ใหม่เข้า list ด้านขวา
         const newAlert = {
           order_id: data.order_id,
@@ -68,10 +99,12 @@ const AdminNotificationBridge = () => {
           const audio = new Audio('/new_order.mp3');
           audio.volume = 0.5; // ลดเสียงลงครึ่งหนึ่ง
           audio.play().catch(() => {
-            // Could not play notification sound
+            // ถ้าเล่นไฟล์ไม่ได้ ให้ fallback เป็น beep
+            playBeep();
           });
         } catch (err) {
-          // ไม่สามารถเล่นเสียงแจ้งเตือน
+          // ไม่สามารถเล่นเสียงแจ้งเตือนไฟล์ ให้ fallback เป็น beep
+          playBeep();
         }
 
         // Vibration feedback (if supported)
@@ -81,6 +114,8 @@ const AdminNotificationBridge = () => {
       };
 
       const handleNewGuestOrder = (data) => {
+        console.log("🔔 AdminNotificationBridge - New guest order received:", data);
+        
         // เพิ่ม guest order ใหม่เข้า list ด้านขวา
         const newAlert = {
           order_id: data.order_id,
@@ -102,10 +137,12 @@ const AdminNotificationBridge = () => {
           const audio = new Audio('/new_order.mp3');
           audio.volume = 0.5; // ลดเสียงลงครึ่งหนึ่ง
           audio.play().catch(() => {
-            // Could not play notification sound
+            // ถ้าเล่นไฟล์ไม่ได้ ให้ fallback เป็น beep
+            playBeep();
           });
         } catch (err) {
-          // ไม่สามารถเล่นเสียงแจ้งเตือน
+          // ไม่สามารถเล่นเสียงแจ้งเตือนไฟล์ ให้ fallback เป็น beep
+          playBeep();
         }
 
         // Vibration feedback (if supported)
@@ -263,7 +300,7 @@ const AdminNotificationBridge = () => {
 
   return (
     <>
-      {/* Development Test Buttons removed for production */}
+
       
       {orderAlerts.length > 0 && (
         <div className="fixed top-24 right-4 z-50 flex flex-col gap-4 max-w-xs">
@@ -314,27 +351,6 @@ const AdminNotificationBridge = () => {
           ))}
         </div>
       )}
-
-      <style jsx>{`
-        @keyframes slideInRight {
-          0% {
-            transform: translateX(100%) scale(0.9);
-            opacity: 0;
-          }
-          60% {
-            transform: translateX(-8%) scale(1.05);
-            opacity: 0.9;
-          }
-          80% {
-            transform: translateX(2%) scale(1.02);
-            opacity: 0.95;
-          }
-          100% {
-            transform: translateX(0) scale(1);
-            opacity: 1;
-          }
-        }
-      `}</style>
     </>
   );
 };

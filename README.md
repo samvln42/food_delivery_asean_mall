@@ -79,6 +79,11 @@ python manage.py createsuperuser
 python manage.py create_default_settings
 ```
 
+```bash
+# ตรวจสอบ users ที่ยังไม่ได้ verify email
+python manage.py fix_email_verification
+```
+
 8. Run the development server:
 ```bash
 python manage.py runserver

@@ -24,16 +24,27 @@ server {
 
     client_max_body_size 100M;
 
+    # Enable gzip compression
+    gzip on;
+    gzip_comp_level 5;
+    gzip_min_length 1024;
+    gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript image/svg+xml;
+    gzip_vary on;
+
     # Serve React production build
+    root /home/ubuntu/food_delivery_asean_mall/frontend/dist;
     location / {
-        root /home/ubuntu/food_delivery_asean_mall/frontend/dist;
         try_files $uri $uri/ /index.html;
-        
-        # Cache static assets
-        location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg)$ {
-            expires 1y;
-            add_header Cache-Control "public, immutable";
-        }
+    }
+
+    # Cache static assets
+    location ~* \.(js|css)$ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+    }
+    location ~* \.(png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
     }
 
     # Backend (Django API)

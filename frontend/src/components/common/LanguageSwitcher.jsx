@@ -24,13 +24,15 @@ const LanguageSwitcher = () => {
     changeLanguage(langCode);
     setIsOpen(false);
 
-    if (isAuthenticated) {
-      try {
-        await languageService.updateUserLanguage(langCode);
-      } catch (error) {
-        console.error('Error updating user language:', error);
-      }
-    }
+    // TODO: Implement server-side language preference storage
+    // Currently language is stored only in localStorage/context
+    // if (isAuthenticated) {
+    //   try {
+    //     await languageService.updateUserLanguage(langCode);
+    //   } catch (error) {
+    //     console.error('Error updating user language:', error);
+    //   }
+    // }
   };
 
   const getCurrentLanguageName = () => {

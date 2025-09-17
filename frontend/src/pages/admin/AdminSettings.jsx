@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { appSettingsService } from "../../services/api";
 import { toast } from "../../hooks/useNotification";
 import { useCart } from "../../contexts/CartContext";
+import { formatPrice } from "../../utils/formatPrice";
 
 // ค่าเริ่มต้นสำหรับ App Settings
 const DEFAULT_SETTINGS = {
@@ -1168,28 +1169,28 @@ const AdminSettings = () => {
           <ul className="list-disc list-inside text-sm text-secondary-700 space-y-1">
             <li>
               สั่งจาก 1 ร้าน:{" "}
-              {parseFloat(
+              {formatPrice(
                 settings.delivery.multi_restaurant_base_fee || 0
-              ).toFixed(2)}
+              )}
             </li>
             <li>
               สั่งจาก 2 ร้าน:{" "}
-              {(
+              {formatPrice(
                 parseFloat(settings.delivery.multi_restaurant_base_fee || 0) +
                 parseFloat(
                   settings.delivery.multi_restaurant_additional_fee || 0
                 )
-              ).toFixed(2)}
+              )}
             </li>
             <li>
               สั่งจาก 3 ร้าน:{" "}
-              {(
+              {formatPrice(
                 parseFloat(settings.delivery.multi_restaurant_base_fee || 0) +
                 2 *
                   parseFloat(
                     settings.delivery.multi_restaurant_additional_fee || 0
                   )
-              ).toFixed(2)}
+              )}
             </li>
           </ul>
         </div>

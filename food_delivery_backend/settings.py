@@ -26,15 +26,16 @@ ALLOWED_HOSTS = _env_hosts.split(',') if _env_hosts else ['*']
 # CORS configuration
 CORS_ALLOWED_ORIGINS = [
     'http://localhost:3000',
-    'https://tacashop.com',
+    'https://matjyp.com',
 ]
 
 # CSRF configuration for API
 CSRF_TRUSTED_ORIGINS = [
     'http://localhost:3000',
     'http://localhost:8000',
-    'https://tacashop.com',
+    'https://matjyp.com',
 ]
+
 CORS_ALLOW_CREDENTIALS = True
 
 # Allow all origins for development only
@@ -86,6 +87,7 @@ MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
+    'food_delivery_backend.middleware.DisableCSRFMiddleware',  # Disable CSRF for API endpoints
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
@@ -231,13 +233,16 @@ REST_FRAMEWORK = {
         'rest_framework.filters.SearchFilter',
         'rest_framework.filters.OrderingFilter',
     ],
-    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
-    # 'PAGE_SIZE': 20,
+    'DEFAULT_PAGINATION_CLASS': 'food_delivery_backend.pagination.StandardResultsSetPagination',
+    'PAGE_SIZE': 12,
     'DATETIME_FORMAT': '%Y-%m-%d %H:%M:%S',
 }
 
 # Custom user model
 AUTH_USER_MODEL = 'accounts.User'
+
+# Email verification settings
+REQUIRE_EMAIL_VERIFICATION = os.environ.get('REQUIRE_EMAIL_VERIFICATION', 'False').lower() == 'true'
 
 # Email configuration
 EMAIL_BACKEND = os.environ.get('EMAIL_BACKEND')
@@ -250,6 +255,9 @@ DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL')
 
 # Frontend URL for email links
 FRONTEND_URL = os.environ.get('FRONTEND_URL', 'http://localhost:3000')
+
+# Base URL for API responses (used for image URLs)
+BASE_URL = os.environ.get('BASE_URL', 'https://matjyp.com')
 
 # Google OAuth configuration
 GOOGLE_OAUTH2_CLIENT_ID = os.environ.get('GOOGLE_OAUTH2_CLIENT_ID')

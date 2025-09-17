@@ -3,22 +3,19 @@ import { Link } from "react-router-dom";
 import { useCart } from "../../contexts/CartContext";
 import { useGuestCart } from "../../contexts/GuestCartContext";
 import { useAuth } from "../../contexts/AuthContext";
-
 import api from "../../services/api";
 import { useLanguage } from "../../contexts/LanguageContext";
+import { formatPrice } from "../../utils/formatPrice";
+import { HomeIcon, ShoppingCartIcon } from "@heroicons/react/24/outline";
 
 const AllProducts = () => {
   const { addItem: addToCart } = useCart();
   const { addItem: addToGuestCart } = useGuestCart();
   const { isAuthenticated } = useAuth();
   const [products, setProducts] = useState([]);
-  const [categories, setCategories] = useState([]);
   const [restaurants, setRestaurants] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [selectedCategory, setSelectedCategory] = useState("");
-  const [selectedRestaurant, setSelectedRestaurant] = useState("");
-  const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalProducts, setTotalProducts] = useState(0);
@@ -32,21 +29,12 @@ const AllProducts = () => {
   }, []);
 
   useEffect(() => {
-    setCurrentPage(1); // Reset to first page when filters change
-    fetchProducts(1);
-  }, [selectedCategory, selectedRestaurant, searchTerm]);
-
-  useEffect(() => {
     fetchProducts(currentPage);
   }, [currentPage]);
 
   const fetchData = async () => {
     try {
-      const [categoriesRes, restaurantsRes] = await Promise.all([
-        api.get("/categories/"),
-        api.get("/restaurants/"),
-      ]);
-      setCategories(categoriesRes.data.results || categoriesRes.data);
+      const restaurantsRes = await api.get("/restaurants/");
       setRestaurants(restaurantsRes.data.results || restaurantsRes.data);
       await fetchProducts(1);
     } catch (error) {
@@ -64,18 +52,6 @@ const AllProducts = () => {
       params.append("page", page);
       params.append("page_size", "12"); // Show 12 products per page
       params.append("limit", "12"); // Alternative parameter name for some APIs
-
-      if (selectedCategory) {
-        params.append("category_id", selectedCategory);
-      }
-
-      if (selectedRestaurant) {
-        params.append("restaurant_id", selectedRestaurant);
-      }
-
-      if (searchTerm) {
-        params.append("search", searchTerm);
-      }
 
       url += "?" + params.toString();
 
@@ -112,7 +88,9 @@ const AllProducts = () => {
       <div className="container mx-auto px-4 py-8">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500 mx-auto"></div>
-          <p className="mt-4 text-secondary-600">{translate('common.loading')}</p>
+          <p className="mt-4 text-secondary-600">
+            {translate("common.loading")}
+          </p>
         </div>
       </div>
     );
@@ -124,9 +102,9 @@ const AllProducts = () => {
         <div className="text-center">
           <p className="text-red-500">
             {error === "ERROR_LOADING_DATA"
-              ? translate('common.failed_to_load_data')
+              ? translate("common.failed_to_load_data")
               : error === "ERROR_LOADING_PRODUCTS"
-              ? translate('common.failed_to_load_products')
+              ? translate("common.failed_to_load_products")
               : error}
           </p>
           <button
@@ -136,7 +114,7 @@ const AllProducts = () => {
             }}
             className="mt-4 bg-primary-500 text-white px-4 py-2 rounded-lg hover:bg-primary-600"
           >
-            {translate('common.try_again')}
+            {translate("common.try_again")}
           </button>
         </div>
       </div>
@@ -145,91 +123,33 @@ const AllProducts = () => {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="text-center mb-8">
-        <h1 className="text-3xl font-bold text-secondary-800 mb-2">
+      <nav className="text-sm mb-6">
+        <Link to="/" className="text-primary-500 hover:text-primary-600">
+          {translate("common.home")}
+        </Link>
+        <span className="mx-2 text-secondary-400">&gt;</span>
+        <span className="text-secondary-600">
+          {translate("common.all_products")}
+        </span>
+      </nav>
+
+      <div className="text-left sm:text-center mb-8">
+        <h1 className="hidden sm:block text-xl sm:text-3xl font-bold text-secondary-800 mb-2">
           {translate("common.all_products")}
         </h1>
-        <p className="text-secondary-600">
+        <p className="hidden sm:block text-sm sm:text-base text-secondary-600">
           {translate("common.choose_food_from_different_restaurants")} (
-          {totalProducts} {translate('order.items_count')})
+          {totalProducts} {translate("order.items_count")})
         </p>
-      </div>
-
-      <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-          <div>
-            <label className="block text-sm font-medium text-secondary-700 mb-2">
-              {translate("common.search_for_products")}
-            </label>
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder={translate("common.search_for_products")}
-              className="w-full p-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-secondary-700 mb-2">
-              {translate("common.categories")}
-            </label>
-            <select
-              value={selectedCategory}
-              onChange={(e) => setSelectedCategory(e.target.value)}
-              className="w-full p-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-            >
-              <option value="">{translate("common.all_categories")}</option>
-              {categories.map((category) => (
-                <option key={category.category_id} value={category.category_id}>
-                  {category.category_name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-secondary-700 mb-2">
-              {translate("common.restaurants")}
-            </label>
-            <select
-              value={selectedRestaurant}
-              onChange={(e) => setSelectedRestaurant(e.target.value)}
-              className="w-full p-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-            >
-              <option value="">{translate("common.all_restaurants")}</option>
-              {restaurants.map((restaurant) => (
-                <option
-                  key={restaurant.restaurant_id}
-                  value={restaurant.restaurant_id}
-                >
-                  {restaurant.restaurant_name}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        {(selectedCategory || selectedRestaurant || searchTerm) && (
-          <button
-            onClick={() => {
-              setSelectedCategory("");
-              setSelectedRestaurant("");
-              setSearchTerm("");
-              setCurrentPage(1);
-            }}
-            className="text-primary-600 hover:text-primary-700 text-sm font-medium"
-          >
-            {translate("common.clear_filters")}
-          </button>
-        )}
       </div>
 
       {products.length > 0 ? (
         <>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 gap-2 sm:gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {products.map((product) => (
               <div
                 key={product.product_id}
-                className={`bg-white rounded-xl shadow-md hover:shadow-lg transition-all duration-300 overflow-hidden ${
+                className={`bg-white rounded-xl shadow-md hover:shadow-lg transition-all duration-300 overflow-hidden flex sm:block p-1 sm:p-0 ${
                   restaurants.find(
                     (r) =>
                       (r.restaurant_id === product.restaurant_id ||
@@ -242,7 +162,7 @@ const AllProducts = () => {
                     : ""
                 }`}
               >
-                <div className="relative h-48 bg-gray-200">
+                <div className="relative h-20 w-20 sm:h-48 sm:w-full bg-gray-200 flex-shrink-0 rounded-lg sm:rounded-none">
                   {product.image_display_url || product.image ? (
                     <img
                       src={product.image_display_url || product.image}
@@ -301,82 +221,52 @@ const AllProducts = () => {
                   })()}
                 </div>
 
-                <div className="p-4">
-                  <Link
-                    to={`/products/${product.product_id}`}
-                    className="block"
-                  >
-                    <h3 className="font-semibold text-secondary-800 mb-2 hover:text-primary-600 transition-colors">
-                      {product.product_name}
-                    </h3>
-                  </Link>
+                <div className="p-2 sm:p-4 flex-1 flex flex-col sm:block">
+                  <div className="flex justify-between items-center mb-2 sm:mb-2">
+                    <div className="flex-1">
+                      <h3 className="font-semibold text-secondary-800 text-sm sm:text-base leading-tight hover:text-primary-600 transition-colors">
+                        {product.product_name}
+                      </h3>
 
-                  <p className="text-secondary-600 text-sm mb-3 line-clamp-2">
-                    {product.description || translate('common.no_description')}
-                  </p>
-
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-primary-500 font-bold text-lg">
-                      {Number(product.price || 0).toFixed(2)}
-                    </span>
-                    <span className="text-xs text-secondary-500">
-                      {product.restaurant_name ||
-                        product.restaurant?.restaurant_name ||
-                        product.restaurant?.name ||
-                        translate('common.restaurant')}
-                    </span>
-                  </div>
-
-                  {product.category && (
-                    <div className="mb-3">
-                      <span className="px-2 py-1 bg-secondary-100 text-secondary-700 text-xs rounded-full">
-                        {product.category.category_name}
+                      <span className="text-primary-500 font-bold text-sm sm:text-lg">
+                        {formatPrice(product.price || 0)}
                       </span>
                     </div>
-                  )}
+                    <div className="flex flex-col gap-1 ml-2 sm:hidden">
+                      {/* ปุ่มดูร้านนี้ - ไอคอนเฉพาะมือถือ */}
+                      <Link
+                        to={`/restaurants/${
+                          product.restaurant_id ||
+                          product.restaurant?.restaurant_id ||
+                          product.restaurant?.id ||
+                          product.restaurant
+                        }`}
+                        className="py-1 px-6 bg-secondary-100 text-secondary-700 text-center rounded-lg font-medium hover:bg-secondary-200 transition-colors"
+                      >
+                        <HomeIcon className="w-3 h-3" />
+                      </Link>
 
-                  {(() => {
-                    const restaurant = restaurants.find(
-                      (r) =>
-                        r.restaurant_id === product.restaurant_id ||
-                        r.restaurant_id === product.restaurant?.restaurant_id ||
-                        r.restaurant_id === product.restaurant?.id ||
-                        r.restaurant_id === product.restaurant
-                    );
+                      {/* ปุ่มเพิ่มลงตะกร้า - ไอคอนเฉพาะมือถือ */}
+                      {(() => {
+                        const restaurant = restaurants.find(
+                          (r) =>
+                            r.restaurant_id === product.restaurant_id ||
+                            r.restaurant_id ===
+                              product.restaurant?.restaurant_id ||
+                            r.restaurant_id === product.restaurant?.id ||
+                            r.restaurant_id === product.restaurant
+                        );
 
-                    const isRestaurantClosed = restaurant?.status === "closed";
-                    const isProductUnavailable = !product.is_available;
+                        const isRestaurantClosed =
+                          restaurant?.status === "closed";
+                        const isProductUnavailable = !product.is_available;
 
-                    return (
-                      <>
-                        {/* แสดงสถานะ */}
-                        {(isRestaurantClosed || isProductUnavailable) && (
-                          <div className="mb-2">
-                            <span className="px-2 py-1 rounded-full text-xs bg-red-100 text-red-800 block text-center">
-                              {isRestaurantClosed
-                                ? translate("common.closed")
-                                : translate("common.not_available")}
-                            </span>
-                          </div>
-                        )}
-
-                        {/* ปุ่มดูร้านนี้ */}
-                        <Link
-                          to={`/restaurants/${
-                            product.restaurant_id ||
-                            product.restaurant?.restaurant_id ||
-                            product.restaurant?.id ||
-                            product.restaurant
-                          }`}
-                          className="block w-full mb-2 py-2 px-4 bg-secondary-100 text-secondary-700 text-center rounded-lg font-medium hover:bg-secondary-200 transition-colors text-sm"
-                        >
-                          🏪 {translate("common.view_this_restaurant")}
-                        </Link>
-
-                        {/* ปุ่มเพิ่มลงตะกร้า - แสดงเฉพาะเมื่อร้านเปิดและสินค้าพร้อมจำหน่าย */}
-                        {!isRestaurantClosed && !isProductUnavailable && (
+                        return (
                           <button
                             onClick={() => {
+                              if (isRestaurantClosed || isProductUnavailable)
+                                return;
+
                               const restaurantData = {
                                 id: restaurant.restaurant_id,
                                 name: restaurant.restaurant_name,
@@ -396,45 +286,146 @@ const AllProducts = () => {
                               );
 
                               if (result && result.success === false) {
-                                // หากต้องการ login ให้ CartContext จัดการ redirect ไปเอง
-                                if (result.requiresLogin) {
-                                  return; // ไม่แสดง alert เพิ่มเติม
-                                }
-
+                                if (result.requiresLogin) return;
                                 alert(
                                   result.error ||
-                                    translate('common.error_adding_to_cart')
+                                    translate("common.error_adding_to_cart")
                                 );
                                 return;
                               }
 
-                              // แสดงข้อความยืนยัน
                               alert(
                                 translate("common.added_to_cart", {
                                   product: product.product_name,
                                 })
                               );
                             }}
-                            className="w-full py-2 px-4 rounded-lg font-semibold transition-colors bg-primary-500 text-white hover:bg-primary-600"
+                            className={`py-1 px-6 rounded-lg font-semibold transition-colors ${
+                              isRestaurantClosed || isProductUnavailable
+                                ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                                : "bg-primary-500 text-white hover:bg-primary-600"
+                            }`}
+                            disabled={
+                              isRestaurantClosed || isProductUnavailable
+                            }
                           >
-                            {translate("cart.add")}
+                            <ShoppingCartIcon className="w-3 h-3" />
                           </button>
-                        )}
+                        );
+                      })()}
+                    </div>
+                  </div>
 
-                        {/* ปุ่มปิดใช้งานสำหรับร้านปิดหรือสินค้าไม่พร้อม */}
-                        {(isRestaurantClosed || isProductUnavailable) && (
+                  <p className="hidden sm:block text-secondary-600 text-sm mb-3 line-clamp-2">
+                    {product.description || translate("common.no_description")}
+                  </p>
+
+                  <div className="hidden sm:flex items-center justify-between mb-2">
+                    <span className="text-xs text-secondary-500">
+                      {product.restaurant_name ||
+                        product.restaurant?.restaurant_name ||
+                        product.restaurant?.name ||
+                        translate("common.restaurant")}
+                    </span>
+                  </div>
+
+                  {product.category && (
+                    <div className="hidden sm:block mb-3">
+                      <span className="px-2 py-1 bg-secondary-100 text-secondary-700 text-xs rounded-full">
+                        {product.category.category_name}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* ปุ่มสำหรับหน้าจอใหญ่ */}
+                  <div className="hidden sm:flex flex-row gap-2 justify-center">
+                    {(() => {
+                      const restaurant = restaurants.find(
+                        (r) =>
+                          r.restaurant_id === product.restaurant_id ||
+                          r.restaurant_id ===
+                            product.restaurant?.restaurant_id ||
+                          r.restaurant_id === product.restaurant?.id ||
+                          r.restaurant_id === product.restaurant
+                      );
+
+                      const isRestaurantClosed =
+                        restaurant?.status === "closed";
+                      const isProductUnavailable = !product.is_available;
+
+                      return (
+                        <>
+                          {/* ปุ่มดูร้านนี้ - ข้อความเต็มสำหรับหน้าจอใหญ่ */}
+                          <Link
+                            to={`/restaurants/${
+                              product.restaurant_id ||
+                              product.restaurant?.restaurant_id ||
+                              product.restaurant?.id ||
+                              product.restaurant
+                            }`}
+                            className="py-2 px-6 bg-secondary-100 text-secondary-700 text-center rounded-lg font-medium hover:bg-secondary-200 transition-colors text-sm"
+                          >
+                            {translate("common.view_this_restaurant")}
+                          </Link>
+
+                          {/* ปุ่มเพิ่มลงตะกร้า - ข้อความเต็มสำหรับหน้าจอใหญ่ */}
                           <button
-                            disabled
-                            className="w-full py-2 px-4 rounded-lg font-semibold bg-gray-300 text-gray-500 cursor-not-allowed"
+                            onClick={() => {
+                              if (isRestaurantClosed || isProductUnavailable)
+                                return;
+
+                              const restaurantData = {
+                                id: restaurant.restaurant_id,
+                                name: restaurant.restaurant_name,
+                                address: restaurant.address,
+                                phone_number: restaurant.phone_number,
+                                status: restaurant.status,
+                              };
+
+                              const productData = {
+                                ...product,
+                                restaurant_status: restaurant.status,
+                              };
+
+                              const result = addItem(
+                                productData,
+                                restaurantData
+                              );
+
+                              if (result && result.success === false) {
+                                if (result.requiresLogin) return;
+                                alert(
+                                  result.error ||
+                                    translate("common.error_adding_to_cart")
+                                );
+                                return;
+                              }
+
+                              alert(
+                                translate("common.added_to_cart", {
+                                  product: product.product_name,
+                                })
+                              );
+                            }}
+                            className={`py-2 px-8 rounded-lg font-semibold transition-colors ${
+                              isRestaurantClosed || isProductUnavailable
+                                ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                                : "bg-primary-500 text-white hover:bg-primary-600"
+                            }`}
+                            disabled={
+                              isRestaurantClosed || isProductUnavailable
+                            }
                           >
                             {isRestaurantClosed
                               ? translate("common.closed")
-                              : translate("common.not_available")}
+                              : isProductUnavailable
+                              ? translate("common.not_available")
+                              : translate("cart.add")}
                           </button>
-                        )}
-                      </>
-                    );
-                  })()}
+                        </>
+                      );
+                    })()}
+                  </div>
                 </div>
               </div>
             ))}
@@ -516,14 +507,12 @@ const AllProducts = () => {
           </p>
           <button
             onClick={() => {
-              setSelectedCategory("");
-              setSelectedRestaurant("");
-              setSearchTerm("");
               setCurrentPage(1);
+              fetchProducts(1);
             }}
             className="bg-primary-500 text-white px-6 py-3 rounded-lg hover:bg-primary-600 transition-colors"
           >
-            {translate("common.clear_filters")}
+            {translate("common.try_again")}
           </button>
         </div>
       )}

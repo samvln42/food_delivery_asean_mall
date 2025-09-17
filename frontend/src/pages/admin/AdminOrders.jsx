@@ -1,13 +1,318 @@
 import React, { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
-import api from "../../services/api";
+import api, { notificationService } from "../../services/api";
 import { useAuth } from "../../contexts/AuthContext";
 import { API_CONFIG, API_ENDPOINTS } from "../../config/api";
+import { useNotificationContext } from "../../layouts/AdminLayout";
+
+// Modal Component สำหรับแสดงรายละเอียดคำสั่งซื้อ
+const OrderDetailsModal = ({ order, isOpen, onClose, orderStatuses, formatDateTime }) => {
+  if (!isOpen || !order) return null;
+
+  const orderDetails = Array.isArray(order.order_details) ? order.order_details : [];
+  const orderDetailsByRestaurant = order.order_details_by_restaurant || [];
+  const isMultiRestaurant = order.is_multi_restaurant || orderDetailsByRestaurant.length > 1;
+  const restaurantCount = order.restaurant_count || orderDetailsByRestaurant.length;
+  const subtotal = orderDetails.reduce((total, detail) => total + parseFloat(detail.subtotal || 0), 0);
+
+  return (
+    <div className="fixed inset-0 z-50 overflow-y-auto">
+      <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+        {/* Enhanced Background overlay */}
+        <div className="fixed inset-0 transition-all duration-300 bg-black/60 backdrop-blur-sm" onClick={onClose}></div>
+        
+        {/* Enhanced Modal content */}
+        <div className="inline-block w-full max-w-5xl p-8 my-8 overflow-hidden text-left align-middle transition-all transform bg-white/95 backdrop-blur-xl shadow-2xl rounded-3xl border border-white/20">
+          {/* Enhanced Header */}
+          <div className="flex items-center justify-between mb-8 pb-6 border-b border-gray-200">
+            <div className="flex items-center space-x-4">
+              <div className="w-12 h-12 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
+                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-3xl font-bold bg-gradient-to-r from-gray-900 via-blue-800 to-purple-800 bg-clip-text text-transparent">
+                  คำสั่งซื้อ #{order.order_id}
+                </h3>
+                <p className="text-sm text-gray-600 mt-1 font-medium">
+                  📅 {formatDateTime(order.order_date)}
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={onClose}
+              className="group p-3 rounded-2xl hover:bg-red-50 transition-all duration-200 transform hover:scale-110 border border-gray-200 hover:border-red-200"
+            >
+              <svg className="w-6 h-6 text-gray-400 group-hover:text-red-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          {/* Content */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* รายการอาหาร */}
+            <div>
+              <h4 className="text-lg font-semibold text-gray-800 mb-4">รายการอาหาร</h4>
+              
+              {isMultiRestaurant && orderDetailsByRestaurant.length > 0 ? (
+                <div className="space-y-4">
+                  {orderDetailsByRestaurant.map((restaurantGroup, groupIndex) => (
+                    <div key={restaurantGroup.restaurant_id || groupIndex} className="border rounded-lg p-4 bg-gray-50">
+                      <div className="flex items-center justify-between mb-3">
+                        <h5 className="font-medium text-gray-800">🏪 {restaurantGroup.restaurant_name}</h5>
+                        <span className="text-sm font-semibold text-primary-600">
+                          ฿{restaurantGroup.subtotal?.toFixed(2)}
+                        </span>
+                      </div>
+                      <div className="space-y-2">
+                        {(restaurantGroup.items || []).map((item, itemIndex) => (
+                          <div key={item.order_detail_id || itemIndex} className="flex justify-between text-sm">
+                            <span>{item.product_name} × {item.quantity}</span>
+                            <span>฿{parseFloat(item.subtotal).toFixed(2)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {orderDetails.map((detail, index) => (
+                    <div key={detail.order_detail_id || index} className="flex justify-between p-3 bg-gray-50 rounded-lg">
+                      <span>{detail.product_name} × {detail.quantity}</span>
+                      <span className="font-medium">฿{parseFloat(detail.subtotal || 0).toFixed(2)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* ยอดรวม */}
+              <div className="mt-4 pt-4 border-t">
+                <div className="flex justify-between text-lg font-semibold">
+                  <span>ยอดรวม:</span>
+                  <span className="text-primary-600">฿{subtotal.toFixed(2)}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* ข้อมูลการจัดส่งและการชำระเงิน */}
+            <div className="space-y-6">
+              {/* ข้อมูลลูกค้า */}
+              <div>
+                <h4 className="text-lg font-semibold text-gray-800 mb-3">ข้อมูลลูกค้า</h4>
+                <div className="bg-gray-50 p-4 rounded-lg space-y-2">
+                  <div>
+                    <span className="text-sm text-gray-600">ชื่อ:</span>
+                    <span className="ml-2">{order.customer_name || "ไม่ระบุ"}</span>
+                  </div>
+                    <div>
+                      <span className="text-sm text-gray-600">เบอร์โทร:</span>
+                      <span className="ml-2">{order.customer_phone || "ไม่ระบุ"}</span>
+                    </div>
+                  <div>
+                    <span className="text-sm text-gray-600">ที่อยู่จัดส่ง:</span>
+                    <p className="mt-1 text-sm">{order.delivery_address || "ไม่ระบุ"}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* ข้อมูลการชำระเงิน */}
+              <div>
+                <h4 className="text-lg font-semibold text-gray-800 mb-3">ข้อมูลการชำระเงิน</h4>
+                {order.payment ? (
+                  <div className="bg-gray-50 p-4 rounded-lg space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-600">สถานะ:</span>
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        order.payment.status === "completed" ? "bg-green-100 text-green-800" :
+                        order.payment.status === "pending" ? "bg-yellow-100 text-yellow-800" :
+                        "bg-red-100 text-red-800"
+                      }`}>
+                        {order.payment.status === "completed" ? "✅ ชำระแล้ว" :
+                         order.payment.status === "pending" ? "⏳ รอดำเนินการ" : "❌ ไม่สำเร็จ"}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-sm text-gray-600">วิธีการชำระ:</span>
+                      <span className="ml-2 text-sm">
+                        {order.payment.payment_method === "bank_transfer" ? "🏦 โอนผ่านธนาคาร" :
+                         order.payment.payment_method === "qr_payment" ? "📱 QR Payment" :
+                         order.payment.payment_method}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-sm text-gray-600">จำนวนเงิน:</span>
+                      <span className="ml-2 font-semibold text-primary-600">
+                        ฿{parseFloat(order.payment.amount_paid || 0).toFixed(2)}
+                      </span>
+                    </div>
+                    {order.payment.proof_of_payment_display_url && (
+                      <div>
+                        <span className="text-sm text-gray-600 block mb-2">หลักฐานการโอน:</span>
+                        <img
+                          src={order.payment.proof_of_payment_display_url}
+                          alt="หลักฐานการโอนเงิน"
+                          className="w-full max-w-xs h-auto rounded-lg cursor-pointer hover:opacity-80 transition-opacity"
+                          onClick={() => window.open(order.payment.proof_of_payment_display_url, "_blank")}
+                        />
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="bg-gray-50 p-4 rounded-lg text-center">
+                    <div className="text-2xl mb-2 opacity-30">💳</div>
+                    <p className="text-gray-500 text-sm">ยังไม่มีข้อมูลการชำระเงิน</p>
+                  </div>
+                )}
+              </div>
+
+              {/* สรุปยอดเงิน */}
+              <div>
+                <h4 className="text-lg font-semibold text-gray-800 mb-3">สรุปยอดเงิน</h4>
+                <div className="bg-gray-50 p-4 rounded-lg space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span>ยอดรวมสินค้า:</span>
+                    <span>฿{subtotal.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span>ค่าจัดส่ง:</span>
+                    <span>฿{parseFloat(order.delivery_fee || 0).toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-lg font-semibold border-t pt-2">
+                    <span>ยอดชำระทั้งหมด:</span>
+                    <span className="text-primary-600">฿{parseFloat(order.total_amount || 0).toFixed(2)}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Status Update Modal Component
+const StatusUpdateModal = ({ 
+  order, 
+  isOpen, 
+  onClose, 
+  orderStatuses, 
+  onUpdateStatus, 
+  isUpdating 
+}) => {
+  const [selectedStatus, setSelectedStatus] = useState(order?.current_status || order?.status || '');
+
+  useEffect(() => {
+    if (order) {
+      setSelectedStatus(order.current_status || order.status || '');
+    }
+  }, [order]);
+
+  if (!isOpen || !order) return null;
+
+  const handleStatusUpdate = () => {
+    if (selectedStatus === (order.current_status || order.status)) {
+      alert("กรุณาเลือกสถานะใหม่");
+      return;
+    }
+    onUpdateStatus(order.order_id, selectedStatus);
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 overflow-y-auto">
+      <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+        <div className="fixed inset-0 transition-all duration-300 bg-black/60 backdrop-blur-sm" onClick={onClose}></div>
+        
+        <div className="inline-block w-full max-w-md p-8 my-8 overflow-hidden text-left align-middle transition-all transform bg-white/95 backdrop-blur-xl shadow-2xl rounded-3xl border border-white/20">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
+                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
+                อัปเดทสถานะ
+              </h3>
+            </div>
+            <button 
+              onClick={onClose} 
+              className="group p-2 rounded-xl hover:bg-red-50 transition-all duration-200 transform hover:scale-110 border border-gray-200 hover:border-red-200"
+            >
+              <svg className="w-5 h-5 text-gray-400 group-hover:text-red-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          <div className="mb-6">
+            <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-2xl p-4 mb-4 border border-blue-100">
+              <p className="text-sm font-semibold text-blue-800">
+                🏷️ คำสั่งซื้อ #{order.order_id}
+              </p>
+            </div>
+            
+            <label className="block text-sm font-bold text-gray-700 mb-3">
+              🎯 เลือกสถานะใหม่
+            </label>
+            <div className="relative">
+              <select
+                value={selectedStatus}
+                onChange={(e) => setSelectedStatus(e.target.value)}
+                className="w-full appearance-none p-4 bg-gray-50/50 border-2 border-gray-200 rounded-2xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 focus:bg-white transition-all font-medium cursor-pointer"
+              >
+                {orderStatuses.map((status) => (
+                  <option key={status.value} value={status.value}>
+                    {status.label}
+                  </option>
+                ))}
+              </select>
+              <div className="absolute right-4 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex space-x-3">
+            <button
+              onClick={handleStatusUpdate}
+              disabled={isUpdating}
+              className="group flex-1 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-6 py-4 rounded-2xl font-bold transition-all duration-200 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl"
+            >
+              <span className="flex items-center justify-center space-x-2">
+                <span className={isUpdating ? "" : "group-hover:rotate-180 transition-transform duration-300"}>
+                  {isUpdating ? "⏳" : "✅"}
+                </span>
+                <span>{isUpdating ? "กำลังอัปเดท..." : "ยืนยัน"}</span>
+              </span>
+            </button>
+            <button
+              onClick={onClose}
+              className="group flex-1 bg-gradient-to-r from-gray-200 to-gray-300 hover:from-gray-300 hover:to-gray-400 text-gray-800 px-6 py-4 rounded-2xl font-bold transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-xl"
+            >
+              <span className="flex items-center justify-center space-x-2">
+                <span className="group-hover:scale-110 transition-transform">❌</span>
+                <span>ยกเลิก</span>
+              </span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const AdminOrders = () => {
   const location = useLocation();
   const highlightOrderId = location.state?.highlightOrderId;
   const { user } = useAuth();
+  const { clearOrdersBadge, updateOrdersBadge, ordersBadgeCount, fetchBadgeCounts } = useNotificationContext();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -58,6 +363,33 @@ const AdminOrders = () => {
   useEffect(() => {
     fetchOrders();
   }, [sortBy]);
+
+  // Note: Badge will only clear when viewing individual order details, not when entering the page
+  // useEffect(() => {
+  //   console.log("🧹 AdminOrders mounted - clearing orders badge");
+  //   clearOrdersBadge();
+  // }, [clearOrdersBadge]);
+
+  // Function to mark individual order as read
+  const markOrderAsRead = async (orderId) => {
+    try {
+      // เรียก API เพื่อ mark notifications ที่เกี่ยวข้องกับออเดอร์นี้เป็น read
+      const response = await notificationService.markOrderAsRead(orderId, 'regular');
+      
+      // รีเฟรช badge counts จากฐานข้อมูลเพื่อความแม่นยำ
+      if (response.data.marked_count > 0) {
+        fetchBadgeCounts(); // รีเฟรชจากฐานข้อมูล
+      }
+    } catch (error) {
+      console.error("❌ Error marking order notifications as read:", error);
+      // Fallback: ลด badge แค่ 1 อัน
+      if (ordersBadgeCount > 0) {
+        const newCount = Math.max(0, ordersBadgeCount - 1);
+        updateOrdersBadge(newCount);
+        console.log("🏷️ Orders badge decreased to:", newCount, "(fallback)");
+      }
+    }
+  };
 
   const fetchOrders = async () => {
     try {
@@ -237,214 +569,295 @@ const AdminOrders = () => {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-3xl font-bold text-secondary-800">
-          จัดการคำสั่งซื้อ
-        </h1>
-        <div className="flex items-center space-x-4">
-          <button
-            onClick={fetchOrders}
-            className="bg-secondary-100 text-secondary-700 px-4 py-2 rounded-lg hover:bg-secondary-200 transition-colors"
-          >
-            🔄 รีเฟรช
-          </button>
-          <div className="text-sm text-secondary-600">
-            ทั้งหมด {orders.length} รายการ
-          </div>
-        </div>
-      </div>
-
-      {/* Controls */}
-      <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* Search */}
-          <div>
-            <label className="block text-sm font-medium text-secondary-700 mb-2">
-              ค้นหา
-            </label>
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="หมายเลขคำสั่งซื้อ, ชื่อลูกค้า, ร้านอาหาร..."
-              className="w-full p-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-            />
-          </div>
-
-          {/* Filter by Status */}
-          <div>
-            <label className="block text-sm font-medium text-secondary-700 mb-2">
-              กรองตามสถานะ
-            </label>
-            <select
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
-              className="w-full p-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-            >
-              <option value="all">ทั้งหมด</option>
-              {orderStatuses.map((status) => (
-                <option key={status.value} value={status.value}>
-                  {status.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Sort */}
-          <div>
-            <label className="block text-sm font-medium text-secondary-700 mb-2">
-              เรียงลำดับ
-            </label>
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
-              className="w-full p-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-            >
-              <option value="-order_date">วันที่ล่าสุด</option>
-              <option value="order_date">วันที่เก่าสุด</option>
-              <option value="-total_amount">ราคาสูงสุด</option>
-              <option value="total_amount">ราคาต่ำสุด</option>
-              <option value="current_status">สถานะ</option>
-            </select>
-          </div>
-        </div>
-      </div>
-
-      {/* Statistics */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        {orderStatuses.map((status) => {
-          const count = orders.filter(
-            (order) => (order.current_status || order.status) === status.value
-          ).length;
-          return (
-            <div
-              key={status.value}
-              className="bg-white rounded-lg shadow-md p-4"
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-secondary-600">{status.label}</p>
-                  <p className="text-2xl font-bold text-secondary-800">
-                    {count}
+      <div className="bg-white/80 backdrop-blur-xl border-b border-white/20 shadow-lg shadow-blue-500/5">
+        <div className="max-w-7xl mx-auto px-4 py-8">
+          <div className="flex items-center justify-between">
+            <div className="space-y-2">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
+                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                </div>
+                <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-900 via-blue-800 to-purple-800 bg-clip-text text-transparent">
+                  จัดการคำสั่งซื้อ
+                </h1>
+              </div>
+              <div className="flex items-center space-x-4">
+                <div className="flex items-center space-x-2">
+                  <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                  <p className="text-sm text-gray-600">
+                    แสดง <span className="font-semibold text-blue-600">{filteredOrders.length}</span> จาก 
+                    <span className="font-semibold text-gray-800"> {orders.length}</span> รายการ
                   </p>
                 </div>
-                <span
-                  className={`px-2 py-1 rounded-full text-xs font-medium ${status.color}`}
-                >
-                  {count > 0
-                    ? `${((count / orders.length) * 100).toFixed(1)}%`
-                    : "0%"}
-                </span>
               </div>
             </div>
-          );
-        })}
+            <button
+              onClick={fetchOrders}
+              className="group bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-0.5 flex items-center space-x-2"
+            >
+              <svg className="w-5 h-5 group-hover:rotate-180 transition-transform duration-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              <span className="font-medium">รีเฟรช</span>
+            </button>
+          </div>
+        </div>
       </div>
 
-      {/* Error Message */}
-      {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
-          {error}
-        </div>
-      )}
+      <div className="max-w-7xl mx-auto px-4 py-6">
+        {/* Enhanced Controls */}
+        <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-xl border border-white/20 p-6 mb-8">
+          <div className="flex flex-wrap gap-4">
+            {/* Search */}
+            <div className="flex-1 min-w-64">
+              <div className="relative group">
+                <div className="absolute left-4 top-1/2 transform -translate-y-1/2 z-10">
+                  <svg className="w-5 h-5 text-gray-400 group-focus-within:text-blue-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                </div>
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="ค้นหาคำสั่งซื้อ, ลูกค้า, ร้านอาหาร..."
+                  className="w-full pl-12 pr-4 py-3 bg-gray-50/50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 focus:bg-white transition-all text-sm font-medium placeholder-gray-400"
+                />
+                <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 to-purple-500/5 rounded-xl opacity-0 group-focus-within:opacity-100 transition-opacity pointer-events-none"></div>
+              </div>
+            </div>
 
-      {/* Orders List */}
-      {filteredOrders.length > 0 ? (
-        <div className="space-y-4">
-          {displayOrders.map((order) => (
-            <OrderCard
-              key={order.order_id}
-              order={order}
-              orderStatuses={orderStatuses}
-              onUpdateStatus={updateOrderStatus}
-              isUpdating={updatingOrders.has(order.order_id)}
-              getStatusColor={getStatusColor}
-              formatDateTime={formatDateTime}
-            />
-          ))}
-        </div>
-      ) : (
-        <div className="bg-white rounded-lg shadow-md p-8 text-center">
-          <div className="text-6xl mb-4 opacity-30">📋</div>
-          <h2 className="text-xl font-semibold text-secondary-700 mb-2">
-            {searchTerm ? "ไม่พบคำสั่งซื้อที่ค้นหา" : "ไม่มีคำสั่งซื้อ"}
-          </h2>
-          <p className="text-secondary-500">
-            {searchTerm
-              ? "ลองใช้คำค้นหาอื่น"
-              : "คำสั่งซื้อจะปรากฏที่นี่เมื่อมีลูกค้าสั่งซื้อ"}
-          </p>
-        </div>
-      )}
-
-      {/* Pagination Controls */}
-      {totalPages > 1 && (
-        <div className="flex justify-center items-center mt-8 gap-1 select-none">
-          {/* Prev */}
-          <button
-            disabled={page === 1}
-            onClick={() => setPage(page - 1)}
-            className="px-3 py-1 rounded bg-secondary-100 hover:bg-secondary-200 disabled:opacity-50"
-          >
-            ‹
-          </button>
-
-          {/* Page Numbers */}
-          {(() => {
-            const pages = [];
-            if (totalPages <= 5) {
-              for (let i = 1; i <= totalPages; i++) pages.push(i);
-            } else {
-              pages.push(1);
-              if (page > 3) pages.push("ellipsis-prev");
-              const start = Math.max(2, page - 1);
-              const end = Math.min(totalPages - 1, page + 1);
-              for (let i = start; i <= end; i++) pages.push(i);
-              if (page < totalPages - 2) pages.push("ellipsis-next");
-              pages.push(totalPages);
-            }
-
-            return pages.map((p, idx) => {
-              if (p === "ellipsis-prev" || p === "ellipsis-next") {
-                return (
-                  <span key={`e${idx}`} className="px-2 py-1">
-                    …
-                  </span>
-                );
-              }
-              return (
-                <button
-                  key={p}
-                  onClick={() => setPage(p)}
-                  className={`px-3 py-1 rounded ${
-                    page === p
-                      ? "bg-primary-600 text-white"
-                      : "bg-secondary-100 hover:bg-secondary-200"
-                  }`}
+            {/* Filter */}
+            <div className="min-w-44">
+              <div className="relative">
+                <select
+                  value={filter}
+                  onChange={(e) => setFilter(e.target.value)}
+                  className="w-full appearance-none px-4 py-3 bg-gray-50/50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 focus:bg-white transition-all text-sm font-medium cursor-pointer"
                 >
-                  {p}
-                </button>
-              );
-            });
-          })()}
+                  <option value="all">🔍 ทุกสถานะ</option>
+                  {orderStatuses.map((status) => (
+                    <option key={status.value} value={status.value}>
+                      {status.label}
+                    </option>
+                  ))}
+                </select>
+                <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                  <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
+              </div>
+            </div>
 
-          {/* Next */}
-          <button
-            disabled={page === totalPages}
-            onClick={() => setPage(page + 1)}
-            className="px-3 py-1 rounded bg-secondary-100 hover:bg-secondary-200 disabled:opacity-50"
-          >
-            ›
-          </button>
+            {/* Sort */}
+            <div className="min-w-44">
+              <div className="relative">
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value)}
+                  className="w-full appearance-none px-4 py-3 bg-gray-50/50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 focus:bg-white transition-all text-sm font-medium cursor-pointer"
+                >
+                  <option value="-order_date">📅 ล่าสุด</option>
+                  <option value="order_date">📅 เก่าสุด</option>
+                  <option value="-total_amount">💰 ราคาสูง</option>
+                  <option value="total_amount">💰 ราคาต่ำ</option>
+                  <option value="current_status">📊 ตามสถานะ</option>
+                </select>
+                <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                  <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
-      )}
+
+        {/* Beautiful Statistics */}
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4 mb-8">
+          {orderStatuses.map((status, index) => {
+            const count = orders.filter(
+              (order) => (order.current_status || order.status) === status.value
+            ).length;
+            const percentage = orders.length > 0 ? (count / orders.length) * 100 : 0;
+            const isActive = filter === status.value;
+            
+            return (
+              <div
+                key={status.value}
+                className={`group relative bg-white/80 backdrop-blur-sm rounded-2xl border border-white/20 p-4 text-center cursor-pointer transition-all duration-300 transform hover:-translate-y-1 hover:shadow-xl ${
+                  isActive ? 'ring-2 ring-blue-400 bg-gradient-to-br from-blue-50 to-purple-50 scale-105 shadow-xl' : 'hover:shadow-lg'
+                }`}
+                onClick={() => setFilter(filter === status.value ? 'all' : status.value)}
+                style={{ animationDelay: `${index * 100}ms` }}
+              >
+                {/* Background Gradient */}
+                <div className={`absolute inset-0 bg-gradient-to-br opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-2xl ${
+                  status.value === 'pending' ? 'from-yellow-100 to-orange-100' :
+                  status.value === 'paid' ? 'from-blue-100 to-cyan-100' :
+                  status.value === 'preparing' ? 'from-orange-100 to-red-100' :
+                  status.value === 'ready_for_pickup' ? 'from-purple-100 to-pink-100' :
+                  status.value === 'delivering' ? 'from-indigo-100 to-blue-100' :
+                  status.value === 'completed' ? 'from-green-100 to-emerald-100' :
+                  'from-red-100 to-pink-100'
+                }`}></div>
+                
+                {/* Content */}
+                <div className="relative z-10">
+                  <div className={`text-3xl font-black mb-2 transition-all duration-300 ${
+                    count > 0 ? 'text-gray-800 group-hover:scale-110' : 'text-gray-300'
+                  } ${isActive ? 'text-blue-600' : ''}`}>
+                    {count}
+                  </div>
+                  <div className={`text-xs font-semibold mb-2 transition-colors ${
+                    isActive ? 'text-blue-700' : 'text-gray-600 group-hover:text-gray-800'
+                  }`}>
+                    {status.label}
+                  </div>
+                  
+                  {/* Progress Bar */}
+                  <div className="w-full bg-gray-200 rounded-full h-1.5 mb-2">
+                    <div 
+                      className={`h-1.5 rounded-full transition-all duration-700 ${
+                        status.value === 'pending' ? 'bg-gradient-to-r from-yellow-400 to-orange-400' :
+                        status.value === 'paid' ? 'bg-gradient-to-r from-blue-400 to-cyan-400' :
+                        status.value === 'preparing' ? 'bg-gradient-to-r from-orange-400 to-red-400' :
+                        status.value === 'ready_for_pickup' ? 'bg-gradient-to-r from-purple-400 to-pink-400' :
+                        status.value === 'delivering' ? 'bg-gradient-to-r from-indigo-400 to-blue-400' :
+                        status.value === 'completed' ? 'bg-gradient-to-r from-green-400 to-emerald-400' :
+                        'bg-gradient-to-r from-red-400 to-pink-400'
+                      }`}
+                      style={{ width: `${Math.max(percentage, 3)}%` }}
+                    ></div>
+                  </div>
+                  
+                  <div className={`text-xs font-bold px-2 py-1 rounded-full transition-all ${
+                    isActive ? 'bg-blue-500 text-white' : status.color
+                  }`}>
+                    {percentage.toFixed(1)}%
+                  </div>
+                </div>
+
+                {/* Active Indicator */}
+                {isActive && (
+                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full animate-pulse"></div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Error Message */}
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
+            {error}
+          </div>
+        )}
+
+        {/* Orders List */}
+        {filteredOrders.length > 0 ? (
+          <div className="space-y-4">
+            {displayOrders.map((order) => (
+              <OrderCard
+                key={order.order_id}
+                order={order}
+                orderStatuses={orderStatuses}
+                onUpdateStatus={updateOrderStatus}
+                onMarkAsRead={markOrderAsRead}
+                isUpdating={updatingOrders.has(order.order_id)}
+                getStatusColor={getStatusColor}
+                formatDateTime={formatDateTime}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="bg-white rounded-xl border p-12 text-center">
+            <div className="text-6xl mb-4 opacity-20">📋</div>
+            <h2 className="text-xl font-semibold text-gray-700 mb-2">
+              {searchTerm || filter !== "all" ? "ไม่พบคำสั่งซื้อที่ตรงกับเงื่อนไข" : "ไม่มีคำสั่งซื้อ"}
+            </h2>
+            <p className="text-gray-500">
+              {searchTerm || filter !== "all"
+                ? "ลองปรับเปลี่ยนคำค้นหาหรือตัวกรอง"
+                : "คำสั่งซื้อจะปรากฏที่นี่เมื่อมีลูกค้าสั่งซื้อ"}
+            </p>
+          </div>
+        )}
+
+        {/* Pagination Controls */}
+        {totalPages > 1 && (
+          <div className="flex justify-center items-center mt-8 space-x-1">
+            <button
+              disabled={page === 1}
+              onClick={() => setPage(page - 1)}
+              className="px-3 py-2 rounded-lg bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+
+            {/* Page Numbers */}
+            {(() => {
+              const pages = [];
+              if (totalPages <= 5) {
+                for (let i = 1; i <= totalPages; i++) pages.push(i);
+              } else {
+                pages.push(1);
+                if (page > 3) pages.push("ellipsis-prev");
+                const start = Math.max(2, page - 1);
+                const end = Math.min(totalPages - 1, page + 1);
+                for (let i = start; i <= end; i++) pages.push(i);
+                if (page < totalPages - 2) pages.push("ellipsis-next");
+                pages.push(totalPages);
+              }
+
+              return pages.map((p, idx) => {
+                if (p === "ellipsis-prev" || p === "ellipsis-next") {
+                  return (
+                    <span key={`e${idx}`} className="px-3 py-2 text-gray-400">
+                      …
+                    </span>
+                  );
+                }
+                return (
+                  <button
+                    key={p}
+                    onClick={() => setPage(p)}
+                    className={`px-3 py-2 rounded-lg transition-colors ${
+                      page === p
+                        ? "bg-primary-600 text-white"
+                        : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
+                    }`}
+                  >
+                    {p}
+                  </button>
+                );
+              });
+            })()}
+
+            <button
+              disabled={page === totalPages}
+              onClick={() => setPage(page + 1)}
+              className="px-3 py-2 rounded-lg bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 };
 
-// Order Card Component
+// Compact Order Card Component
 const OrderCard = ({
   order,
   orderStatuses,
@@ -452,530 +865,165 @@ const OrderCard = ({
   isUpdating,
   getStatusColor,
   formatDateTime,
+  onMarkAsRead, // Add this prop
 }) => {
-  const [showDetails, setShowDetails] = useState(false);
-  const [showStatusUpdate, setShowStatusUpdate] = useState(false);
-  const [selectedStatus, setSelectedStatus] = useState(
-    order.current_status || order.status
-  );
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [showStatusModal, setShowStatusModal] = useState(false);
 
-  const orderDetails = Array.isArray(order.order_details)
-    ? order.order_details
-    : [];
-  const orderDetailsByRestaurant = order.order_details_by_restaurant || [];
-  const isMultiRestaurant =
-    order.is_multi_restaurant || orderDetailsByRestaurant.length > 1;
-  const restaurantCount =
-    order.restaurant_count || orderDetailsByRestaurant.length;
-  const subtotal = orderDetails.reduce(
-    (total, detail) => total + parseFloat(detail.subtotal || 0),
-    0
-  );
-
-  const handleStatusUpdate = () => {
-    if (selectedStatus === (order.current_status || order.status)) {
-      alert("กรุณาเลือกสถานะใหม่");
-      return;
+  const handleViewDetails = () => {
+    setShowDetailsModal(true);
+    // Mark as read when viewing details
+    if (onMarkAsRead) {
+      onMarkAsRead(order.order_id);
     }
-
-    onUpdateStatus(order.order_id, selectedStatus);
-    setShowStatusUpdate(false);
   };
 
+  const orderDetails = Array.isArray(order.order_details) ? order.order_details : [];
+  const isMultiRestaurant = order.is_multi_restaurant || (order.order_details_by_restaurant && order.order_details_by_restaurant.length > 1);
+  const restaurantCount = order.restaurant_count || (order.order_details_by_restaurant ? order.order_details_by_restaurant.length : 1);
+
   return (
-    <div className="bg-white rounded-lg shadow-md overflow-hidden">
-      {/* Order Header */}
-      <div className="p-6">
-        <div className="flex items-center justify-between mb-4">
-          <div>
+    <>
+      <div 
+        id={`order-${order.order_id}`} 
+        className={`group relative bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-white/20 transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 overflow-hidden ${
+          order.order_id === order.highlightOrderId ? 'ring-2 ring-blue-400 ring-opacity-60 shadow-2xl' : ''
+        }`}
+      >
+        {/* Decorative gradient border */}
+        <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-pink-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
+        
+        {/* Main Card Content */}
+        <div className="relative z-10 p-6">
+          {/* Header Row */}
+          <div className="flex items-center justify-between mb-5">
             <div className="flex items-center space-x-4">
-              <h3 className="text-lg font-semibold text-secondary-800">
-                คำสั่งซื้อ #{order.order_id}
-              </h3>
-              <span
-                className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(
-                  order.current_status || order.status
-                )}`}
-              >
-                {orderStatuses.find(
-                  (s) => s.value === (order.current_status || order.status)
-                )?.label ||
-                  order.current_status ||
-                  order.status}
+              <div className="flex items-center space-x-2">
+                <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg flex items-center justify-center shadow-lg">
+                  <span className="text-white text-xs font-bold">#</span>
+                </div>
+                <h3 className="text-xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
+                  {order.order_id}
+                </h3>
+              </div>
+              <span className={`px-4 py-2 rounded-xl text-sm font-bold shadow-sm transition-all group-hover:shadow-md ${getStatusColor(order.current_status || order.status)}`}>
+                {orderStatuses.find(s => s.value === (order.current_status || order.status))?.label || order.current_status || order.status}
               </span>
-              {/* Multi-Restaurant Badge */}
               {isMultiRestaurant && (
-                <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs font-medium flex items-center">
+                <span className="bg-gradient-to-r from-blue-100 to-purple-100 text-blue-800 px-3 py-1 rounded-xl text-xs font-bold shadow-sm">
                   🏪 {restaurantCount} ร้าน
                 </span>
               )}
+            </div>
+            <div className="text-right">
+              <p className="text-2xl font-black bg-gradient-to-r from-green-600 to-blue-600 bg-clip-text text-transparent">
+                ฿{parseFloat(order.total_amount || 0).toFixed(2)}
+              </p>
+              <p className="text-xs text-gray-500 font-medium">{formatDateTime(order.order_date)}</p>
+            </div>
+          </div>
 
-              {/* Payment Status Badge */}
-              {order.payment && (
-                <span
-                  className={`px-2 py-1 rounded-full text-xs font-medium flex items-center ${
-                    order.payment.status === "completed"
-                      ? "bg-green-100 text-green-800"
-                      : order.payment.status === "pending"
-                      ? "bg-yellow-100 text-yellow-800"
-                      : "bg-red-100 text-red-800"
-                  }`}
+          {/* Enhanced Info Grid */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <div className="bg-gray-50/50 rounded-xl p-3 border border-gray-100">
+              <p className="text-xs text-gray-500 mb-1 font-medium">👤 ลูกค้า</p>
+              <p className="font-bold text-gray-900 truncate text-sm">{order.customer_name || "ไม่ระบุ"}</p>
+            </div>
+            <div className="bg-gray-50/50 rounded-xl p-3 border border-gray-100">
+              <p className="text-xs text-gray-500 mb-1 font-medium">🏪 ร้านอาหาร</p>
+              {isMultiRestaurant ? (
+                <p className="font-bold text-blue-600 text-sm">หลายร้าน ({restaurantCount})</p>
+              ) : (
+                <Link 
+                  to={`/restaurants/${order.restaurant}`}
+                  className="font-bold text-primary-600 hover:text-primary-700 text-sm truncate block transition-colors"
                 >
-                  {order.payment.status === "completed"
-                    ? "💰 ชำระแล้ว"
-                    : order.payment.status === "pending"
-                    ? "⏳ รอชำระ"
-                    : "❌ ชำระไม่สำเร็จ"}
-                </span>
+                  {order.restaurant_name || "ไม่ระบุ"}
+                </Link>
               )}
             </div>
-            <p className="text-sm text-secondary-600 mt-1">
-              {formatDateTime(order.order_date)}
-            </p>
+            <div className="bg-gray-50/50 rounded-xl p-3 border border-gray-100">
+              <p className="text-xs text-gray-500 mb-1 font-medium">📦 จำนวนรายการ</p>
+              <p className="font-bold text-gray-900 text-sm">{orderDetails.length} รายการ</p>
+            </div>
+            <div className="bg-gray-50/50 rounded-xl p-3 border border-gray-100">
+              <p className="text-xs text-gray-500 mb-1 font-medium">💳 การชำระเงิน</p>
+              {order.payment ? (
+                <span className={`inline-flex items-center px-3 py-1 rounded-xl text-xs font-bold shadow-sm ${
+                  order.payment.status === "completed" ? "bg-gradient-to-r from-green-100 to-emerald-100 text-green-800" :
+                  order.payment.status === "pending" ? "bg-gradient-to-r from-yellow-100 to-orange-100 text-yellow-800" :
+                  "bg-gradient-to-r from-red-100 to-pink-100 text-red-800"
+                }`}>
+                  {order.payment.status === "completed" ? "✅ ชำระแล้ว" :
+                   order.payment.status === "pending" ? "⏳ รอชำระ" : "❌ ไม่สำเร็จ"}
+                </span>
+              ) : (
+                <span className="text-xs text-gray-500 font-medium">ไม่มีข้อมูล</span>
+              )}
+            </div>
           </div>
-          <div className="text-right">
-            <p className="text-2xl font-bold text-primary-600">
-              {parseFloat(order.total_amount || 0).toFixed(2)}
-            </p>
-          </div>
-        </div>
 
-        {/* Order Summary */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-          <div>
-            <p className="text-sm text-secondary-600">ลูกค้า</p>
-            <p className="font-semibold text-secondary-800">
-              {order.customer_name || "ไม่ระบุ"}
-            </p>
-          </div>
-          <div>
-            <p className="text-sm text-secondary-600">
-              {isMultiRestaurant ? "ร้านอาหาร (หลายร้าน)" : "ร้านอาหาร"}
-            </p>
-            {isMultiRestaurant ? (
-              <div className="space-y-1">
-                <p className="font-semibold text-blue-600 flex items-center">
-                  <span className="mr-1">🏪</span>
-                  การสั่งซื้อจาก {restaurantCount} ร้าน
-                </p>
-                {orderDetailsByRestaurant
-                  .slice(0, 2)
-                  .map((restaurantGroup, index) => (
-                    <p key={index} className="text-sm text-secondary-600">
-                      • {restaurantGroup.restaurant_name}
-                    </p>
-                  ))}
-                {restaurantCount > 2 && (
-                  <p className="text-sm text-secondary-500">
-                    และอีก {restaurantCount - 2} ร้าน...
-                  </p>
-                )}
-              </div>
-            ) : (
-              <Link
-                to={`/restaurants/${order.restaurant}`}
-                className="font-semibold text-primary-600 hover:text-primary-700"
+          {/* Enhanced Quick Actions */}
+          <div className="flex flex-wrap gap-3">
+            <button
+              onClick={handleViewDetails}
+              className="group flex-1 min-w-0 bg-gradient-to-r from-gray-100 to-gray-200 hover:from-gray-200 hover:to-gray-300 text-gray-800 px-4 py-3 rounded-xl text-sm font-bold transition-all duration-200 transform hover:scale-105 shadow-sm hover:shadow-md"
+            >
+              <span className="flex items-center justify-center space-x-2">
+                <span className="group-hover:scale-110 transition-transform">📋</span>
+                <span>รายละเอียด</span>
+              </span>
+            </button>
+            <button
+              onClick={() => setShowStatusModal(true)}
+              disabled={isUpdating}
+              className={`group flex-1 min-w-0 px-4 py-3 rounded-xl text-sm font-bold transition-all duration-200 transform shadow-sm ${
+                isUpdating 
+                  ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                  : "bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white hover:scale-105 hover:shadow-md"
+              }`}
+            >
+              <span className="flex items-center justify-center space-x-2">
+                <svg className="w-5 h-5 group-hover:rotate-180 transition-transform duration-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                <span>{isUpdating ? "อัปเดท..." : "เปลี่ยนสถานะ"}</span>
+              </span>
+            </button>
+            {(order.current_status || order.status) !== "cancelled" && (
+              <button
+                onClick={() => onUpdateStatus(order.order_id, "cancelled")}
+                disabled={isUpdating}
+                className="group bg-gradient-to-r from-red-500 to-pink-600 hover:from-red-600 hover:to-pink-700 text-white px-4 py-3 rounded-xl text-sm font-bold transition-all duration-200 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm hover:shadow-md"
               >
-                {order.restaurant_name || "ไม่ระบุ"}
-              </Link>
+                <span className="flex items-center justify-center space-x-2">
+                  <span className="group-hover:scale-110 transition-transform">❌</span>
+                  <span>ยกเลิก</span>
+                </span>
+              </button>
             )}
           </div>
-          <div>
-            <p className="text-sm text-secondary-600">จำนวนรายการ</p>
-            <p className="font-semibold text-secondary-800">
-              {orderDetails.length} รายการ
-              {isMultiRestaurant && (
-                <span className="text-secondary-500">
-                  {" "}
-                  จาก {restaurantCount} ร้าน
-                </span>
-              )}
-            </p>
-          </div>
-        </div>
-
-        {/* Action Buttons */}
-        <div className="flex flex-wrap gap-3">
-          <button
-            onClick={() => setShowDetails(!showDetails)}
-            className="bg-secondary-100 text-secondary-700 px-4 py-2 rounded-lg hover:bg-secondary-200 transition-colors text-sm"
-          >
-            {showDetails ? "ซ่อนรายละเอียด" : "ดูรายละเอียด"}
-          </button>
-
-          <button
-            onClick={() => setShowStatusUpdate(!showStatusUpdate)}
-            disabled={isUpdating}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-              isUpdating
-                ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                : "bg-primary-500 text-white hover:bg-primary-600"
-            }`}
-          >
-            {isUpdating ? "กำลังอัปเดท..." : "อัปเดทสถานะ"}
-          </button>
-
-          {(order.current_status || order.status) !== "cancelled" && (
-            <button
-              onClick={() => onUpdateStatus(order.order_id, "cancelled")}
-              disabled={isUpdating}
-              className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition-colors text-sm"
-            >
-              ยกเลิกคำสั่งซื้อ
-            </button>
-          )}
         </div>
       </div>
 
-      {/* Order Details */}
-      {showDetails && (
-        <div className="border-t bg-secondary-50 p-6">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Items - แยกตามร้าน */}
-            <div>
-              <h4 className="font-semibold text-secondary-700 mb-3">
-                รายการอาหาร
-                {isMultiRestaurant && (
-                  <span className="text-blue-600"> (แยกตามร้าน)</span>
-                )}
-              </h4>
+      {/* Modals */}
+      <OrderDetailsModal
+        order={order}
+        isOpen={showDetailsModal}
+        onClose={() => setShowDetailsModal(false)}
+        orderStatuses={orderStatuses}
+        formatDateTime={formatDateTime}
+      />
 
-              {isMultiRestaurant && orderDetailsByRestaurant.length > 0 ? (
-                // แสดงแยกตามร้าน สำหรับ multi-restaurant orders
-                <div className="space-y-4">
-                  {orderDetailsByRestaurant.map(
-                    (restaurantGroup, groupIndex) => (
-                      <div
-                        key={restaurantGroup.restaurant_id || groupIndex}
-                        className="border border-gray-200 rounded-lg p-3 bg-white"
-                      >
-                        {/* Restaurant Header */}
-                        <div className="flex items-center justify-between mb-2 pb-2 border-b border-gray-100">
-                          <div className="flex items-center">
-                            <span className="text-sm mr-2">🏪</span>
-                            <h5 className="font-semibold text-secondary-700 text-sm">
-                              {restaurantGroup.restaurant_name}
-                            </h5>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-sm font-semibold text-primary-600">
-                              {restaurantGroup.subtotal?.toFixed(2)}
-                            </p>
-                            <p className="text-xs text-secondary-500">
-                              {restaurantGroup.items?.length || 0} รายการ
-                            </p>
-                          </div>
-                        </div>
-
-                        {/* Items in this restaurant */}
-                        <div className="space-y-1">
-                          {(restaurantGroup.items || []).map(
-                            (item, itemIndex) => (
-                              <div
-                                key={item.order_detail_id || itemIndex}
-                                className="flex justify-between text-sm"
-                              >
-                                <span className="text-secondary-700">
-                                  {item.product_name} × {item.quantity}
-                                </span>
-                                <span className="text-secondary-800 font-medium">
-                                  {parseFloat(item.subtotal).toFixed(2)}
-                                </span>
-                              </div>
-                            )
-                          )}
-                        </div>
-                      </div>
-                    )
-                  )}
-
-                  {/* Total Summary */}
-                  <div className="border-t pt-3 flex justify-between font-semibold text-lg">
-                    <span>ยอดรวมทั้งหมด</span>
-                    <span className="text-primary-600">
-                      {subtotal.toFixed(2)}
-                    </span>
-                  </div>
-                </div>
-              ) : (
-                // แสดงแบบเดิม สำหรับ single-restaurant orders
-                <div className="space-y-2">
-                  {orderDetails.map((detail, index) => (
-                    <div
-                      key={detail.order_detail_id || index}
-                      className="flex justify-between text-sm"
-                    >
-                      <span className="text-secondary-700">
-                        {detail.product_name} × {detail.quantity}
-                        {detail.restaurant_name && !isMultiRestaurant && (
-                          <span className="text-secondary-500 ml-2">
-                            ({detail.restaurant_name})
-                          </span>
-                        )}
-                      </span>
-                      <span className="text-secondary-800 font-medium">
-                        {parseFloat(detail.subtotal || 0).toFixed(2)}
-                      </span>
-                    </div>
-                  ))}
-                  <div className="border-t pt-2 flex justify-between font-semibold">
-                    <span>ยอดรวม</span>
-                    <span>{subtotal.toFixed(2)}</span>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Details */}
-            <div>
-              <h4 className="font-semibold text-secondary-700 mb-3">
-                ข้อมูลการจัดส่ง
-              </h4>
-              <div className="space-y-2 text-sm">
-                <div>
-                  <span className="text-secondary-600">ที่อยู่:</span>
-                  <p className="mt-1">{order.delivery_address || "ไม่ระบุ"}</p>
-                </div>
-                <div>
-                  <span className="text-secondary-600">ค่าจัดส่ง:</span>
-                  <span className="ml-2">
-                    {parseFloat(order.delivery_fee || 0).toFixed(2)}
-                  </span>
-                  {isMultiRestaurant && (
-                    <div className="text-xs text-secondary-500 mt-1">
-                      • การจัดส่งจาก {restaurantCount} ร้าน
-                    </div>
-                  )}
-                </div>
-                {order.estimated_delivery_time && (
-                  <div>
-                    <span className="text-secondary-600">
-                      เวลาจัดส่งโดยประมาณ:
-                    </span>
-                    <span className="ml-2">
-                      {formatDateTime(order.estimated_delivery_time)}
-                    </span>
-                  </div>
-                )}
-
-                {/* Payment Summary */}
-                <div className="border-t pt-2 mt-3">
-                  <div className="flex justify-between">
-                    <span className="text-secondary-600">ยอดรวมสินค้า:</span>
-                    <span>{subtotal.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-secondary-600">ค่าจัดส่ง:</span>
-                    <span>
-                      {parseFloat(order.delivery_fee || 0).toFixed(2)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between font-semibold text-lg border-t pt-2">
-                    <span>ยอดชำระทั้งหมด:</span>
-                    <span className="text-primary-600">
-                      {parseFloat(order.total_amount || 0).toFixed(2)}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Payment Information */}
-            <div>
-              <h4 className="font-semibold text-secondary-700 mb-3">
-                ข้อมูลการชำระเงิน
-              </h4>
-              {order.payment ? (
-                <div className="space-y-3">
-                  {/* Payment Status */}
-                  <div className="flex items-center space-x-2">
-                    <span className="text-sm text-secondary-600">
-                      สถานะการชำระ:
-                    </span>
-                    <span
-                      className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        order.payment.status === "completed"
-                          ? "bg-green-100 text-green-800"
-                          : order.payment.status === "pending"
-                          ? "bg-yellow-100 text-yellow-800"
-                          : "bg-red-100 text-red-800"
-                      }`}
-                    >
-                      {order.payment.status === "completed"
-                        ? "✅ ชำระแล้ว"
-                        : order.payment.status === "pending"
-                        ? "⏳ รอดำเนินการ"
-                        : "❌ ไม่สำเร็จ"}
-                    </span>
-                  </div>
-
-                  {/* Payment Method */}
-                  <div>
-                    <span className="text-sm text-secondary-600">
-                      วิธีการชำระ:
-                    </span>
-                    <span className="ml-2 text-sm font-medium">
-                      {order.payment.payment_method === "bank_transfer"
-                        ? "🏦 โอนผ่านธนาคาร"
-                        : order.payment.payment_method === "qr_payment"
-                        ? "📱 QR Payment"
-                        : order.payment.payment_method}
-                    </span>
-                  </div>
-
-                  {/* Payment Date */}
-                  {order.payment.payment_date && (
-                    <div>
-                      <span className="text-sm text-secondary-600">
-                        วันที่ชำระ:
-                      </span>
-                      <span className="ml-2 text-sm">
-                        {formatDateTime(order.payment.payment_date)}
-                      </span>
-                    </div>
-                  )}
-
-                  {/* Amount Paid */}
-                  <div>
-                    <span className="text-sm text-secondary-600">
-                      จำนวนเงินที่ชำระ:
-                    </span>
-                    <span className="ml-2 text-sm font-bold text-primary-600">
-                      {parseFloat(order.payment.amount_paid || 0).toFixed(2)}
-                    </span>
-                  </div>
-
-                  {/* Transaction ID */}
-                  {order.payment.transaction_id && (
-                    <div>
-                      <span className="text-sm text-secondary-600">
-                        หมายเลขอ้างอิง:
-                      </span>
-                      <span className="ml-2 text-sm font-mono text-secondary-800">
-                        {order.payment.transaction_id}
-                      </span>
-                    </div>
-                  )}
-
-                  {/* Proof of Payment */}
-                  {order.payment.proof_of_payment_display_url && (
-                    <div>
-                      <span className="text-sm text-secondary-600 block mb-2">
-                        หลักฐานการโอนเงิน:
-                      </span>
-                      <div className="border border-secondary-200 rounded-lg p-2 bg-white">
-                        <img
-                          src={order.payment.proof_of_payment_display_url}
-                          alt="หลักฐานการโอนเงิน"
-                          className="w-full max-w-xs h-auto rounded-lg cursor-pointer hover:opacity-80 transition-opacity"
-                          onClick={() =>
-                            window.open(
-                              order.payment.proof_of_payment_display_url,
-                              "_blank"
-                            )
-                          }
-                        />
-                        <p className="text-xs text-secondary-500 mt-1 text-center">
-                          คลิกเพื่อดูรูปขนาดเต็ม
-                        </p>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Payment Actions */}
-                  {order.payment.status === "pending" && (
-                    <div className="mt-4 pt-3 border-t border-secondary-200">
-                      <div className="flex space-x-2">
-                        <button
-                          onClick={() => {
-                            // TODO: Implement approve payment
-                            alert("ฟีเจอร์อนุมัติการชำระเงินจะพัฒนาในอนาคต");
-                          }}
-                          className="bg-green-500 text-white px-3 py-1 rounded text-xs hover:bg-green-600 transition-colors"
-                        >
-                          ✅ อนุมัติ
-                        </button>
-                        <button
-                          onClick={() => {
-                            // TODO: Implement reject payment
-                            alert("ฟีเจอร์ปฏิเสธการชำระเงินจะพัฒนาในอนาคต");
-                          }}
-                          className="bg-red-500 text-white px-3 py-1 rounded text-xs hover:bg-red-600 transition-colors"
-                        >
-                          ❌ ปฏิเสธ
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="text-center py-4">
-                  <div className="text-4xl mb-2 opacity-30">💳</div>
-                  <p className="text-secondary-500 text-sm">
-                    ยังไม่มีข้อมูลการชำระเงิน
-                  </p>
-                  <p className="text-secondary-400 text-xs">
-                    ลูกค้าอาจยังไม่ได้ทำการชำระเงิน
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Status Update Panel */}
-      {showStatusUpdate && (
-        <div className="border-t bg-yellow-50 p-6">
-          <h4 className="font-semibold text-secondary-700 mb-4">
-            อัปเดทสถานะคำสั่งซื้อ
-            {isMultiRestaurant && (
-              <span className="text-blue-600"> (หลายร้าน)</span>
-            )}
-          </h4>
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-secondary-700 mb-2">
-              สถานะใหม่
-            </label>
-            <select
-              value={selectedStatus}
-              onChange={(e) => setSelectedStatus(e.target.value)}
-              className="w-full p-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500"
-            >
-              {orderStatuses.map((status) => (
-                <option key={status.value} value={status.value}>
-                  {status.label}
-                </option>
-              ))}
-            </select>
-          </div>
-          {isMultiRestaurant && (
-            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-              <p className="text-blue-800 text-sm">
-                <strong>หมายเหตุ:</strong>{" "}
-                การอัปเดทสถานะจะมีผลกับคำสั่งซื้อทั้งหมด ({restaurantCount}{" "}
-                ร้าน)
-              </p>
-            </div>
-          )}
-          <div className="flex space-x-3">
-            <button
-              onClick={handleStatusUpdate}
-              disabled={isUpdating}
-              className="bg-primary-500 text-white px-6 py-2 rounded-lg hover:bg-primary-600 transition-colors"
-            >
-              ยืนยันการอัปเดท
-            </button>
-            <button
-              onClick={() => setShowStatusUpdate(false)}
-              className="bg-secondary-200 text-secondary-700 px-6 py-2 rounded-lg hover:bg-secondary-300 transition-colors"
-            >
-              ยกเลิก
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
+      <StatusUpdateModal
+        order={order}
+        isOpen={showStatusModal}
+        onClose={() => setShowStatusModal(false)}
+        orderStatuses={orderStatuses}
+        onUpdateStatus={onUpdateStatus}
+        isUpdating={isUpdating}
+      />
+    </>
   );
 };
 

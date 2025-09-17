@@ -1,63 +1,80 @@
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
+import React, { Suspense, lazy } from 'react';
+import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { CartProvider } from './contexts/CartContext';
 import { GuestCartProvider } from './contexts/GuestCartContext';
 import { LanguageProvider } from './contexts/LanguageContext';
 import ProtectedRoute from './utils/ProtectedRoute';
-import Header from './components/common/Header';
 import ErrorBoundary from './components/common/ErrorBoundary';
-import AdminNotificationBridge from './components/admin/AdminNotificationBridge';
 
+// Loading Component
+const LoadingSpinner = () => (
+  <div className="flex items-center justify-center min-h-screen">
+    <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary-600"></div>
+  </div>
+);
 
+// Lazy load pages เพื่อลด initial bundle size
 // Auth Pages
-import Login from './pages/auth/Login';
-import Register from './pages/auth/Register';
-import VerifyEmail from './pages/auth/VerifyEmail';
+const Login = lazy(() => import('./pages/auth/Login'));
+const Register = lazy(() => import('./pages/auth/Register'));
+const VerifyEmail = lazy(() => import('./pages/auth/VerifyEmail'));
 
-// Customer Pages
-import Home from './pages/customer/Home';
-import Categories from './pages/customer/Categories';
-import CategoryDetail from './pages/customer/CategoryDetail';
-import Restaurants from './pages/customer/Restaurants';
-import RestaurantDetail from './pages/customer/RestaurantDetail';
-import AllProducts from './pages/customer/AllProducts';
-import Search from './pages/customer/Search';
-import Profile from './pages/customer/Profile';
-import Notifications from './pages/customer/Notifications';
-import Cart from './pages/customer/Cart';
-import GuestCart from './pages/customer/GuestCart';
+// Customer Pages - โหลดเฉพาะเมื่อต้องการ
+const Home = lazy(() => import('./pages/customer/Home'));
+const Categories = lazy(() => import('./pages/customer/Categories'));
+const CategoryDetail = lazy(() => import('./pages/customer/CategoryDetail'));
+const Restaurants = lazy(() => import('./pages/customer/Restaurants'));
+const RestaurantDetail = lazy(() => import('./pages/customer/RestaurantDetail'));
+const AllProducts = lazy(() => import('./pages/customer/AllProducts'));
+const Search = lazy(() => import('./pages/customer/Search'));
+const Profile = lazy(() => import('./pages/customer/Profile'));
+const Notifications = lazy(() => import('./pages/customer/Notifications'));
+const Cart = lazy(() => import('./pages/customer/Cart'));
+const GuestCart = lazy(() => import('./pages/customer/GuestCart'));
+const GuestOrders = lazy(() => import('./pages/customer/GuestOrders'));
+const Orders = lazy(() => import('./pages/customer/Orders'));
+const Settings = lazy(() => import('./pages/customer/Settings'));
+const Contact = lazy(() => import('./pages/customer/Contact'));
+const About = lazy(() => import('./pages/customer/About'));
 
-import GuestOrders from './pages/customer/GuestOrders';
+// Restaurant Pages
+const RestaurantOrders = lazy(() => import('./pages/restaurant/RestaurantOrders'));
 
-import Orders from './pages/customer/Orders';
+// Admin Pages - โหลดเฉพาะเมื่อ admin เข้าใช้งาน
+const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'));
+const AdminOrders = lazy(() => import('./pages/admin/AdminOrders'));
+const AdminGuestOrders = lazy(() => import('./pages/admin/AdminGuestOrders'));
+const CreatePhoneOrder = lazy(() => import('./pages/admin/CreatePhoneOrder'));
+const PhoneOrders = lazy(() => import('./pages/admin/PhoneOrders'));
+const AdminRestaurants = lazy(() => import('./pages/admin/AdminRestaurants'));
+const AdminCategories = lazy(() => import('./pages/admin/AdminCategories'));
+const AdminRestaurantProducts = lazy(() => import('./pages/admin/AdminRestaurantProducts'));
+const AdminUsers = lazy(() => import('./pages/admin/AdminUsers'));
+const AdminSettings = lazy(() => import('./pages/admin/AdminSettings'));
 
-import Settings from './pages/customer/Settings';
-import Contact from './pages/customer/Contact';
-import About from './pages/customer/About';
-import RestaurantOrders from './pages/restaurant/RestaurantOrders';
-
-// Admin Pages
-import AdminDashboard from './pages/admin/AdminDashboard';
-import AdminOrders from './pages/admin/AdminOrders';
-import AdminGuestOrders from './pages/admin/AdminGuestOrders';
-import AdminRestaurants from './pages/admin/AdminRestaurants';
-import AdminCategories from './pages/admin/AdminCategories';
-import AdminRestaurantProducts from './pages/admin/AdminRestaurantProducts';
-import AdminUsers from './pages/admin/AdminUsers';
-import AdminSettings from './pages/admin/AdminSettings';
-import AdminNotifications from './pages/admin/AdminNotifications';
-
-// Layouts
+// Layouts - โหลดทันทีเพราะใช้บ่อย
 import CustomerLayout from './layouts/CustomerLayout';
 import RestaurantLayout from './layouts/RestaurantLayout';
 import AdminLayout from './layouts/AdminLayout';
 
-// Error Pages
+// Error Pages - โหลดทันทีเพราะเป็น fallback
 import NotFound from './pages/errors/NotFound';
 import Unauthorized from './pages/errors/Unauthorized';
 
+// ScrollToTop component
+function ScrollToTop() {
+  const { pathname } = useLocation();
+
+  React.useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
+
+  return null;
+}
+
 function App() {
+
   return (
     <ErrorBoundary>
       <LanguageProvider>
@@ -65,8 +82,10 @@ function App() {
           <CartProvider>
             <GuestCartProvider>
               <Router>
+                <ScrollToTop />
                 <div className="min-h-screen bg-secondary-50">
-                  <Routes>
+                  <Suspense fallback={<LoadingSpinner />}>
+                    <Routes>
                     {/* Public Auth Routes */}
                     <Route path="/login" element={
                       <ProtectedRoute requireAuth={false}>
@@ -623,6 +642,22 @@ function App() {
                       </ProtectedRoute>
                     } />
 
+                    <Route path="/admin/create-phone-order" element={
+                      <ProtectedRoute allowedRoles={['admin']}>
+                        <AdminLayout>
+                          <CreatePhoneOrder />
+                        </AdminLayout>
+                      </ProtectedRoute>
+                    } />
+
+                    <Route path="/admin/phone-orders" element={
+                      <ProtectedRoute allowedRoles={['admin']}>
+                        <AdminLayout>
+                          <PhoneOrders />
+                        </AdminLayout>
+                      </ProtectedRoute>
+                    } />
+
                     <Route path="/admin/analytics" element={
                       <ProtectedRoute allowedRoles={['admin']}>
                         <AdminLayout>
@@ -642,18 +677,13 @@ function App() {
                       </ProtectedRoute>
                     } />
 
-                    <Route path="/admin/notifications" element={
-                      <ProtectedRoute allowedRoles={['admin']}>
-                        <AdminLayout>
-                          <AdminNotifications />
-                        </AdminLayout>
-                      </ProtectedRoute>
-                    } />
+                    
 
                     {/* Error Routes */}
                     <Route path="/unauthorized" element={<Unauthorized />} />
                     <Route path="*" element={<NotFound />} />
                   </Routes>
+                  </Suspense>
                 </div>
               </Router>
             </GuestCartProvider>

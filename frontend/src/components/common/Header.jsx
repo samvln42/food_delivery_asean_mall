@@ -18,7 +18,7 @@ import {
   ArrowRightOnRectangleIcon,
 } from "@heroicons/react/24/outline";
 
-const Header = () => {
+const Header = ({ appSettings: appSettingsProp }) => {
   const { user, isAuthenticated, logout } = useAuth();
   const { itemCount: cartItemCount } = useCart();
   const { itemCount: guestCartItemCount } = useGuestCart();
@@ -27,7 +27,7 @@ const Header = () => {
   const location = useLocation();
   // const [isMenuOpen, setIsMenuOpen] = useState(false);
   // const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
-  const [appSettings, setAppSettings] = useState(null);
+  const [appSettings, setAppSettings] = useState(appSettingsProp || null);
   // const profileMenuRef = useRef(null);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -46,13 +46,19 @@ const Header = () => {
       document.removeEventListener("mousedown", handleClickOutsideDropdown);
   }, []);
 
-  // Fetch app settings
+  // Keep state in sync with prop
   useEffect(() => {
+    if (appSettingsProp) {
+      setAppSettings(appSettingsProp);
+    }
+  }, [appSettingsProp]);
+
+  // Fetch app settings only if not provided by parent
+  useEffect(() => {
+    if (appSettingsProp) return;
     const fetchAppSettings = async () => {
       try {
-        const response = await appSettingsService.getPublic({
-          _t: new Date().getTime(),
-        });
+        const response = await appSettingsService.getPublic();
         setAppSettings(response.data);
       } catch (error) {
         console.error("Error fetching app settings:", error);
@@ -60,7 +66,7 @@ const Header = () => {
     };
 
     fetchAppSettings();
-  }, []);
+  }, [appSettingsProp]);
 
   // Close profile menu when clicking outside
   // useEffect(() => {
@@ -219,13 +225,13 @@ const Header = () => {
   const itemCount = getItemCount();
 
   return (
-    <header className="bg-white shadow-lg border-b border-secondary-200">
+    <header className="fixed top-0 left-0 right-0 z-50 bg-white shadow-lg border-b border-secondary-200">
       <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 w-full">
           {/* Logo and Navigation */}
           <div className="flex items-center">
             <div className="flex-shrink-0 flex items-center">
-              <Link to="/" className="flex items-center space-x-3">
+              <Link to="/" className="hidden md:flex items-center space-x-3">
                 {/* Logo */}
                 {appSettings?.logo_url ? (
                   <img
