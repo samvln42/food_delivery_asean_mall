@@ -1,26 +1,36 @@
 import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../../contexts/LanguageContext';
+import { appSettingsService } from '../../services/api';
 
 const FloatingActionButtons = () => {
   const { currentLanguage } = useLanguage();
   const [isVisible, setIsVisible] = useState(true);
   const [hideTimeout, setHideTimeout] = useState(null);
+  const [appSettings, setAppSettings] = useState(null);
+
+  useEffect(() => {
+    const fetchAppSettings = async () => {
+      const response = await appSettingsService.getPublic();
+      setAppSettings(response.data);
+    };
+    fetchAppSettings();
+  }, []);
 
   const handleCall = () => {
     // เบอร์โทรสำหรับติดต่อร้านอาหาร
-    const phoneNumber = '02052397676';
+    const phoneNumber = appSettings?.contact_phone;
     window.open(`tel:${phoneNumber}`, '_self');
   };
 
   const handleChat = () => {
     // เปิด Line หรือ WhatsApp หรือ Facebook Messenger - สามารถปรับเปลี่ยนได้
     // ตัวอย่าง: Line Official Account
-    const lineId = '@yourlineid'; // เปลี่ยนเป็น Line ID ของร้าน
-    window.open(`https://line.me/R/ti/p/${lineId}`, '_blank');
+    // const lineId = '@yourlineid'; // เปลี่ยนเป็น Line ID ของร้าน
+    // window.open(`https://line.me/R/ti/p/${lineId}`, '_blank');
     
     // หรือใช้ WhatsApp
-    // const whatsappNumber = '66812345678'; // เปลี่ยนเป็นเบอร์ WhatsApp
-    // window.open(`https://wa.me/${whatsappNumber}`, '_blank');
+    const whatsappNumber = appSettings?.contact_phone; // เปลี่ยนเป็นเบอร์ WhatsApp
+    window.open(`https://wa.me/${whatsappNumber}`, '_blank');
   };
 
   // ข้อความในภาษาต่างๆ สำหรับปุ่มโทร

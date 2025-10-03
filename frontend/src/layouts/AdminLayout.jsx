@@ -16,6 +16,7 @@ import { FaBars, FaTimes, FaChartBar, FaUsers, FaStore, FaFolder, FaCog } from "
 import { FaUserCheck, FaUserXmark } from "react-icons/fa6";
 import { IoIosCreate  } from "react-icons/io";
 import { BiSolidPhoneCall } from "react-icons/bi";
+import { useLanguage } from "../contexts/LanguageContext";
 
 // Create context for notification count
 const NotificationContext = createContext();
@@ -31,6 +32,7 @@ export const useNotificationContext = () => {
 };
 
 const AdminLayout = ({ children }) => {
+  const { translate } = useLanguage();
   const { user, token } = useAuth();
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -82,29 +84,47 @@ const AdminLayout = ({ children }) => {
   const fetchBadgeCounts = useCallback(async () => {
     try {
       console.log("🔍 Fetching badge counts from database...");
-      const response = await notificationService.getAll({
-        is_read: "false",
-        limit: 100, // Get more notifications to count properly
-      });
-      const unreadNotifs = (response.data.results || response.data).filter((n) => !n.is_read);
+      const response = await notificationService.getBadgeCounts();
       
-      // Count notifications by type
-      let regularOrdersCount = 0;
-      let guestOrdersCount = 0;
-      
-      unreadNotifs.forEach(notif => {
-        if (notif.type === 'guest_order' || notif.related_guest_order) {
-          guestOrdersCount++;
-        } else if (notif.type === 'order' && notif.related_order) {
-          regularOrdersCount++;
-        }
-      });
+      const regularOrdersCount = response.data.regular_orders_count || 0;
+      const guestOrdersCount = response.data.guest_orders_count || 0;
       
       setOrdersBadgeCount(regularOrdersCount);
       setGuestOrdersBadgeCount(guestOrdersCount);
       
+      console.log("✅ Badge counts fetched from database - Orders:", regularOrdersCount, "Guest Orders:", guestOrdersCount);
+      
     } catch (error) {
       console.error("❌ Error fetching badge counts:", error);
+      
+      // Fallback: ถ้า API endpoint ใหม่ไม่ทำงาน ให้ลองใช้วิธีเดิม
+      try {
+        console.log("⚠️ Falling back to old method...");
+        const response = await notificationService.getAll({
+          is_read: "false",
+          limit: 200,
+        });
+        const unreadNotifs = (response.data.results || response.data).filter((n) => !n.is_read);
+        
+        // Count notifications by type
+        let regularOrdersCount = 0;
+        let guestOrdersCount = 0;
+        
+        unreadNotifs.forEach(notif => {
+          if (notif.type === 'guest_order' && notif.related_guest_order) {
+            guestOrdersCount++;
+          } else if (notif.type === 'order' && notif.related_order) {
+            regularOrdersCount++;
+          }
+        });
+        
+        setOrdersBadgeCount(regularOrdersCount);
+        setGuestOrdersBadgeCount(guestOrdersCount);
+        
+        console.log("✅ Badge counts fetched using fallback - Orders:", regularOrdersCount, "Guest Orders:", guestOrdersCount);
+      } catch (fallbackError) {
+        console.error("❌ Fallback also failed:", fallbackError);
+      }
     }
   }, []);
 
@@ -115,20 +135,17 @@ const AdminLayout = ({ children }) => {
       fetchUnreadCount();
       fetchBadgeCounts();
 
-      // ฟังก์ชันเมื่อได้รับออเดอร์ใหม่ → อัปเดตตัวเลข unread เฉย ๆ (toast & sound ทำโดย AdminNotificationBridge)
+      // ฟังก์ชันเมื่อได้รับออเดอร์ใหม่ → อัปเดตตัวเลข unread และ badge counts จาก database
       const handleNewOrder = (data, eventType) => {
         console.log("🔔 AdminLayout - New order received:", data, "Event type:", eventType);
-        setUnreadCount((prev) => {
-          const newCount = prev + 1;
-          return newCount;
-        });
         
-        // Update badge counts based on event type or order type
-        if (eventType === 'new_guest_order' || data.order_type === 'guest' || data.type === 'guest_order' || data.is_guest) {
-          setGuestOrdersBadgeCount(prev => prev + 1);
-        } else if (eventType === 'new_order' || data.type === 'order') {
-          setOrdersBadgeCount(prev => prev + 1);
-        }
+        // Refresh unread count from database
+        fetchUnreadCount();
+        
+        // Refresh badge counts from database เพื่อความแม่นยำ
+        fetchBadgeCounts();
+        
+        console.log("🔄 Refreshing badge counts from database after new order");
       };
 
       // ไม่ต้องจัดการ status updates เพราะไม่สร้าง notification
@@ -186,7 +203,7 @@ const AdminLayout = ({ children }) => {
         clearTimeout(wsCheckTimeout);
       };
     }
-  }, [user?.role, token, fetchUnreadCount]);
+  }, [user?.role, token, fetchUnreadCount, fetchBadgeCounts]);
 
   // Function to update unread count (for use by children components)
   const updateUnreadCount = useCallback((newCount) => {
@@ -279,21 +296,21 @@ const AdminLayout = ({ children }) => {
                   onClick={() => setSidebarOpen(false)}
                   className="flex items-center px-4 py-2 text-secondary-700 rounded-lg hover:bg-primary-50 hover:text-primary-600 transition-colors"
                 >
-                  <FaChartBar className="h-6 w-6 mr-2" /> แดชบอร์ด
+                  <FaChartBar className="h-6 w-6 mr-2" /> {translate('dashboard.title_admin')}
                 </Link>
                 <Link
                   to="/admin/users"
                   onClick={() => setSidebarOpen(false)}
                   className="flex items-center px-4 py-2 text-secondary-700 rounded-lg hover:bg-primary-50 hover:text-primary-600 transition-colors"
                 >
-                  <FaUsers className="h-6 w-6 mr-2" /> จัดการผู้ใช้
+                  <FaUsers className="h-6 w-6 mr-2" /> {translate('admin.users')}
                 </Link>
                 <Link
                   to="/admin/restaurants"
                   onClick={() => setSidebarOpen(false)}
                   className="flex items-center px-4 py-2 text-secondary-700 rounded-lg hover:bg-primary-50 hover:text-primary-600 transition-colors"
                 >
-                  <FaStore className="h-6 w-6 mr-2" /> จัดการร้าน
+                  <FaStore className="h-6 w-6 mr-2" /> {translate('admin.restaurants')}
                 </Link>
                 <Link
                   to="/admin/orders"
@@ -301,7 +318,7 @@ const AdminLayout = ({ children }) => {
                   className="flex items-center justify-between px-4 py-2 text-secondary-700 rounded-lg hover:bg-primary-50 hover:text-primary-600 transition-colors"
                 >
                   <div className="flex items-center">
-                    <FaUserCheck className="h-6 w-6 mr-2" /> คำสั่งซื้อล็อกอิน
+                    <FaUserCheck className="h-6 w-6 mr-2" /> {translate('admin.orders')}
                   </div>
                   {ordersBadgeCount > 0 && (
                     <span className="bg-orange-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold animate-pulse shadow-lg">
@@ -315,7 +332,7 @@ const AdminLayout = ({ children }) => {
                   className="flex items-center justify-between px-4 py-2 text-secondary-700 rounded-lg hover:bg-primary-50 hover:text-primary-600 transition-colors"
                 >
                   <div className="flex items-center">
-                    <FaUserXmark  className="h-6 w-6 mr-2" /> คำสั่งซื้อไม่ล็อกอิน
+                    <FaUserXmark  className="h-6 w-6 mr-2" /> {translate('admin.guest_orders')}
                   </div>
                   {guestOrdersBadgeCount > 0 && (
                     <span className="bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold animate-pulse shadow-lg">
@@ -328,21 +345,21 @@ const AdminLayout = ({ children }) => {
                   onClick={() => setSidebarOpen(false)}
                   className="flex items-center px-4 py-2 text-secondary-700 rounded-lg hover:bg-primary-50 hover:text-primary-600 transition-colors"
                 >
-                  <BiSolidPhoneCall className="h-6 w-6 mr-2" /> จัดการออร์เดอร์โทรศัพท์
+                  <BiSolidPhoneCall className="h-6 w-6 mr-2" /> {translate('admin.phone_orders_title')}
                 </Link>
                 <Link
                   to="/admin/create-phone-order"
                   onClick={() => setSidebarOpen(false)}
                   className="flex items-center px-4 py-2 text-secondary-700 rounded-lg hover:bg-primary-50 hover:text-primary-600 transition-colors"
                 >
-                  <IoIosCreate  className="h-6 w-6 mr-2" /> สร้างออร์เดอร์
+                  <IoIosCreate  className="h-6 w-6 mr-2" /> {translate('admin.create_order_now')}
                 </Link>
                 <Link
                   to="/admin/categories"
                   onClick={() => setSidebarOpen(false)}
                   className="flex items-center px-4 py-2 text-secondary-700 rounded-lg hover:bg-primary-50 hover:text-primary-600 transition-colors"
                 >
-                  <FaFolder className="h-6 w-6 mr-2" /> หมวดหมู่
+                  <FaFolder className="h-6 w-6 mr-2" /> {translate('admin.categories')}
                 </Link>
                 
                 {/* <Link
@@ -357,7 +374,7 @@ const AdminLayout = ({ children }) => {
                   onClick={() => setSidebarOpen(false)}
                   className="flex items-center px-4 py-2 text-secondary-700 rounded-lg hover:bg-primary-50 hover:text-primary-600 transition-colors"
                 >
-                  <FaCog className="h-6 w-6 mr-2" /> ตั้งค่าระบบ
+                  <FaCog className="h-6 w-6 mr-2" /> {translate('admin.settings')}
                 </Link>
               </div>
             </nav>

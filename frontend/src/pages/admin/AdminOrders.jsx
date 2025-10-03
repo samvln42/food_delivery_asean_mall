@@ -1,13 +1,23 @@
 import React, { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
-import api, { notificationService } from "../../services/api";
+import api, { notificationService, orderService } from "../../services/api";
 import { useAuth } from "../../contexts/AuthContext";
 import { API_CONFIG, API_ENDPOINTS } from "../../config/api";
 import { useNotificationContext } from "../../layouts/AdminLayout";
+import { useLanguage } from "../../contexts/LanguageContext";
+import { formatPrice } from "../../utils/formatPrice";
+import { FaRegEye } from "react-icons/fa";
+import { FaUserAlt } from "react-icons/fa";
+import { IoStorefrontSharp } from "react-icons/io5";
+import { FaBoxOpen } from "react-icons/fa";
+import { GiSandsOfTime } from "react-icons/gi";
+import { FaRegCreditCard } from "react-icons/fa6";
 
 // Modal Component สำหรับแสดงรายละเอียดคำสั่งซื้อ
-const OrderDetailsModal = ({ order, isOpen, onClose, orderStatuses, formatDateTime }) => {
+const OrderDetailsModal = ({ order, isOpen, onClose, orderStatuses, formatDateTime, onDelete }) => {
   if (!isOpen || !order) return null;
+
+  const { translate } = useLanguage();
 
   const orderDetails = Array.isArray(order.order_details) ? order.order_details : [];
   const orderDetailsByRestaurant = order.order_details_by_restaurant || [];
@@ -33,44 +43,63 @@ const OrderDetailsModal = ({ order, isOpen, onClose, orderStatuses, formatDateTi
               </div>
               <div>
                 <h3 className="text-3xl font-bold bg-gradient-to-r from-gray-900 via-blue-800 to-purple-800 bg-clip-text text-transparent">
-                  คำสั่งซื้อ #{order.order_id}
+                  {translate('order.order_number', { id: order.order_id })}
                 </h3>
                 <p className="text-sm text-gray-600 mt-1 font-medium">
                   📅 {formatDateTime(order.order_date)}
                 </p>
               </div>
             </div>
-            <button
-              onClick={onClose}
-              className="group p-3 rounded-2xl hover:bg-red-50 transition-all duration-200 transform hover:scale-110 border border-gray-200 hover:border-red-200"
-            >
-              <svg className="w-6 h-6 text-gray-400 group-hover:text-red-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
+            <div className="flex items-center space-x-3">
+              {/* ปุ่มลบออเดอร์ */}
+              <button
+                onClick={() => {
+                  if (window.confirm(`ยืนยันการลบออเดอร์ #${order.order_id}?\n\nการกระทำนี้ไม่สามารถยกเลิกได้และจะลบข้อมูลทั้งหมดที่เกี่ยวข้อง`)) {
+                    onDelete(order.order_id);
+                  }
+                }}
+                className="group p-3 rounded-2xl hover:bg-red-50 transition-all duration-200 transform hover:scale-110 border border-red-200 hover:border-red-400 bg-red-50/50"
+                title="ลบออเดอร์"
+              >
+                <svg className="w-6 h-6 text-red-500 group-hover:text-red-700 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+              </button>
+              
+              {/* ปุ่มปิด */}
+              <button
+                onClick={onClose}
+                className="group p-3 rounded-2xl hover:bg-gray-50 transition-all duration-200 transform hover:scale-110 border border-gray-200 hover:border-gray-300"
+                title="ปิด"
+              >
+                <svg className="w-6 h-6 text-gray-400 group-hover:text-gray-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
           </div>
 
           {/* Content */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* รายการอาหาร */}
             <div>
-              <h4 className="text-lg font-semibold text-gray-800 mb-4">รายการอาหาร</h4>
+              <h4 className="text-lg font-semibold text-gray-800 mb-4">{translate('order.items')}</h4>
               
               {isMultiRestaurant && orderDetailsByRestaurant.length > 0 ? (
                 <div className="space-y-4">
                   {orderDetailsByRestaurant.map((restaurantGroup, groupIndex) => (
                     <div key={restaurantGroup.restaurant_id || groupIndex} className="border rounded-lg p-4 bg-gray-50">
                       <div className="flex items-center justify-between mb-3">
-                        <h5 className="font-medium text-gray-800">🏪 {restaurantGroup.restaurant_name}</h5>
+                        <h5 className="font-medium text-gray-800"><IoStorefrontSharp /> {restaurantGroup.restaurant_name}</h5>
                         <span className="text-sm font-semibold text-primary-600">
-                          ฿{restaurantGroup.subtotal?.toFixed(2)}
+                          {formatPrice(restaurantGroup.subtotal)}
                         </span>
                       </div>
                       <div className="space-y-2">
                         {(restaurantGroup.items || []).map((item, itemIndex) => (
                           <div key={item.order_detail_id || itemIndex} className="flex justify-between text-sm">
                             <span>{item.product_name} × {item.quantity}</span>
-                            <span>฿{parseFloat(item.subtotal).toFixed(2)}</span>
+                            <span>{formatPrice(item.subtotal)}</span>
                           </div>
                         ))}
                       </div>
@@ -82,7 +111,7 @@ const OrderDetailsModal = ({ order, isOpen, onClose, orderStatuses, formatDateTi
                   {orderDetails.map((detail, index) => (
                     <div key={detail.order_detail_id || index} className="flex justify-between p-3 bg-gray-50 rounded-lg">
                       <span>{detail.product_name} × {detail.quantity}</span>
-                      <span className="font-medium">฿{parseFloat(detail.subtotal || 0).toFixed(2)}</span>
+                      <span className="font-medium">{formatPrice(detail.subtotal)}</span>
                     </div>
                   ))}
                 </div>
@@ -91,8 +120,8 @@ const OrderDetailsModal = ({ order, isOpen, onClose, orderStatuses, formatDateTi
               {/* ยอดรวม */}
               <div className="mt-4 pt-4 border-t">
                 <div className="flex justify-between text-lg font-semibold">
-                  <span>ยอดรวม:</span>
-                  <span className="text-primary-600">฿{subtotal.toFixed(2)}</span>
+                  <span>{translate('order.subtotal')}:</span>
+                  <span className="text-primary-600">{formatPrice(subtotal)}</span>
                 </div>
               </div>
             </div>
@@ -101,18 +130,18 @@ const OrderDetailsModal = ({ order, isOpen, onClose, orderStatuses, formatDateTi
             <div className="space-y-6">
               {/* ข้อมูลลูกค้า */}
               <div>
-                <h4 className="text-lg font-semibold text-gray-800 mb-3">ข้อมูลลูกค้า</h4>
+                <h4 className="text-lg font-semibold text-gray-800 mb-3">{translate('admin.customer_info')}</h4>
                 <div className="bg-gray-50 p-4 rounded-lg space-y-2">
                   <div>
-                    <span className="text-sm text-gray-600">ชื่อ:</span>
+                    <span className="text-sm text-gray-600">{translate('contact.name')}:</span>
                     <span className="ml-2">{order.customer_name || "ไม่ระบุ"}</span>
                   </div>
                     <div>
-                      <span className="text-sm text-gray-600">เบอร์โทร:</span>
+                      <span className="text-sm text-gray-600">{translate('auth.phone')}:</span>
                       <span className="ml-2">{order.customer_phone || "ไม่ระบุ"}</span>
                     </div>
                   <div>
-                    <span className="text-sm text-gray-600">ที่อยู่จัดส่ง:</span>
+                    <span className="text-sm text-gray-600">{translate('order.delivery_address')}:</span>
                     <p className="mt-1 text-sm">{order.delivery_address || "ไม่ระบุ"}</p>
                   </div>
                 </div>
@@ -120,37 +149,37 @@ const OrderDetailsModal = ({ order, isOpen, onClose, orderStatuses, formatDateTi
 
               {/* ข้อมูลการชำระเงิน */}
               <div>
-                <h4 className="text-lg font-semibold text-gray-800 mb-3">ข้อมูลการชำระเงิน</h4>
+                <h4 className="text-lg font-semibold text-gray-800 mb-3">{translate('admin.payment_info')}</h4>
                 {order.payment ? (
                   <div className="bg-gray-50 p-4 rounded-lg space-y-3">
                     <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-600">สถานะ:</span>
+                      <span className="text-sm text-gray-600">{translate('common.status')}:</span>
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                         order.payment.status === "completed" ? "bg-green-100 text-green-800" :
                         order.payment.status === "pending" ? "bg-yellow-100 text-yellow-800" :
                         "bg-red-100 text-red-800"
                       }`}>
-                        {order.payment.status === "completed" ? "✅ ชำระแล้ว" :
-                         order.payment.status === "pending" ? "⏳ รอดำเนินการ" : "❌ ไม่สำเร็จ"}
+                        {order.payment.status === "completed" ? `${translate('order.status.paid')}` :
+                         order.payment.status === "pending" ? ` ${translate('admin.payment_pending')}` : `❌ ${translate('admin.payment_failed')}`}
                       </span>
                     </div>
                     <div>
-                      <span className="text-sm text-gray-600">วิธีการชำระ:</span>
+                      <span className="text-sm text-gray-600">{translate('order.payment_method')}:</span>
                       <span className="ml-2 text-sm">
-                        {order.payment.payment_method === "bank_transfer" ? "🏦 โอนผ่านธนาคาร" :
-                         order.payment.payment_method === "qr_payment" ? "📱 QR Payment" :
+                        {order.payment.payment_method === "bank_transfer" ? `🏦 ${translate('cart.bank_transfer')}` :
+                         order.payment.payment_method === "qr_payment" ? `📱 ${translate('cart.qr_payment')}` :
                          order.payment.payment_method}
                       </span>
                     </div>
                     <div>
-                      <span className="text-sm text-gray-600">จำนวนเงิน:</span>
+                      <span className="text-sm text-gray-600">{translate('common.amount')}:</span>
                       <span className="ml-2 font-semibold text-primary-600">
-                        ฿{parseFloat(order.payment.amount_paid || 0).toFixed(2)}
+                        {formatPrice(order.payment.amount_paid)}
                       </span>
                     </div>
                     {order.payment.proof_of_payment_display_url && (
                       <div>
-                        <span className="text-sm text-gray-600 block mb-2">หลักฐานการโอน:</span>
+                        <span className="text-sm text-gray-600 block mb-2">{translate('cart.proof_of_payment')}:</span>
                         <img
                           src={order.payment.proof_of_payment_display_url}
                           alt="หลักฐานการโอนเงิน"
@@ -163,26 +192,26 @@ const OrderDetailsModal = ({ order, isOpen, onClose, orderStatuses, formatDateTi
                 ) : (
                   <div className="bg-gray-50 p-4 rounded-lg text-center">
                     <div className="text-2xl mb-2 opacity-30">💳</div>
-                    <p className="text-gray-500 text-sm">ยังไม่มีข้อมูลการชำระเงิน</p>
+                    <p className="text-gray-500 text-sm">{translate('admin.no_payment_info')}</p>
                   </div>
                 )}
               </div>
 
               {/* สรุปยอดเงิน */}
               <div>
-                <h4 className="text-lg font-semibold text-gray-800 mb-3">สรุปยอดเงิน</h4>
+                <h4 className="text-lg font-semibold text-gray-800 mb-3">{translate('admin.summary')}</h4>
                 <div className="bg-gray-50 p-4 rounded-lg space-y-2">
                   <div className="flex justify-between text-sm">
-                    <span>ยอดรวมสินค้า:</span>
-                    <span>฿{subtotal.toFixed(2)}</span>
+                    <span>{translate('order.subtotal')}:</span>
+                    <span>{formatPrice(subtotal)}</span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span>ค่าจัดส่ง:</span>
-                    <span>฿{parseFloat(order.delivery_fee || 0).toFixed(2)}</span>
+                    <span>{translate('order.delivery_fee')}:</span>
+                    <span>{formatPrice(order.delivery_fee)}</span>
                   </div>
                   <div className="flex justify-between text-lg font-semibold border-t pt-2">
-                    <span>ยอดชำระทั้งหมด:</span>
-                    <span className="text-primary-600">฿{parseFloat(order.total_amount || 0).toFixed(2)}</span>
+                    <span>{translate('order.total_amount')}:</span>
+                    <span className="text-primary-600">{formatPrice(order.total_amount)}</span>
                   </div>
                 </div>
               </div>
@@ -204,6 +233,7 @@ const StatusUpdateModal = ({
   isUpdating 
 }) => {
   const [selectedStatus, setSelectedStatus] = useState(order?.current_status || order?.status || '');
+  const { translate } = useLanguage();
 
   useEffect(() => {
     if (order) {
@@ -215,7 +245,7 @@ const StatusUpdateModal = ({
 
   const handleStatusUpdate = () => {
     if (selectedStatus === (order.current_status || order.status)) {
-      alert("กรุณาเลือกสถานะใหม่");
+      alert(translate('admin.please_select_new_status'));
       return;
     }
     onUpdateStatus(order.order_id, selectedStatus);
@@ -236,7 +266,7 @@ const StatusUpdateModal = ({
                 </svg>
               </div>
               <h3 className="text-xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
-                อัปเดทสถานะ
+                {translate('admin.update_status_title')}
               </h3>
             </div>
             <button 
@@ -252,12 +282,12 @@ const StatusUpdateModal = ({
           <div className="mb-6">
             <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-2xl p-4 mb-4 border border-blue-100">
               <p className="text-sm font-semibold text-blue-800">
-                🏷️ คำสั่งซื้อ #{order.order_id}
+                🏷️ {translate('order.order_number', { id: order.order_id })}
               </p>
             </div>
             
             <label className="block text-sm font-bold text-gray-700 mb-3">
-              🎯 เลือกสถานะใหม่
+              🎯 {translate('admin.select_new_status')}
             </label>
             <div className="relative">
               <select
@@ -289,7 +319,7 @@ const StatusUpdateModal = ({
                 <span className={isUpdating ? "" : "group-hover:rotate-180 transition-transform duration-300"}>
                   {isUpdating ? "⏳" : "✅"}
                 </span>
-                <span>{isUpdating ? "กำลังอัปเดท..." : "ยืนยัน"}</span>
+                <span>{isUpdating ? translate('admin.saving') : translate('common.confirm')}</span>
               </span>
             </button>
             <button
@@ -298,7 +328,7 @@ const StatusUpdateModal = ({
             >
               <span className="flex items-center justify-center space-x-2">
                 <span className="group-hover:scale-110 transition-transform">❌</span>
-                <span>ยกเลิก</span>
+                <span>{translate('common.cancel')}</span>
               </span>
             </button>
           </div>
@@ -313,6 +343,7 @@ const AdminOrders = () => {
   const highlightOrderId = location.state?.highlightOrderId;
   const { user } = useAuth();
   const { clearOrdersBadge, updateOrdersBadge, ordersBadgeCount, fetchBadgeCounts } = useNotificationContext();
+  const { translate, currentLanguage } = useLanguage();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -320,6 +351,10 @@ const AdminOrders = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [sortBy, setSortBy] = useState("current_status");
   const [updatingOrders, setUpdatingOrders] = useState(new Set());
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [order, setOrder] = useState(null);
+  const [showStatusModal, setShowStatusModal] = useState(false);
+  const [unreadOrderIds, setUnreadOrderIds] = useState(new Set()); // เก็บ order IDs ที่ยังไม่ได้อ่าน
 
   // Pagination
   const pageSize = 5; // แสดง 10 รายการต่อหน้า (ปรับได้)
@@ -329,40 +364,68 @@ const AdminOrders = () => {
   const orderStatuses = [
     {
       value: "pending",
-      label: "รอดำเนินการ",
+      label: translate('order.status.pending'),
       color: "bg-yellow-100 text-yellow-800",
     },
     {
       value: "paid",
-      label: "ชำระเงินแล้ว",
+      label: translate('order.status.paid'),
       color: "bg-blue-100 text-blue-800",
     },
     {
       value: "preparing",
-      label: "กำลังเตรียม",
+      label: translate('order.status.preparing'),
       color: "bg-orange-100 text-orange-800",
     },
     {
       value: "ready_for_pickup",
-      label: "พร้อมส่ง",
+      label: translate('order.status.ready_for_pickup'),
       color: "bg-purple-100 text-purple-800",
     },
     {
       value: "delivering",
-      label: "กำลังจัดส่ง",
+      label: translate('order.status.delivering'),
       color: "bg-indigo-100 text-indigo-800",
     },
     {
       value: "completed",
-      label: "เสร็จสิ้น",
+      label: translate('order.status.completed'),
       color: "bg-green-100 text-green-800",
     },
-    { value: "cancelled", label: "ยกเลิก", color: "bg-red-100 text-red-800" },
+    { value: "cancelled", label: translate('order.status.cancelled'), color: "bg-red-100 text-red-800" },
   ];
 
   useEffect(() => {
     fetchOrders();
   }, [sortBy]);
+
+  // Fetch unread order IDs
+  const fetchUnreadOrderIds = async () => {
+    try {
+      const response = await notificationService.getAll({
+        is_read: "false",
+        limit: 100,
+      });
+      const unreadNotifs = (response.data.results || response.data).filter((n) => !n.is_read);
+      
+      // สร้าง Set ของ order IDs ที่ยังไม่ได้อ่าน (เฉพาะ regular orders)
+      const unreadIds = new Set();
+      unreadNotifs.forEach(notif => {
+        if (notif.type === 'order' && notif.related_order) {
+          unreadIds.add(notif.related_order);
+        }
+      });
+      
+      setUnreadOrderIds(unreadIds);
+      console.log("📬 Found", unreadIds.size, "unread orders");
+    } catch (error) {
+      console.error("❌ Error fetching unread order IDs:", error);
+    }
+  };
+
+  useEffect(() => {
+    fetchUnreadOrderIds();
+  }, []);
 
   // Note: Badge will only clear when viewing individual order details, not when entering the page
   // useEffect(() => {
@@ -375,6 +438,13 @@ const AdminOrders = () => {
     try {
       // เรียก API เพื่อ mark notifications ที่เกี่ยวข้องกับออเดอร์นี้เป็น read
       const response = await notificationService.markOrderAsRead(orderId, 'regular');
+      
+      // อัปเดต unreadOrderIds ทันที
+      setUnreadOrderIds(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(orderId);
+        return newSet;
+      });
       
       // รีเฟรช badge counts จากฐานข้อมูลเพื่อความแม่นยำ
       if (response.data.marked_count > 0) {
@@ -389,6 +459,51 @@ const AdminOrders = () => {
         console.log("🏷️ Orders badge decreased to:", newCount, "(fallback)");
       }
     }
+  };
+
+  // Function to delete order
+  const handleDeleteOrder = async (orderId) => {
+    try {
+      const response = await orderService.delete(orderId);
+      
+      if (response.data.success) {
+        return { success: true, message: response.data.message || `ลบออเดอร์ #${orderId} เรียบร้อยแล้ว` };
+      }
+    } catch (error) {
+      console.error("❌ Error deleting order:", error);
+      if (error.response?.status === 403) {
+        return { success: false, message: "ไม่มีสิทธิ์ลบออเดอร์ (เฉพาะแอดมินเท่านั้น)" };
+      } else {
+        return { success: false, message: "เกิดข้อผิดพลาดในการลบออเดอร์: " + (error.response?.data?.error || error.message) };
+      }
+    }
+  };
+
+  // Wrapper function to handle delete and close modal
+  const handleDeleteOrderWithModalClose = async (orderId) => {
+    try {
+      const result = await handleDeleteOrder(orderId);
+      if (result.success) {
+        alert(result.message);
+        setShowDetailsModal(false);
+        setOrder(null);
+        await fetchOrders();
+        fetchBadgeCounts();
+      }
+    } catch (error) {
+      if (error.response?.status === 403) {
+        alert("ไม่มีสิทธิ์ลบออเดอร์ (เฉพาะแอดมินเท่านั้น)");
+      } else {
+        alert("เกิดข้อผิดพลาดในการลบออเดอร์: " + (error.response?.data?.error || error.message));
+      }
+    }
+  };
+
+  // Function to handle viewing order details
+  const handleViewDetails = (selectedOrder) => {
+    setOrder(selectedOrder);
+    setShowDetailsModal(true);
+    markOrderAsRead(selectedOrder.order_id);
   };
 
   const fetchOrders = async () => {
@@ -520,7 +635,8 @@ const AdminOrders = () => {
 
   const formatDateTime = (dateString) => {
     const date = new Date(dateString);
-    return date.toLocaleString("en-US", {
+    const locale = currentLanguage === 'th' ? 'th-TH-u-ca-gregory' : currentLanguage === 'ko' ? 'ko-KR' : 'en-US';
+    return date.toLocaleString(locale, {
       year: "numeric",
       month: "short",
       day: "numeric",
@@ -561,7 +677,7 @@ const AdminOrders = () => {
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500 mx-auto"></div>
           <p className="mt-4 text-secondary-600">
-            กำลังโหลดข้อมูลคำสั่งซื้อ...
+            {translate('common.loading')}
           </p>
         </div>
       </div>
@@ -582,15 +698,14 @@ const AdminOrders = () => {
                   </svg>
                 </div>
                 <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-900 via-blue-800 to-purple-800 bg-clip-text text-transparent">
-                  จัดการคำสั่งซื้อ
+                  {translate('admin.orders')}
                 </h1>
               </div>
               <div className="flex items-center space-x-4">
                 <div className="flex items-center space-x-2">
                   <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
                   <p className="text-sm text-gray-600">
-                    แสดง <span className="font-semibold text-blue-600">{filteredOrders.length}</span> จาก 
-                    <span className="font-semibold text-gray-800"> {orders.length}</span> รายการ
+                    {translate('admin.showing_of_total', { showing: filteredOrders.length, total: orders.length })}
                   </p>
                 </div>
               </div>
@@ -602,7 +717,7 @@ const AdminOrders = () => {
               <svg className="w-5 h-5 group-hover:rotate-180 transition-transform duration-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
               </svg>
-              <span className="font-medium">รีเฟรช</span>
+              <span className="font-medium">{translate('admin.refresh')}</span>
             </button>
           </div>
         </div>
@@ -624,7 +739,7 @@ const AdminOrders = () => {
                   type="text"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="ค้นหาคำสั่งซื้อ, ลูกค้า, ร้านอาหาร..."
+                  placeholder={translate('admin.orders_search_placeholder')}
                   className="w-full pl-12 pr-4 py-3 bg-gray-50/50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 focus:bg-white transition-all text-sm font-medium placeholder-gray-400"
                 />
                 <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 to-purple-500/5 rounded-xl opacity-0 group-focus-within:opacity-100 transition-opacity pointer-events-none"></div>
@@ -639,7 +754,7 @@ const AdminOrders = () => {
                   onChange={(e) => setFilter(e.target.value)}
                   className="w-full appearance-none px-4 py-3 bg-gray-50/50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 focus:bg-white transition-all text-sm font-medium cursor-pointer"
                 >
-                  <option value="all">🔍 ทุกสถานะ</option>
+                  <option value="all">🔍 {translate('admin.all_statuses')}</option>
                   {orderStatuses.map((status) => (
                     <option key={status.value} value={status.value}>
                       {status.label}
@@ -662,11 +777,11 @@ const AdminOrders = () => {
                   onChange={(e) => setSortBy(e.target.value)}
                   className="w-full appearance-none px-4 py-3 bg-gray-50/50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 focus:bg-white transition-all text-sm font-medium cursor-pointer"
                 >
-                  <option value="-order_date">📅 ล่าสุด</option>
-                  <option value="order_date">📅 เก่าสุด</option>
-                  <option value="-total_amount">💰 ราคาสูง</option>
-                  <option value="total_amount">💰 ราคาต่ำ</option>
-                  <option value="current_status">📊 ตามสถานะ</option>
+                  <option value="-order_date">📅 {translate('admin.sort.latest')}</option>
+                  <option value="order_date">📅 {translate('admin.sort.oldest')}</option>
+                  <option value="-total_amount">💰 {translate('admin.sort.price_high')}</option>
+                  <option value="total_amount">💰 {translate('admin.sort.price_low')}</option>
+                  <option value="current_status">📊 {translate('admin.sort.by_status')}</option>
                 </select>
                 <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
                   <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -769,9 +884,16 @@ const AdminOrders = () => {
                 orderStatuses={orderStatuses}
                 onUpdateStatus={updateOrderStatus}
                 onMarkAsRead={markOrderAsRead}
+                onDeleteOrder={handleDeleteOrderWithModalClose}
+                onViewDetails={handleViewDetails}
+                onChangeStatus={(order) => {
+                  setOrder(order);
+                  setShowStatusModal(true);
+                }}
                 isUpdating={updatingOrders.has(order.order_id)}
                 getStatusColor={getStatusColor}
                 formatDateTime={formatDateTime}
+                hasUnreadNotification={unreadOrderIds.has(order.order_id)}
               />
             ))}
           </div>
@@ -779,12 +901,12 @@ const AdminOrders = () => {
           <div className="bg-white rounded-xl border p-12 text-center">
             <div className="text-6xl mb-4 opacity-20">📋</div>
             <h2 className="text-xl font-semibold text-gray-700 mb-2">
-              {searchTerm || filter !== "all" ? "ไม่พบคำสั่งซื้อที่ตรงกับเงื่อนไข" : "ไม่มีคำสั่งซื้อ"}
+              {searchTerm || filter !== "all" ? translate('order.no_history') : translate('order.no_history')}
             </h2>
             <p className="text-gray-500">
               {searchTerm || filter !== "all"
-                ? "ลองปรับเปลี่ยนคำค้นหาหรือตัวกรอง"
-                : "คำสั่งซื้อจะปรากฏที่นี่เมื่อมีลูกค้าสั่งซื้อ"}
+                ? translate('admin.orders_empty_search_message')
+                : translate('admin.orders_empty_message')}
             </p>
           </div>
         )}
@@ -852,6 +974,28 @@ const AdminOrders = () => {
             </button>
           </div>
         )}
+
+        {/* Main Modals */}
+        <OrderDetailsModal
+          order={order}
+          isOpen={showDetailsModal}
+          onClose={() => {
+            setShowDetailsModal(false);
+            setOrder(null);
+          }}
+          orderStatuses={orderStatuses}
+          formatDateTime={formatDateTime}
+          onDelete={handleDeleteOrderWithModalClose}
+        />
+
+        <StatusUpdateModal
+          order={order}
+          isOpen={showStatusModal}
+          onClose={() => setShowStatusModal(false)}
+          orderStatuses={orderStatuses}
+          onUpdateStatus={updateOrderStatus}
+          isUpdating={updatingOrders.has(order?.order_id)}
+        />
       </div>
     </div>
   );
@@ -865,14 +1009,16 @@ const OrderCard = ({
   isUpdating,
   getStatusColor,
   formatDateTime,
-  onMarkAsRead, // Add this prop
+  onMarkAsRead,
+  onDeleteOrder,
+  onViewDetails,
+  onChangeStatus,
+  hasUnreadNotification = false,
 }) => {
-  const [showDetailsModal, setShowDetailsModal] = useState(false);
-  const [showStatusModal, setShowStatusModal] = useState(false);
+  const { translate } = useLanguage();
 
-  const handleViewDetails = () => {
-    setShowDetailsModal(true);
-    // Mark as read when viewing details
+  const handleViewDetailsClick = () => {
+    onViewDetails(order);
     if (onMarkAsRead) {
       onMarkAsRead(order.order_id);
     }
@@ -886,12 +1032,30 @@ const OrderCard = ({
     <>
       <div 
         id={`order-${order.order_id}`} 
-        className={`group relative bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-white/20 transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 overflow-hidden ${
+        className={`group relative rounded-2xl shadow-lg transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 overflow-hidden ${
           order.order_id === order.highlightOrderId ? 'ring-2 ring-blue-400 ring-opacity-60 shadow-2xl' : ''
+        } ${
+          hasUnreadNotification 
+            ? 'bg-gradient-to-r from-orange-50 via-white to-orange-50 border-2 border-orange-300 shadow-orange-200' 
+            : 'bg-white/90 backdrop-blur-sm border border-white/20'
         }`}
       >
+        {/* Unread indicator badge */}
+        {hasUnreadNotification && (
+          <div className="absolute top-3 right-3 z-20">
+            <div className="flex items-center gap-2 bg-gradient-to-r from-orange-500 to-red-500 text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg animate-pulse">
+              <span className="w-2 h-2 bg-white rounded-full"></span>
+              {translate('common.new') || 'ใหม่'}
+            </div>
+          </div>
+        )}
+        
         {/* Decorative gradient border */}
-        <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-pink-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
+        <div className={`absolute inset-0 transition-opacity duration-300 pointer-events-none ${
+          hasUnreadNotification 
+            ? 'bg-gradient-to-r from-orange-500/10 via-red-500/10 to-pink-500/10 opacity-30 group-hover:opacity-50' 
+            : 'bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-pink-500/10 opacity-0 group-hover:opacity-100'
+        }`}></div>
         
         {/* Main Card Content */}
         <div className="relative z-10 p-6">
@@ -911,13 +1075,13 @@ const OrderCard = ({
               </span>
               {isMultiRestaurant && (
                 <span className="bg-gradient-to-r from-blue-100 to-purple-100 text-blue-800 px-3 py-1 rounded-xl text-xs font-bold shadow-sm">
-                  🏪 {restaurantCount} ร้าน
+                  🏪 {restaurantCount} {translate('common.restaurant')}
                 </span>
               )}
             </div>
             <div className="text-right">
               <p className="text-2xl font-black bg-gradient-to-r from-green-600 to-blue-600 bg-clip-text text-transparent">
-                ฿{parseFloat(order.total_amount || 0).toFixed(2)}
+                {formatPrice(order.total_amount)}
               </p>
               <p className="text-xs text-gray-500 font-medium">{formatDateTime(order.order_date)}</p>
             </div>
@@ -926,13 +1090,13 @@ const OrderCard = ({
           {/* Enhanced Info Grid */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
             <div className="bg-gray-50/50 rounded-xl p-3 border border-gray-100">
-              <p className="text-xs text-gray-500 mb-1 font-medium">👤 ลูกค้า</p>
+              <p className="text-xs text-gray-500 mb-1 font-medium"><FaUserAlt className="w-4 h-4 text-gray-500 inline-block mr-1" /> {translate('admin.customer')}</p>
               <p className="font-bold text-gray-900 truncate text-sm">{order.customer_name || "ไม่ระบุ"}</p>
             </div>
             <div className="bg-gray-50/50 rounded-xl p-3 border border-gray-100">
-              <p className="text-xs text-gray-500 mb-1 font-medium">🏪 ร้านอาหาร</p>
+              <p className="text-xs text-gray-500 mb-1 font-medium"><IoStorefrontSharp className="w-4 h-4 text-gray-500 inline-block mr-1" /> {translate('common.restaurant')}</p>
               {isMultiRestaurant ? (
-                <p className="font-bold text-blue-600 text-sm">หลายร้าน ({restaurantCount})</p>
+                <p className="font-bold text-blue-600 text-sm">{translate('order.from_multiple_restaurants', { count: restaurantCount })}</p>
               ) : (
                 <Link 
                   to={`/restaurants/${order.restaurant}`}
@@ -943,22 +1107,22 @@ const OrderCard = ({
               )}
             </div>
             <div className="bg-gray-50/50 rounded-xl p-3 border border-gray-100">
-              <p className="text-xs text-gray-500 mb-1 font-medium">📦 จำนวนรายการ</p>
-              <p className="font-bold text-gray-900 text-sm">{orderDetails.length} รายการ</p>
+              <p className="text-xs text-gray-500 mb-1 font-medium"><FaBoxOpen className="w-4 h-4 text-gray-500 inline-block mr-1" /> {translate('order.items')}</p>
+              <p className="font-bold text-gray-900 text-sm">{orderDetails.length} {translate('order.items_count')}</p>
             </div>
             <div className="bg-gray-50/50 rounded-xl p-3 border border-gray-100">
-              <p className="text-xs text-gray-500 mb-1 font-medium">💳 การชำระเงิน</p>
+              <p className="text-xs text-gray-500 mb-1 font-medium"><FaRegCreditCard className="w-4 h-4 text-gray-500 inline-block mr-1" /> {translate('order.payment_method')}</p>
               {order.payment ? (
                 <span className={`inline-flex items-center px-3 py-1 rounded-xl text-xs font-bold shadow-sm ${
                   order.payment.status === "completed" ? "bg-gradient-to-r from-green-100 to-emerald-100 text-green-800" :
                   order.payment.status === "pending" ? "bg-gradient-to-r from-yellow-100 to-orange-100 text-yellow-800" :
                   "bg-gradient-to-r from-red-100 to-pink-100 text-red-800"
                 }`}>
-                  {order.payment.status === "completed" ? "✅ ชำระแล้ว" :
-                   order.payment.status === "pending" ? "⏳ รอชำระ" : "❌ ไม่สำเร็จ"}
+                  {order.payment.status === "completed" ? `${translate('order.status.paid')}` :
+                   order.payment.status === "pending" ? `${translate('admin.payment_pending_short')}` : `❌ ${translate('admin.payment_failed')}`}
                 </span>
               ) : (
-                <span className="text-xs text-gray-500 font-medium">ไม่มีข้อมูล</span>
+                <span className="text-xs text-gray-500 font-medium">{translate('common.no_data')}</span>
               )}
             </div>
           </div>
@@ -966,16 +1130,16 @@ const OrderCard = ({
           {/* Enhanced Quick Actions */}
           <div className="flex flex-wrap gap-3">
             <button
-              onClick={handleViewDetails}
+              onClick={handleViewDetailsClick}
               className="group flex-1 min-w-0 bg-gradient-to-r from-gray-100 to-gray-200 hover:from-gray-200 hover:to-gray-300 text-gray-800 px-4 py-3 rounded-xl text-sm font-bold transition-all duration-200 transform hover:scale-105 shadow-sm hover:shadow-md"
             >
               <span className="flex items-center justify-center space-x-2">
-                <span className="group-hover:scale-110 transition-transform">📋</span>
-                <span>รายละเอียด</span>
+                <span className="group-hover:scale-110 transition-transform"><FaRegEye /></span>
+                <span>{translate('common.details')}</span>
               </span>
             </button>
             <button
-              onClick={() => setShowStatusModal(true)}
+              onClick={() => onChangeStatus(order)}
               disabled={isUpdating}
               className={`group flex-1 min-w-0 px-4 py-3 rounded-xl text-sm font-bold transition-all duration-200 transform shadow-sm ${
                 isUpdating 
@@ -987,7 +1151,7 @@ const OrderCard = ({
                 <svg className="w-5 h-5 group-hover:rotate-180 transition-transform duration-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                 </svg>
-                <span>{isUpdating ? "อัปเดท..." : "เปลี่ยนสถานะ"}</span>
+                <span>{isUpdating ? translate('admin.saving') : translate('admin.change_status')}</span>
               </span>
             </button>
             {(order.current_status || order.status) !== "cancelled" && (
@@ -998,7 +1162,7 @@ const OrderCard = ({
               >
                 <span className="flex items-center justify-center space-x-2">
                   <span className="group-hover:scale-110 transition-transform">❌</span>
-                  <span>ยกเลิก</span>
+                  <span>{translate('common.cancel')}</span>
                 </span>
               </button>
             )}
@@ -1006,23 +1170,6 @@ const OrderCard = ({
         </div>
       </div>
 
-      {/* Modals */}
-      <OrderDetailsModal
-        order={order}
-        isOpen={showDetailsModal}
-        onClose={() => setShowDetailsModal(false)}
-        orderStatuses={orderStatuses}
-        formatDateTime={formatDateTime}
-      />
-
-      <StatusUpdateModal
-        order={order}
-        isOpen={showStatusModal}
-        onClose={() => setShowStatusModal(false)}
-        orderStatuses={orderStatuses}
-        onUpdateStatus={onUpdateStatus}
-        isUpdating={isUpdating}
-      />
     </>
   );
 };

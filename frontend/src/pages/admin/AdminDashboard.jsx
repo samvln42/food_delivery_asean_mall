@@ -1,22 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { dashboardService, notificationService } from '../../services/api';
+import { dashboardService } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
-import { useNotificationContext } from '../../layouts/AdminLayout';
 import { formatCurrency } from '../../utils/formatPrice';
+import { useLanguage } from '../../contexts/LanguageContext';
+import { AiFillSignal } from "react-icons/ai";
+import { SlRefresh  } from "react-icons/sl";
+import { MdOutlineAutoGraph } from "react-icons/md";
 
 const AdminDashboard = () => {
   const { user, token } = useAuth();
+  const { translate } = useLanguage();
   
-  // Try to use notification context (may not be available in some cases)
-  let decreaseUnreadCount;
-  try {
-    const context = useNotificationContext();
-    decreaseUnreadCount = context.decreaseUnreadCount;
-  } catch (error) {
-    // Context not available, use fallback function
-    decreaseUnreadCount = () => console.log('Notification context not available');
-  }
   const [dashboardData, setDashboardData] = useState({
     today: {
       orders: 0,
@@ -32,44 +27,13 @@ const AdminDashboard = () => {
     },
     popular_products: [],
   });
-  const [notifications, setNotifications] = useState([]);
-  const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [notificationUpdateBadge, setNotificationUpdateBadge] = useState(null);
 
   useEffect(() => {
     fetchDashboardData();
-    fetchNotifications();
   }, []);
 
-  // Polling system สำหรับ real-time notifications
-  useEffect(() => {
-    const handleUpdate = () => fetchNotificationsQuietly();
-    window.addEventListener('notification_update', handleUpdate);
-
-    if (!user?.id || !token || user.role !== 'admin') {
-      console.log('⚠️ User not admin or not authenticated, stopping notification polling');
-      return () => window.removeEventListener('notification_update', handleUpdate);
-    }
-
-    console.log('🔔 Starting notification polling for admin...');
-    
-    // Initial fetch
-    fetchNotifications();
-    
-    // Set up polling interval (ทุก 30 วินาที)
-    const pollingInterval = setInterval(() => {
-      console.log('🔔 Polling for notification updates...');
-      fetchNotificationsQuietly();
-    }, 30000);
-
-    return () => {
-      console.log('🛑 Stopping notification polling...');
-      clearInterval(pollingInterval);
-      window.removeEventListener('notification_update', handleUpdate);
-    };
-  }, [user?.id, token, user?.role]);
 
   const fetchDashboardData = async () => {
     setLoading(true);
@@ -85,92 +49,6 @@ const AdminDashboard = () => {
     }
   };
 
-  const fetchNotifications = async () => {
-    try {
-      // ดึงเฉพาะ unread notifications เพื่อแสดงในการแจ้งเตือน
-      const response = await notificationService.getAll({ 
-        ordering: '-created_at',
-        limit: 10,
-        is_read: 'false' // กรองเฉพาะที่ยังไม่ได้อ่าน
-      });
-      const notificationData = response.data.results || response.data;
-      
-      // แสดงเฉพาะ notification ที่ยังไม่ได้อ่าน
-      const unreadNotifications = notificationData.filter(notif => !notif.is_read);
-      setNotifications(unreadNotifications);
-      
-      // ดึง unread count จาก API
-      try {
-        const countResponse = await notificationService.getUnreadCount();
-        setUnreadCount(countResponse.data.unread_count || 0);
-      } catch (countError) {
-        setUnreadCount(unreadNotifications.length);
-      }
-      
-      console.log('🔔 Fetched unread notifications:', unreadNotifications.length);
-    } catch (error) {
-      console.error('Error fetching notifications:', error);
-    }
-  };
-
-  // Fetch notifications without showing loading states
-  const fetchNotificationsQuietly = async () => {
-    try {
-      // ดึงเฉพาะ unread notifications
-      const response = await notificationService.getAll({ 
-        ordering: '-created_at',
-        limit: 10,
-        is_read: 'false'
-      });
-      const notificationData = response.data.results || response.data;
-      const unreadNotifications = notificationData.filter(notif => !notif.is_read);
-      
-      // Compare with current notifications to detect new ones
-      setNotifications(prevNotifications => {
-        const newNotifications = unreadNotifications.filter(newNotif => 
-          !prevNotifications.some(prevNotif => 
-            prevNotif.notification_id === newNotif.notification_id
-          )
-        );
-
-        // Show notification badge for new notifications
-        if (newNotifications.length > 0) {
-          console.log('🔔 New unread notifications detected:', newNotifications.length);
-          setNotificationUpdateBadge({
-            count: newNotifications.length,
-            type: newNotifications[0].type || 'system'
-          });
-
-          // Auto-hide notification badge after 10 seconds
-          setTimeout(() => {
-            setNotificationUpdateBadge(null);
-          }, 10000);
-
-          // Browser notification (if permission granted)
-          if (window.Notification && window.Notification.permission === 'granted') {
-            new window.Notification('การแจ้งเตือนใหม่!', {
-              body: `มีการแจ้งเตือนใหม่ ${newNotifications.length} รายการ`,
-              icon: '/favicon.ico',
-              badge: '/favicon.ico'
-            });
-          }
-        }
-
-        return unreadNotifications;
-      });
-
-      // อัปเดต unread count
-      try {
-        const countResponse = await notificationService.getUnreadCount();
-        setUnreadCount(countResponse.data.unread_count || 0);
-      } catch (countError) {
-        setUnreadCount(unreadNotifications.length);
-      }
-      
-    } catch (error) {
-      console.error('❌ Error polling notifications:', error);
-    }
-  };
 
 
 
@@ -178,65 +56,6 @@ const AdminDashboard = () => {
     return new Intl.NumberFormat('en-US').format(number || 0);
   };
 
-  const getTypeIcon = (type) => {
-    switch (type) {
-      case 'order_update': return '📦';
-      case 'payment_confirm': return '💳';
-      case 'review_reminder': return '⭐';
-      case 'promotion': return '🎉';
-      case 'system': return '🔔';
-      case 'new_restaurant_registration': return '🏪';
-      case 'upgrade': return '⬆️';
-      case 'downgrade': return '⬇️';
-      default: return '📢';
-    }
-  };
-
-  const getTypeColor = (type) => {
-    switch (type) {
-      case 'order_update': return 'bg-blue-100 text-blue-800';
-      case 'payment_confirm': return 'bg-green-100 text-green-800';
-      case 'review_reminder': return 'bg-yellow-100 text-yellow-800';
-      case 'promotion': return 'bg-purple-100 text-purple-800';
-      case 'system': return 'bg-gray-100 text-gray-800';
-      case 'new_restaurant_registration': return 'bg-orange-100 text-orange-800';
-      case 'upgrade': return 'bg-green-100 text-green-800';
-      case 'downgrade': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  const formatTimeAgo = (dateString) => {
-    const now = new Date();
-    const date = new Date(dateString);
-    const diffInSeconds = Math.floor((now - date) / 1000);
-
-    if (diffInSeconds < 60) return 'เมื่อสักครู่';
-    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)} นาทีที่แล้ว`;
-    if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)} ชั่วโมงที่แล้ว`;
-    if (diffInSeconds < 604800) return `${Math.floor(diffInSeconds / 86400)} วันที่แล้ว`;
-    return date.toLocaleDateString('en-US');
-  };
-
-  const markAsRead = async (notificationId) => {
-    try {
-      await notificationService.markAsRead(notificationId);
-      
-      // ลบ notification ที่อ่านแล้วออกจากรายการ (ไม่แสดงในการแจ้งเตือน)
-      setNotifications(prev => 
-        prev.filter(notif => notif.notification_id !== notificationId)
-      );
-      
-      // ลด unread count ใน dashboard
-      setUnreadCount(prev => Math.max(0, prev - 1));
-      
-      // ลด unread count ใน sidebar ทันที
-      decreaseUnreadCount();
-      
-    } catch (error) {
-      console.error('Error marking notification as read:', error);
-    }
-  };
 
   const navigate = useNavigate();
 
@@ -246,7 +65,7 @@ const AdminDashboard = () => {
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto"></div>
           <p className="mt-6 text-gray-600 font-medium text-lg">
-            กำลังโหลดแดชบอร์ด...
+            {translate('common.loading')}
           </p>
         </div>
       </div>
@@ -260,7 +79,7 @@ const AdminDashboard = () => {
           <div className="w-16 h-16 bg-gradient-to-r from-red-500 to-pink-500 rounded-full flex items-center justify-center mx-auto mb-4">
             <span className="text-2xl text-white">⚠️</span>
           </div>
-          <h3 className="text-xl font-semibold text-gray-800 mb-2">เกิดข้อผิดพลาด</h3>
+          <h3 className="text-xl font-semibold text-gray-800 mb-2">{translate('error.general')}</h3>
           <p className="text-gray-600 mb-6">{error}</p>
           <button 
             onClick={fetchDashboardData}
@@ -269,26 +88,13 @@ const AdminDashboard = () => {
             <svg className="w-5 h-5 group-hover:rotate-180 transition-transform duration-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
             </svg>
-            <span className="font-medium">ลองใหม่</span>
+            <span className="font-medium">{translate('common.try_again')}</span>
           </button>
         </div>
       </div>
     );
   }
 
-  const handleNotificationClick = (notification) => {
-    markAsRead(notification.notification_id);
-    if (notification.type === 'order_update') {
-      // ใช้ navigate และส่งค่า order_id ไปยังหน้า AdminOrders ผ่าน location.state
-      navigate('/admin/orders', {
-        state: { highlightOrderId: notification.related_order || notification.order_id },
-      });
-    } else if (notification.type === 'guest_order_update') {
-      navigate('/admin/guest-orders', {
-        state: { highlightOrderId: notification.related_order || notification.order_id },
-      });
-    }
-  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
@@ -298,29 +104,30 @@ const AdminDashboard = () => {
           <div className="flex justify-between items-center">
             <div className="flex items-center space-x-4">
               <div className="w-12 h-12 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg">
-                <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                {/* <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                </svg>
+                </svg> */}
+                <AiFillSignal className="w-7 h-7 text-white" />
               </div>
               <div>
                 <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                  แดชบอร์ดแอดมิน
+                  {translate('dashboard.title_admin')}
                 </h1>
-                <p className="text-gray-500 text-sm font-medium">ระบบจัดการแอดมิน - ข้อมูลภาพรวม</p>
+                <p className="text-gray-500 text-sm font-medium">{translate('dashboard.subtitle_admin')}</p>
               </div>
             </div>
             <div className="flex items-center space-x-3">
               <button 
                 onClick={() => {
                   fetchDashboardData();
-                  fetchNotifications();
                 }}
                 className="group bg-gradient-to-r from-gray-600 to-gray-700 hover:from-gray-700 hover:to-gray-800 text-white px-5 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-0.5 flex items-center space-x-2"
               >
-                <svg className="w-5 h-5 group-hover:rotate-180 transition-transform duration-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                {/* <svg className="w-5 h-5 group-hover:rotate-180 transition-transform duration-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-                <span className="font-medium">รีเฟรช</span>
+                </svg> */}
+                <SlRefresh  className="w-5 h-5 group-hover:rotate-180 transition-transform duration-500" />
+                <span className="font-medium">{translate('admin.refresh')}</span>
               </button>
             </div>
           </div>
@@ -347,112 +154,19 @@ const AdminDashboard = () => {
         </div>
       )} */}
 
-        {/* Enhanced Recent Notifications Widget */}
-        {notifications.length > 0 && (
-          <div className="mb-8">
-            <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-xl border border-white/20 p-6">
-              <div className="flex justify-between items-center mb-6">
-                <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-xl flex items-center justify-center shadow-lg">
-                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-5 5v-5zM12 17.5a6.5 6.5 0 110-13 6.5 6.5 0 010 13z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <h2 className="text-xl font-bold text-gray-800">การแจ้งเตือนล่าสุด</h2>
-                    <p className="text-sm text-gray-500">รายการแจ้งเตือนที่ยังไม่ได้อ่าน</p>
-                  </div>
-                </div>
-                <Link 
-                  to="/admin/notifications" 
-                  className="group bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white px-4 py-2 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-0.5 flex items-center space-x-2"
-                  onClick={() => {
-                    setUnreadCount(0);
-                  }}
-                >
-                  <span className="font-medium text-sm">ดูทั้งหมด</span>
-                  <svg className="w-4 h-4 group-hover:translate-x-1 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </Link>
-              </div>
-              
-              <div className="space-y-3">
-                {notifications.slice(0, 3).map((notification, index) => (
-                  <div
-                    key={notification.notification_id}
-                    className="group relative bg-white/60 backdrop-blur-sm rounded-xl p-4 border border-white/30 hover:border-blue-200 hover:shadow-lg transition-all duration-300 cursor-pointer transform hover:-translate-y-0.5"
-                    onClick={() => handleNotificationClick(notification)}
-                  >
-                    <div className="flex items-start space-x-4">
-                      <div className="flex-shrink-0">
-                        <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-xl flex items-center justify-center shadow-md group-hover:scale-110 transition-transform duration-300">
-                          <span className="text-lg">{getTypeIcon(notification.type)}</span>
-                        </div>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between">
-                          <h4 className="text-sm font-semibold text-gray-800 group-hover:text-blue-600 transition-colors duration-300">
-                            {notification.title}
-                          </h4>
-                          <div className="flex items-center space-x-2">
-                            <span className={`px-3 py-1 rounded-full text-xs font-medium ${getTypeColor(notification.type)} shadow-sm`}>
-                              {notification.type === 'new_restaurant_registration' ? 'ร้านอาหารใหม่' :
-                               notification.type === 'system' ? 'ระบบ' :
-                               notification.type === 'upgrade' ? 'อัปเกรด' :
-                               notification.type === 'downgrade' ? 'ดาวน์เกรด' : 'อื่นๆ'}
-                            </span>
-                            <div className="w-3 h-3 bg-gradient-to-r from-red-500 to-pink-500 rounded-full animate-pulse shadow-lg"></div>
-                          </div>
-                        </div>
-                        <p className="text-sm text-gray-600 mt-1 line-clamp-2">
-                          {notification.message}
-                        </p>
-                        <div className="flex items-center justify-between mt-2">
-                          <span className="text-xs text-gray-500 font-medium">
-                            {formatTimeAgo(notification.created_at)}
-                          </span>
-                          <svg className="w-4 h-4 text-gray-400 group-hover:text-blue-500 group-hover:translate-x-1 transition-all duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                          </svg>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              
-              {notifications.length > 3 && (
-                <div className="mt-6 text-center">
-                  <Link 
-                    to="/admin/notifications" 
-                    className="group inline-flex items-center space-x-2 text-blue-600 hover:text-blue-700 font-medium text-sm transition-colors duration-300"
-                    onClick={() => {
-                      setUnreadCount(0);
-                    }}
-                  >
-                    <span>ดูการแจ้งเตือนทั้งหมด ({notifications.length} รายการ)</span>
-                    <svg className="w-4 h-4 group-hover:translate-x-1 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                  </Link>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
 
         {/* Enhanced Today's Statistics */}
         <div className="mb-8">
           <div className="flex items-center space-x-3 mb-6">
             <div className="w-10 h-10 bg-gradient-to-r from-green-500 to-emerald-500 rounded-xl flex items-center justify-center shadow-lg">
-              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              {/* <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-              </svg>
+              </svg> */}
+              <MdOutlineAutoGraph className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h2 className="text-2xl font-bold text-gray-800">สถิติวันนี้</h2>
-              <p className="text-sm text-gray-500">ข้อมูลประจำวันที่อัพเดทแบบเรียลไทม์</p>
+              <h2 className="text-2xl font-bold text-gray-800">{translate('dashboard.today_statistics')}</h2>
+              <p className="text-sm text-gray-500">{translate('dashboard.realtime_info')}</p>
             </div>
           </div>
           
@@ -466,11 +180,11 @@ const AdminDashboard = () => {
                   </svg>
                 </div>
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-700 mb-1">คำสั่งซื้อวันนี้</h3>
+                  <h3 className="text-lg font-semibold text-gray-700 mb-1">{translate('dashboard.orders_today')}</h3>
                   <p className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
                     {formatNumber(dashboardData.today.orders)}
                   </p>
-                  <p className="text-sm text-gray-500 mt-1">รายการ</p>
+                  <p className="text-sm text-gray-500 mt-1">{translate('order.items_count')}</p>
                 </div>
               </div>
             </div>
@@ -484,11 +198,11 @@ const AdminDashboard = () => {
                   </svg>
                 </div>
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-700 mb-1">รายได้วันนี้</h3>
+                  <h3 className="text-lg font-semibold text-gray-700 mb-1">{translate('dashboard.revenue_today')}</h3>
                   <p className="text-3xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
                     {formatCurrency(dashboardData.today.revenue)}
                   </p>
-                  <p className="text-sm text-gray-500 mt-1">บาท</p>
+                  <p className="text-sm text-gray-500 mt-1">KIP</p>
                 </div>
               </div>
             </div>
@@ -502,11 +216,11 @@ const AdminDashboard = () => {
                   </svg>
                 </div>
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-700 mb-1">ผู้ใช้ใหม่วันนี้</h3>
+                  <h3 className="text-lg font-semibold text-gray-700 mb-1">{translate('dashboard.new_users')}</h3>
                   <p className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
                     {formatNumber(dashboardData.today.new_users)}
                   </p>
-                  <p className="text-sm text-gray-500 mt-1">คน</p>
+                  <p className="text-sm text-gray-500 mt-1">{translate('common.people') || 'คน'}</p>
                 </div>
               </div>
             </div>
@@ -523,8 +237,8 @@ const AdminDashboard = () => {
               </svg>
             </div>
             <div>
-              <h2 className="text-2xl font-bold text-gray-800">ภาพรวมระบบ</h2>
-              <p className="text-sm text-gray-500">สถิติรวมทั้งหมดในระบบ</p>
+              <h2 className="text-2xl font-bold text-gray-800">{translate('dashboard.overview')}</h2>
+              <p className="text-sm text-gray-500">{translate('dashboard.overview_subtitle')}</p>
             </div>
           </div>
           
@@ -536,7 +250,7 @@ const AdminDashboard = () => {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                   </svg>
                 </div>
-                <h3 className="text-sm font-semibold text-gray-600 mb-1">ผู้ใช้ทั้งหมด</h3>
+                <h3 className="text-sm font-semibold text-gray-600 mb-1">{translate('dashboard.total_users')}</h3>
                 <p className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
                   {formatNumber(dashboardData.overview.total_users)}
                 </p>
@@ -550,7 +264,7 @@ const AdminDashboard = () => {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                   </svg>
                 </div>
-                <h3 className="text-sm font-semibold text-gray-600 mb-1">ร้านอาหาร</h3>
+                <h3 className="text-sm font-semibold text-gray-600 mb-1">{translate('common.restaurants')}</h3>
                 <p className="text-2xl font-bold bg-gradient-to-r from-green-600 to-teal-600 bg-clip-text text-transparent">
                   {formatNumber(dashboardData.overview.total_restaurants)}
                 </p>
@@ -564,7 +278,7 @@ const AdminDashboard = () => {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                   </svg>
                 </div>
-                <h3 className="text-sm font-semibold text-gray-600 mb-1">คำสั่งซื้อทั้งหมด</h3>
+                <h3 className="text-sm font-semibold text-gray-600 mb-1">{translate('dashboard.orders')}</h3>
                 <p className="text-2xl font-bold bg-gradient-to-r from-yellow-600 to-orange-600 bg-clip-text text-transparent">
                   {formatNumber(dashboardData.overview.total_orders)}
                 </p>
@@ -578,7 +292,7 @@ const AdminDashboard = () => {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                   </svg>
                 </div>
-                <h3 className="text-sm font-semibold text-gray-600 mb-1">กำลังดำเนินการ</h3>
+                <h3 className="text-sm font-semibold text-gray-600 mb-1">{translate('dashboard.active_orders')}</h3>
                 <p className="text-2xl font-bold bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent">
                   {formatNumber(dashboardData.overview.active_orders)}
                 </p>
@@ -592,7 +306,7 @@ const AdminDashboard = () => {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
                   </svg>
                 </div>
-                <h3 className="text-sm font-semibold text-gray-600 mb-1">รายได้รวม</h3>
+                <h3 className="text-sm font-semibold text-gray-600 mb-1">{translate('dashboard.sales')}</h3>
                 <p className="text-xl font-bold bg-gradient-to-r from-pink-600 to-rose-600 bg-clip-text text-transparent">
                   {formatCurrency(dashboardData.overview.total_revenue)}
                 </p>
@@ -612,8 +326,8 @@ const AdminDashboard = () => {
                   </svg>
                 </div>
                 <div>
-                  <h2 className="text-2xl font-bold text-gray-800">เมนูยอดนิยม</h2>
-                  <p className="text-sm text-gray-500">รายการเมนูที่ได้รับความนิยมสูงสุด</p>
+                  <h2 className="text-2xl font-bold text-gray-800">{translate('dashboard.popular_items')}</h2>
+                  <p className="text-sm text-gray-500">{translate('dashboard.popular_items_subtitle')}</p>
                 </div>
               </div>
               
@@ -635,9 +349,9 @@ const AdminDashboard = () => {
                             {product.product__product_name}
                           </h3>
                           <div className="flex items-center space-x-2 mt-1">
-                            <span className="text-sm text-gray-500">สั่งแล้ว</span>
-                            <span className="font-bold text-amber-600">{formatNumber(product.order_count)}</span>
-                            <span className="text-sm text-gray-500">ครั้ง</span>
+                            <span className="text-sm text-gray-500">
+                              {translate('dashboard.ordered_times', { count: formatNumber(product.order_count) })}
+                            </span>
                           </div>
                         </div>
                         <div className="flex items-center space-x-1">
@@ -665,8 +379,8 @@ const AdminDashboard = () => {
               </svg>
             </div>
             <div>
-              <h2 className="text-2xl font-bold text-gray-800">การจัดการด่วน</h2>
-              <p className="text-sm text-gray-500">เข้าถึงฟังก์ชันการจัดการหลักได้อย่างรวดเร็ว</p>
+              <h2 className="text-2xl font-bold text-gray-800">{translate('dashboard.quick_actions')}</h2>
+              <p className="text-sm text-gray-500">{translate('dashboard.quick_actions_subtitle')}</p>
             </div>
           </div>
           
@@ -681,16 +395,16 @@ const AdminDashboard = () => {
                     </svg>
                   </div>
                   <div>
-                    <h3 className="text-xl font-bold text-gray-800 group-hover:text-blue-600 transition-colors duration-300">การจัดการผู้ใช้</h3>
-                    <p className="text-sm text-gray-500">จัดการบัญชีและสิทธิ์</p>
+                    <h3 className="text-xl font-bold text-gray-800 group-hover:text-blue-600 transition-colors duration-300">{translate('admin.users')}</h3>
+                    <p className="text-sm text-gray-500">{translate('admin.users_desc') || 'จัดการบัญชีและสิทธิ์'}</p>
                   </div>
                 </div>
-                <p className="text-gray-600 mb-4">จัดการบัญชีผู้ใช้ ร้านอาหาร และสิทธิ์การเข้าถึงในระบบ</p>
+                <p className="text-gray-600 mb-4">{translate('admin.users_paragraph') || 'จัดการบัญชีผู้ใช้ ร้านอาหาร และสิทธิ์การเข้าถึงในระบบ'}</p>
                 <Link 
                   to="/admin/users" 
                   className="group/btn inline-flex items-center space-x-2 bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-0.5"
                 >
-                  <span className="font-medium">จัดการผู้ใช้</span>
+                  <span className="font-medium">{translate('admin.users')}</span>
                   <svg className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                   </svg>
@@ -708,16 +422,16 @@ const AdminDashboard = () => {
                     </svg>
                   </div>
                   <div>
-                    <h3 className="text-xl font-bold text-gray-800 group-hover:text-green-600 transition-colors duration-300">การจัดการร้านอาหาร</h3>
-                    <p className="text-sm text-gray-500">อนุมัติและจัดการร้าน</p>
+                    <h3 className="text-xl font-bold text-gray-800 group-hover:text-green-600 transition-colors duration-300">{translate('admin.restaurants')}</h3>
+                    <p className="text-sm text-gray-500">{translate('admin.restaurants_desc') || 'อนุมัติและจัดการร้าน'}</p>
                   </div>
                 </div>
-                <p className="text-gray-600 mb-4">อนุมัติร้านอาหารใหม่ และจัดการสถานะร้านอาหารในระบบ</p>
+                <p className="text-gray-600 mb-4">{translate('admin.restaurants_paragraph') || 'อนุมัติร้านอาหารใหม่ และจัดการสถานะร้านอาหารในระบบ'}</p>
                 <Link 
                   to="/admin/restaurants" 
                   className="group/btn inline-flex items-center space-x-2 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-0.5"
                 >
-                  <span className="font-medium">จัดการร้านอาหาร</span>
+                  <span className="font-medium">{translate('admin.restaurants')}</span>
                   <svg className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                   </svg>
@@ -735,16 +449,16 @@ const AdminDashboard = () => {
                     </svg>
                   </div>
                   <div>
-                    <h3 className="text-xl font-bold text-gray-800 group-hover:text-orange-600 transition-colors duration-300">จัดการคำสั่งซื้อ</h3>
-                    <p className="text-sm text-gray-500">ตรวจสอบและจัดการ</p>
+                    <h3 className="text-xl font-bold text-gray-800 group-hover:text-orange-600 transition-colors duration-300">{translate('admin.orders')}</h3>
+                    <p className="text-sm text-gray-500">{translate('admin.orders_desc') || 'ตรวจสอบและจัดการ'}</p>
                   </div>
                 </div>
-                <p className="text-gray-600 mb-4">ตรวจสอบและจัดการคำสั่งซื้อทั้งหมดในระบบแบบเรียลไทม์</p>
+                <p className="text-gray-600 mb-4">{translate('admin.orders_paragraph') || 'ตรวจสอบและจัดการคำสั่งซื้อทั้งหมดในระบบแบบเรียลไทม์'}</p>
                 <Link 
                   to="/admin/orders" 
                   className="group/btn inline-flex items-center space-x-2 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-0.5"
                 >
-                  <span className="font-medium">ดูคำสั่งซื้อ</span>
+                  <span className="font-medium">{translate('nav.orders')}</span>
                   <svg className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                   </svg>
@@ -762,16 +476,16 @@ const AdminDashboard = () => {
                     </svg>
                   </div>
                   <div>
-                    <h3 className="text-xl font-bold text-gray-800 group-hover:text-purple-600 transition-colors duration-300">จัดการหมวดหมู่</h3>
-                    <p className="text-sm text-gray-500">จัดหมวดหมู่อาหาร</p>
+                    <h3 className="text-xl font-bold text-gray-800 group-hover:text-purple-600 transition-colors duration-300">{translate('admin.categories')}</h3>
+                    <p className="text-sm text-gray-500">{translate('admin.categories_desc') || 'จัดหมวดหมู่อาหาร'}</p>
                   </div>
                 </div>
-                <p className="text-gray-600 mb-4">เพิ่ม แก้ไข และจัดการหมวดหมู่อาหารในระบบ</p>
+                <p className="text-gray-600 mb-4">{translate('admin.categories_paragraph') || 'เพิ่ม แก้ไข และจัดการหมวดหมู่อาหารในระบบ'}</p>
                 <Link 
                   to="/admin/categories" 
                   className="group/btn inline-flex items-center space-x-2 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-0.5"
                 >
-                  <span className="font-medium">จัดการหมวดหมู่</span>
+                  <span className="font-medium">{translate('admin.categories')}</span>
                   <svg className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                   </svg>

@@ -3,11 +3,14 @@ import Header from '../components/common/Header';
 import BottomNavigation from '../components/common/BottomNavigation';
 import FloatingActionButtons from '../components/common/FloatingCallButton';
 import CustomerWebSocketBridge from '../components/customer/CustomerWebSocketBridge';
+import AdminNotificationBridge from '../components/admin/AdminNotificationBridge';
 import { appSettingsService } from '../services/api';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useAuth } from '../contexts/AuthContext';
 
 const CustomerLayout = ({ children }) => {
   const { translate } = useLanguage();
+  const { user } = useAuth();
 
   const [appSettings, setAppSettings] = useState(null);
 
@@ -44,6 +47,9 @@ const CustomerLayout = ({ children }) => {
     <div className="min-h-screen bg-secondary-50">
       {/* WebSocket Bridge for real-time notifications */}
       <CustomerWebSocketBridge />
+      
+      {/* Admin Notification Bridge - Show only for admin users */}
+      {user?.role === 'admin' && <AdminNotificationBridge />}
       
       {/* Header */}
       <Header appSettings={appSettings} />

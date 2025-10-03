@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { categoryService } from '../../services/api';
+import { useLanguage } from '../../contexts/LanguageContext';
 
 const AdminCategories = () => {
+  const { translate, currentLanguage } = useLanguage();
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searching, setSearching] = useState(false);
@@ -83,7 +85,7 @@ const AdminCategories = () => {
       setError(null);
     } catch (err) {
       console.error('Error fetching categories:', err);
-      setError('ไม่สามารถโหลดข้อมูลหมวดหมู่ได้');
+      setError(translate('admin.categories_load_failed'));
     } finally {
       setLoading(false);
       setSearching(false);
@@ -94,11 +96,11 @@ const AdminCategories = () => {
     try {
       await categoryService.create(formData);
       fetchCategories(); // Refresh data
-      alert('สร้างหมวดหมู่เรียบร้อยแล้ว');
+      alert(translate('admin.category_created_success'));
       closeModal();
     } catch (err) {
       console.error('Error creating category:', err);
-      alert('ไม่สามารถสร้างหมวดหมู่ได้');
+      alert(translate('admin.create_category_failed'));
     }
   };
 
@@ -106,11 +108,11 @@ const AdminCategories = () => {
     try {
       await categoryService.update(categoryId, formData);
       fetchCategories(); // Refresh data
-      alert('อัปเดตหมวดหมู่เรียบร้อยแล้ว');
+      alert(translate('admin.category_updated_success'));
       closeModal();
     } catch (err) {
       console.error('Error updating category:', err);
-      alert('ไม่สามารถอัปเดตหมวดหมู่ได้');
+      alert(translate('admin.update_category_failed'));
     }
   };
 
@@ -118,11 +120,11 @@ const AdminCategories = () => {
     try {
       await categoryService.delete(categoryId);
       fetchCategories(); // Refresh data
-      alert('ลบหมวดหมู่เรียบร้อยแล้ว');
+      alert(translate('admin.category_deleted_success'));
       setDeleteConfirm(null);
     } catch (err) {
       console.error('Error deleting category:', err);
-      alert('ไม่สามารถลบหมวดหมู่ได้ อาจมีสินค้าที่เชื่อมโยงอยู่');
+      alert(translate('admin.delete_category_failed'));
     }
   };
 
@@ -147,7 +149,8 @@ const AdminCategories = () => {
   };
 
   const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
+    const locale = currentLanguage === 'th' ? 'th-TH-u-ca-gregory' : currentLanguage === 'ko' ? 'ko-KR' : 'en-US';
+    return new Date(dateString).toLocaleDateString(locale, {
       year: 'numeric',
       month: 'long',
       day: 'numeric'
@@ -159,7 +162,7 @@ const AdminCategories = () => {
       <div className="container mx-auto px-4 py-8">
         <div className="flex justify-center items-center h-64">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500"></div>
-          <span className="ml-4 text-lg">กำลังโหลดข้อมูล...</span>
+          <span className="ml-4 text-lg">{translate('common.loading')}</span>
         </div>
       </div>
     );
@@ -168,16 +171,16 @@ const AdminCategories = () => {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-secondary-800">จัดการหมวดหมู่</h1>
+        <h1 className="text-3xl font-bold text-secondary-800">{translate('admin.categories')}</h1>
         <div className="flex items-center gap-4">
           <div className="text-sm text-secondary-600">
-            รวม {categories.length} หมวดหมู่
+            {translate('admin.categories_total', { count: categories.length })}
           </div>
           <button
             onClick={() => openModal(null, 'create')}
             className="bg-primary-500 text-white px-4 py-2 rounded-lg hover:bg-primary-600 transition-colors"
           >
-            เพิ่มหมวดหมู่ใหม่
+            {translate('admin.add_category')}
           </button>
         </div>
       </div>
@@ -193,12 +196,12 @@ const AdminCategories = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-secondary-700 mb-2">
-              ค้นหาหมวดหมู่
+              {translate('admin.search_categories')}
             </label>
             <div className="relative">
               <input
                 type="text"
-                placeholder="ค้นหาชื่อหมวดหมู่..."
+                placeholder={translate('admin.categories_search_placeholder')}
                 value={searchTerm}
                 onChange={handleSearch}
                 className="w-full p-3 pr-10 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
@@ -212,7 +215,7 @@ const AdminCategories = () => {
                 <button
                   onClick={clearSearch}
                   className="absolute right-3 top-1/2 transform -translate-y-1/2 text-secondary-400 hover:text-secondary-600 transition-colors"
-                  title="ล้างการค้นหา"
+                  title={translate('admin.clear_search')}
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
@@ -234,19 +237,19 @@ const AdminCategories = () => {
                   ID
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
-                  รูปภาพ
+                  {translate('admin.table.image')}
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
-                  ชื่อหมวดหมู่
+                  {translate('admin.table.category_name')}
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
-                  เฉพาะร้านพิเศษ
+                  {translate('admin.table.special_only')}
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
-                  จำนวนสินค้า
+                  {translate('admin.table.product_count')}
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
-                  การจัดการ
+                  {translate('admin.table.actions')}
                 </th>
               </tr>
             </thead>
@@ -289,11 +292,11 @@ const AdminCategories = () => {
                         ? 'bg-amber-100 text-amber-800' 
                         : 'bg-green-100 text-green-800'
                     }`}>
-                      {category.is_special_only ? 'เฉพาะร้านพิเศษ' : 'ร้านทั่วไป'}
+                      {category.is_special_only ? translate('admin.category.special_only') : translate('admin.category.general')}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-500">
-                    {category.products_count || 0} รายการ
+                    {(category.products_count || 0)} {translate('common.items')}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <div className="flex space-x-2">
@@ -301,19 +304,19 @@ const AdminCategories = () => {
                         onClick={() => openModal(category, 'view')}
                         className="text-blue-600 hover:text-blue-900"
                       >
-                        ดู
+                        {translate('admin.action.view')}
                       </button>
                       <button
                         onClick={() => openModal(category, 'edit')}
                         className="text-indigo-600 hover:text-indigo-900"
                       >
-                        แก้ไข
+                        {translate('admin.action.edit')}
                       </button>
                       <button
                         onClick={() => setDeleteConfirm(category)}
                         className="text-red-600 hover:text-red-900"
                       >
-                        ลบ
+                        {translate('admin.action.delete')}
                       </button>
                     </div>
                   </td>
@@ -327,17 +330,17 @@ const AdminCategories = () => {
           <div className="text-center py-12">
             <div className="text-6xl mb-4 opacity-30">📂</div>
             <h3 className="text-lg font-medium text-secondary-900 mb-2">
-              ไม่พบหมวดหมู่
+              {translate('admin.categories_empty_title')}
             </h3>
             <p className="text-secondary-500 mb-4">
-              {searchTerm ? 'ลองปรับเปลี่ยนคำค้นหา' : 'ยังไม่มีหมวดหมู่ในระบบ'}
+              {searchTerm ? translate('admin.categories_empty_search_message') : translate('admin.categories_empty_message')}
             </p>
             {!searchTerm && (
               <button
                 onClick={() => openModal(null, 'create')}
                 className="bg-primary-500 text-white px-6 py-3 rounded-lg hover:bg-primary-600 transition-colors"
               >
-                เพิ่มหมวดหมู่แรก
+                {translate('admin.add_first_category')}
               </button>
             )}
           </div>
@@ -352,7 +355,7 @@ const AdminCategories = () => {
             disabled={loading || searching}
             className="px-6 py-2 rounded-lg bg-primary-600 text-white hover:bg-primary-700 disabled:opacity-60"
           >
-            {searching ? 'กำลังค้นหา...' : (loading ? 'กำลังโหลด...' : 'โหลดเพิ่ม')}
+            {searching ? translate('search.searching') : (loading ? translate('common.loading') : translate('common.load_more'))}
           </button>
         </div>
       )}
@@ -381,6 +384,7 @@ const AdminCategories = () => {
 
 // Category Modal Component
 const CategoryModal = ({ category, type, onClose, onSave }) => {
+  const { translate } = useLanguage();
   const [formData, setFormData] = useState({
     category_name: category?.category_name || '',
     description: category?.description || '',
@@ -405,7 +409,7 @@ const CategoryModal = ({ category, type, onClose, onSave }) => {
     e.preventDefault();
     
     if (!formData.category_name.trim()) {
-      alert('กรุณากรอกชื่อหมวดหมู่');
+      alert(translate('admin.please_enter_category_name'));
       return;
     }
 
@@ -436,8 +440,8 @@ const CategoryModal = ({ category, type, onClose, onSave }) => {
   };
 
   const isEditable = type === 'edit' || type === 'create';
-  const modalTitle = type === 'create' ? 'เพิ่มหมวดหมู่ใหม่' : 
-                    type === 'edit' ? 'แก้ไขหมวดหมู่' : 'ข้อมูลหมวดหมู่';
+  const modalTitle = type === 'create' ? translate('admin.category_modal.create_title') : 
+                    type === 'edit' ? translate('admin.category_modal.edit_title') : translate('admin.category_modal.view_title');
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
@@ -461,14 +465,14 @@ const CategoryModal = ({ category, type, onClose, onSave }) => {
           <form id="category-form" onSubmit={handleSubmit}>
           <div className="mb-4">
             <label className="block text-sm font-medium text-secondary-700 mb-2">
-              ชื่อหมวดหมู่
+              {translate('admin.category_modal.category_name')}
             </label>
             <input
               type="text"
               value={formData.category_name}
               onChange={(e) => setFormData({ ...formData, category_name: e.target.value })}
               disabled={!isEditable}
-              placeholder="กรอกชื่อหมวดหมู่"
+              placeholder={translate('admin.category_modal.enter_category_name')}
               className="w-full p-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent disabled:bg-secondary-50"
               required
             />
@@ -476,13 +480,13 @@ const CategoryModal = ({ category, type, onClose, onSave }) => {
 
           <div className="mb-4">
             <label className="block text-sm font-medium text-secondary-700 mb-2">
-              คำอธิบาย
+              {translate('admin.category_modal.description')}
             </label>
             <textarea
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               disabled={!isEditable}
-              placeholder="กรอกคำอธิบายหมวดหมู่ (ไม่บังคับ)"
+              placeholder={translate('admin.category_modal.description_placeholder')}
               rows={3}
               className="w-full p-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent disabled:bg-secondary-50"
             />
@@ -491,7 +495,7 @@ const CategoryModal = ({ category, type, onClose, onSave }) => {
           {/* รูปภาพหมวดหมู่ */}
           <div className="mb-4">
             <label className="block text-sm font-medium text-secondary-700 mb-2">
-              รูปภาพหมวดหมู่
+              {translate('admin.category_modal.image')}
             </label>
             
             {/* แสดงรูปภาพปัจจุบัน */}
@@ -516,13 +520,13 @@ const CategoryModal = ({ category, type, onClose, onSave }) => {
             )}
             
             <p className="text-xs text-secondary-500 mt-1">
-              รองรับไฟล์ JPG, PNG, GIF ขนาดไม่เกิน 5MB
+              {translate('admin.category_modal.supported_file_hint')}
             </p>
           </div>
 
           <div className="mb-4">
             <label className="block text-sm font-medium text-secondary-700 mb-2">
-              ประเภทหมวดหมู่
+              {translate('admin.category_modal.type')}
             </label>
             <div className="flex items-center space-x-4">
               <label className="flex items-center">
@@ -535,7 +539,7 @@ const CategoryModal = ({ category, type, onClose, onSave }) => {
                   disabled={!isEditable}
                   className="mr-2 text-primary-600 focus:ring-primary-500"
                 />
-                <span className="text-sm text-secondary-700">ร้านทั่วไป</span>
+                <span className="text-sm text-secondary-700">{translate('admin.category.general')}</span>
               </label>
               <label className="flex items-center">
                 <input
@@ -547,11 +551,11 @@ const CategoryModal = ({ category, type, onClose, onSave }) => {
                   disabled={!isEditable}
                   className="mr-2 text-primary-600 focus:ring-primary-500"
                 />
-                <span className="text-sm text-secondary-700">เฉพาะร้านพิเศษ</span>
+                <span className="text-sm text-secondary-700">{translate('admin.category.special_only')}</span>
               </label>
             </div>
             <p className="text-xs text-secondary-500 mt-1">
-              หมวดหมู่เฉพาะร้านพิเศษจะแสดงเฉพาะในร้านที่มีสถานะพิเศษเท่านั้น
+              {translate('admin.category_modal.special_only_hint')}
             </p>
           </div>
 
@@ -571,11 +575,11 @@ const CategoryModal = ({ category, type, onClose, onSave }) => {
 
               <div>
                 <label className="block text-sm font-medium text-secondary-700 mb-2">
-                  จำนวนสินค้า
+                  {translate('admin.table.product_count')}
                 </label>
                 <input
                   type="text"
-                  value={`${category.products_count || 0} รายการ`}
+                  value={`${category.products_count || 0} ${translate('common.items')}`}
                   disabled
                   className="w-full p-3 border border-secondary-300 rounded-lg bg-secondary-50"
                 />
@@ -583,7 +587,7 @@ const CategoryModal = ({ category, type, onClose, onSave }) => {
 
               <div className="col-span-2">
                 <label className="block text-sm font-medium text-secondary-700 mb-2">
-                  สถานะหมวดหมู่
+                  {translate('admin.category_modal.status')}
                 </label>
                 <div className="p-3 border border-secondary-300 rounded-lg bg-secondary-50">
                   <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
@@ -591,7 +595,7 @@ const CategoryModal = ({ category, type, onClose, onSave }) => {
                       ? 'bg-amber-100 text-amber-800' 
                       : 'bg-green-100 text-green-800'
                   }`}>
-                    {category.is_special_only ? 'เฉพาะร้านพิเศษ' : 'ร้านทั่วไป'}
+                    {category.is_special_only ? translate('admin.category.special_only') : translate('admin.category.general')}
                   </span>
                 </div>
               </div>
@@ -609,7 +613,7 @@ const CategoryModal = ({ category, type, onClose, onSave }) => {
               onClick={onClose}
               className="px-4 py-2 text-sm font-medium text-secondary-700 bg-white border border-secondary-300 rounded-md hover:bg-secondary-50"
             >
-              ยกเลิก
+              {translate('common.cancel')}
             </button>
             {isEditable && (
               <button
@@ -618,7 +622,7 @@ const CategoryModal = ({ category, type, onClose, onSave }) => {
                 disabled={loading}
                 className="px-4 py-2 text-sm font-medium text-white bg-primary-600 border border-transparent rounded-md hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {loading ? 'กำลังบันทึก...' : 'บันทึก'}
+                {loading ? translate('admin.saving') : translate('common.save')}
               </button>
             )}
           </div>
@@ -630,6 +634,7 @@ const CategoryModal = ({ category, type, onClose, onSave }) => {
 
 // Delete Confirmation Modal Component
 const DeleteConfirmModal = ({ category, onConfirm, onCancel }) => {
+  const { translate } = useLanguage();
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-lg max-w-md w-full">
@@ -642,19 +647,19 @@ const DeleteConfirmModal = ({ category, onConfirm, onCancel }) => {
             </div>
             <div className="ml-4">
               <h3 className="text-lg font-medium text-secondary-900">
-                ยืนยันการลบหมวดหมู่
+                {translate('admin.confirm_delete_category_title')}
               </h3>
               <p className="text-sm text-secondary-500">
-                การดำเนินการนี้ไม่สามารถยกเลิกได้
+                {translate('admin.confirm_delete_desc')}
               </p>
             </div>
           </div>
           
           <p className="text-secondary-700 mb-6">
-            คุณแน่ใจหรือไม่ที่จะลบหมวดหมู่ "<strong>{category.category_name}</strong>" ?
+            {translate('admin.confirm_delete_category', { name: category.category_name })}
             {category.products_count > 0 && (
               <span className="block text-red-600 text-sm mt-2">
-                ⚠️ หมวดหมู่นี้มีสินค้า {category.products_count} รายการ การลบอาจส่งผลกระทบต่อสินค้าเหล่านั้น
+                {translate('admin.category_has_products_warning', { count: category.products_count })}
               </span>
             )}
           </p>
@@ -664,13 +669,13 @@ const DeleteConfirmModal = ({ category, onConfirm, onCancel }) => {
               onClick={onCancel}
               className="px-4 py-2 text-sm font-medium text-secondary-700 bg-white border border-secondary-300 rounded-md hover:bg-secondary-50"
             >
-              ยกเลิก
+              {translate('common.cancel')}
             </button>
             <button
               onClick={onConfirm}
               className="px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700"
             >
-              ลบหมวดหมู่
+              {translate('admin.delete_category')}
             </button>
           </div>
         </div>

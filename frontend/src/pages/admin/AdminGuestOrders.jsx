@@ -5,10 +5,12 @@ import { useAuth } from "../../contexts/AuthContext";
 import { API_CONFIG, API_ENDPOINTS } from "../../config/api";
 import { useNotificationContext } from "../../layouts/AdminLayout";
 import { formatPrice } from "../../utils/formatPrice";
+import { useLanguage } from "../../contexts/LanguageContext";
 
 // Guest Order Details Modal Component
-const GuestOrderDetailsModal = ({ order, isOpen, onClose, orderStatuses, formatDateTime }) => {
+const GuestOrderDetailsModal = ({ order, isOpen, onClose, orderStatuses, formatDateTime, onDelete }) => {
   if (!isOpen || !order) return null;
+  const { translate } = useLanguage();
 
   const orderDetails = Array.isArray(order.order_details) ? order.order_details : [];
   const orderDetailsByRestaurant = orderDetails.reduce((acc, detail) => {
@@ -54,33 +56,52 @@ const GuestOrderDetailsModal = ({ order, isOpen, onClose, orderStatuses, formatD
               </div>
               <div>
                 <h3 className="text-3xl font-bold bg-gradient-to-r from-gray-900 via-orange-800 to-red-800 bg-clip-text text-transparent">
-                  Guest Order #{order.guest_order_id}
+                  {translate('admin.guest_order_number', { id: order.guest_order_id })}
                 </h3>
                 <div className="flex items-center space-x-3 mt-1">
                   <p className="text-sm text-gray-600 font-medium">
                     📅 {formatDateTime(order.order_date)}
                   </p>
                   <span className="bg-gradient-to-r from-orange-100 to-red-100 text-orange-800 px-3 py-1 rounded-xl text-xs font-bold">
-                    👤 Guest User
+                    👤 {translate('admin.guest_label')}
                   </span>
                 </div>
               </div>
             </div>
-            <button
-              onClick={onClose}
-              className="group p-3 rounded-2xl hover:bg-red-50 transition-all duration-200 transform hover:scale-110 border border-gray-200 hover:border-red-200"
-            >
-              <svg className="w-6 h-6 text-gray-400 group-hover:text-red-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
+            <div className="flex items-center space-x-3">
+              {/* ปุ่มลบ Guest Order */}
+              <button
+                onClick={() => {
+                  if (window.confirm(`ยืนยันการลบ Guest Order #${order.temporary_id}?\n\nการกระทำนี้ไม่สามารถยกเลิกได้และจะลบข้อมูลทั้งหมดที่เกี่ยวข้อง`)) {
+                    onDelete(order);
+                  }
+                }}
+                className="group p-3 rounded-2xl hover:bg-red-50 transition-all duration-200 transform hover:scale-110 border border-red-200 hover:border-red-400 bg-red-50/50"
+                title="ลบ Guest Order"
+              >
+                <svg className="w-6 h-6 text-red-500 group-hover:text-red-700 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+              </button>
+              
+              {/* ปุ่มปิด */}
+              <button
+                onClick={onClose}
+                className="group p-3 rounded-2xl hover:bg-gray-50 transition-all duration-200 transform hover:scale-110 border border-gray-200 hover:border-gray-300"
+                title="ปิด"
+              >
+                <svg className="w-6 h-6 text-gray-400 group-hover:text-gray-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
           </div>
 
           {/* Content */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* รายการอาหาร */}
             <div>
-              <h4 className="text-lg font-semibold text-gray-800 mb-4">🍽️ รายการอาหาร</h4>
+              <h4 className="text-lg font-semibold text-gray-800 mb-4">🍽️ {translate('order.items')}</h4>
               
               {isMultiRestaurant && orderDetailsByRestaurant.length > 0 ? (
                 <div className="space-y-4">
@@ -127,7 +148,7 @@ const GuestOrderDetailsModal = ({ order, isOpen, onClose, orderStatuses, formatD
               {/* ยอดรวม */}
               <div className="mt-4 pt-4 border-t">
                 <div className="flex justify-between text-lg font-semibold">
-                  <span>ยอดรวม:</span>
+                  <span>{translate('order.subtotal')}:</span>
                   <span className="text-primary-600">{formatPrice(subtotal)}</span>
                 </div>
               </div>
@@ -137,22 +158,22 @@ const GuestOrderDetailsModal = ({ order, isOpen, onClose, orderStatuses, formatD
             <div className="space-y-6">
               {/* ข้อมูลลูกค้า */}
               <div>
-                <h4 className="text-lg font-semibold text-gray-800 mb-3">👤 ข้อมูลลูกค้า</h4>
+                <h4 className="text-lg font-semibold text-gray-800 mb-3">👤 {translate('admin.customer_info')}</h4>
                 <div className="bg-gray-50 p-4 rounded-lg space-y-2">
                   <div>
-                    <span className="text-sm text-gray-600">ชื่อ:</span>
+                    <span className="text-sm text-gray-600">{translate('contact.name')}:</span>
                     <span className="ml-2 font-medium">{order.customer_name || "ไม่ระบุ"}</span>
                   </div>
                   <div>
-                    <span className="text-sm text-gray-600">โทรศัพท์:</span>
+                    <span className="text-sm text-gray-600">{translate('contact.phone')}:</span>
                     <span className="ml-2 font-medium">{order.customer_phone || "ไม่ระบุ"}</span>
                   </div>
                   <div>
-                    <span className="text-sm text-gray-600">ที่อยู่จัดส่ง:</span>
+                    <span className="text-sm text-gray-600">{translate('order.delivery_address')}:</span>
                     <span className="mt-2 ml-2 text-sm">{order.delivery_address || "ไม่ระบุ"}</span>
                   </div>
                   <div>
-                    <span className="text-sm text-gray-600">Temporary ID:</span>
+                    <span className="text-sm text-gray-600">{translate('admin.temporary_id')}:</span>
                     <span className="ml-2 font-mono text-sm bg-gray-200 px-2 py-1 rounded">{order.temporary_id}</span>
                   </div>
                 </div>
@@ -160,32 +181,32 @@ const GuestOrderDetailsModal = ({ order, isOpen, onClose, orderStatuses, formatD
 
               {/* ข้อมูลการชำระเงิน */}
               <div>
-                <h4 className="text-lg font-semibold text-gray-800 mb-3">💳 ข้อมูลการชำระเงิน</h4>
+                <h4 className="text-lg font-semibold text-gray-800 mb-3">💳 {translate('admin.payment_info')}</h4>
                 <div className="bg-gray-50 p-4 rounded-lg space-y-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600">สถานะ:</span>
+                    <span className="text-sm text-gray-600">{translate('common.status')}:</span>
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                       order.payment_status === "completed" ? "bg-green-100 text-green-800" :
                       order.payment_status === "pending" ? "bg-yellow-100 text-yellow-800" :
                       "bg-red-100 text-red-800"
                     }`}>
-                      {order.payment_status === "completed" ? "✅ ชำระแล้ว" :
-                       order.payment_status === "pending" ? "⏳ รอดำเนินการ" : "❌ ไม่สำเร็จ"}
+                      {order.payment_status === "completed" ? `✅ ${translate('order.status.paid')}` :
+                       order.payment_status === "pending" ? `⏳ ${translate('admin.payment_pending')}` : `❌ ${translate('admin.payment_failed')}`}
                     </span>
                   </div>
                   {order.payment_method && (
                     <div>
-                      <span className="text-sm text-gray-600">วิธีการชำระ:</span>
+                      <span className="text-sm text-gray-600">{translate('order.payment_method')}:</span>
                       <span className="ml-2 text-sm">
-                        {order.payment_method === "bank_transfer" ? "🏦 โอนผ่านธนาคาร" :
-                         order.payment_method === "qr_payment" ? "📱 QR Payment" :
+                        {order.payment_method === "bank_transfer" ? `🏦 ${translate('cart.bank_transfer')}` :
+                         order.payment_method === "qr_payment" ? `📱 ${translate('cart.qr_payment')}` :
                          order.payment_method}
                       </span>
                     </div>
                   )}
                   {order.proof_of_payment && (
                     <div>
-                      <span className="text-sm text-gray-600 block mb-2">หลักฐานการโอน:</span>
+                      <span className="text-sm text-gray-600 block mb-2">{translate('cart.proof_of_payment')}:</span>
                       <img
                         src={order.proof_of_payment}
                         alt="หลักฐานการโอนเงิน"
@@ -199,19 +220,19 @@ const GuestOrderDetailsModal = ({ order, isOpen, onClose, orderStatuses, formatD
 
               {/* สรุปยอดเงิน */}
               <div>
-                <h4 className="text-lg font-semibold text-gray-800 mb-3">💰 สรุปยอดเงิน</h4>
+                <h4 className="text-lg font-semibold text-gray-800 mb-3">💰 {translate('admin.summary')}</h4>
                 <div className="bg-gray-50 p-4 rounded-lg space-y-2">
                   <div className="flex justify-between text-sm">
-                    <span>ยอดรวมสินค้า:</span>
-                    <span>฿{subtotal.toFixed(2)}</span>
+                    <span>{translate('order.subtotal')}:</span>
+                    <span>{formatPrice(subtotal)}</span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span>ค่าจัดส่ง:</span>
-                    <span>฿{parseFloat(order.delivery_fee || 0).toFixed(2)}</span>
+                    <span>{translate('order.delivery_fee')}:</span>
+                    <span>{formatPrice(order.delivery_fee)}</span>
                   </div>
                   <div className="flex justify-between text-lg font-semibold border-t pt-2">
-                    <span>ยอดชำระทั้งหมด:</span>
-                    <span className="text-primary-600">฿{parseFloat(order.total_amount || 0).toFixed(2)}</span>
+                    <span>{translate('order.total_amount')}:</span>
+                    <span className="text-primary-600">{formatPrice(order.total_amount)}</span>
                   </div>
                 </div>
               </div>
@@ -233,6 +254,7 @@ const GuestStatusUpdateModal = ({
   isUpdating 
 }) => {
   const [selectedStatus, setSelectedStatus] = useState(order?.current_status || '');
+  const { translate } = useLanguage();
 
   useEffect(() => {
     if (order) {
@@ -244,7 +266,7 @@ const GuestStatusUpdateModal = ({
 
   const handleStatusUpdate = () => {
     if (selectedStatus === order.current_status) {
-      alert("กรุณาเลือกสถานะใหม่");
+      alert(translate('admin.please_select_new_status'));
       return;
     }
     onUpdateStatus(order.guest_order_id, selectedStatus);
@@ -265,7 +287,7 @@ const GuestStatusUpdateModal = ({
                 </svg>
               </div>
               <h3 className="text-xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
-                อัปเดทสถานะ Guest
+                {translate('admin.update_status_title')}
               </h3>
             </div>
             <button 
@@ -281,15 +303,15 @@ const GuestStatusUpdateModal = ({
           <div className="mb-6">
             <div className="bg-gradient-to-r from-orange-50 to-red-50 rounded-2xl p-4 mb-4 border border-orange-100">
               <p className="text-sm font-semibold text-orange-800">
-                🛒 Guest Order #{order.guest_order_id}
+                🛒 {translate('admin.guest_order_number', { id: order.guest_order_id })}
               </p>
               <p className="text-xs text-orange-600 mt-1">
-                Temporary ID: {order.temporary_id}
+                {translate('admin.temporary_id')}: {order.temporary_id}
               </p>
             </div>
             
             <label className="block text-sm font-bold text-gray-700 mb-3">
-              🎯 เลือกสถานะใหม่
+              🎯 {translate('admin.select_new_status')}
             </label>
             <div className="relative">
               <select
@@ -321,7 +343,7 @@ const GuestStatusUpdateModal = ({
                 <span className={isUpdating ? "" : "group-hover:rotate-180 transition-transform duration-300"}>
                   {isUpdating ? "⏳" : "✅"}
                 </span>
-                <span>{isUpdating ? "กำลังอัปเดท..." : "ยืนยัน"}</span>
+                <span>{isUpdating ? translate('admin.saving') : translate('common.confirm')}</span>
               </span>
             </button>
             <button
@@ -330,7 +352,7 @@ const GuestStatusUpdateModal = ({
             >
               <span className="flex items-center justify-center space-x-2">
                 <span className="group-hover:scale-110 transition-transform">❌</span>
-                <span>ยกเลิก</span>
+                <span>{translate('common.cancel')}</span>
               </span>
             </button>
           </div>
@@ -345,6 +367,7 @@ const AdminGuestOrders = () => {
   const highlightOrderId = location.state?.highlightOrderId;
   const { user } = useAuth();
   const { clearGuestOrdersBadge, updateGuestOrdersBadge, guestOrdersBadgeCount, fetchBadgeCounts } = useNotificationContext();
+  const { translate, currentLanguage } = useLanguage();
   const [guestOrders, setGuestOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -352,6 +375,10 @@ const AdminGuestOrders = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [sortBy, setSortBy] = useState("current_status");
   const [updatingOrders, setUpdatingOrders] = useState(new Set());
+  const [selectedGuestOrder, setSelectedGuestOrder] = useState(null);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [showStatusModal, setShowStatusModal] = useState(false);
+  const [unreadGuestOrderIds, setUnreadGuestOrderIds] = useState(new Set()); // เก็บ guest order IDs ที่ยังไม่ได้อ่าน
 
   // Pagination
   const pageSize = 5; // แสดง 5 รายการต่อหน้า (ปรับได้)
@@ -361,40 +388,68 @@ const AdminGuestOrders = () => {
   const orderStatuses = [
     {
       value: "pending",
-      label: "รอดำเนินการ",
+      label: translate('order.status.pending'),
       color: "bg-yellow-100 text-yellow-800",
     },
     {
       value: "paid",
-      label: "ชำระเงินแล้ว",
+      label: translate('order.status.paid'),
       color: "bg-blue-100 text-blue-800",
     },
     {
       value: "preparing",
-      label: "กำลังเตรียม",
+      label: translate('order.status.preparing'),
       color: "bg-orange-100 text-orange-800",
     },
     {
       value: "ready_for_pickup",
-      label: "พร้อมส่ง",
+      label: translate('order.status.ready_for_pickup'),
       color: "bg-purple-100 text-purple-800",
     },
     {
       value: "delivering",
-      label: "กำลังจัดส่ง",
+      label: translate('order.status.delivering'),
       color: "bg-indigo-100 text-indigo-800",
     },
     {
       value: "completed",
-      label: "เสร็จสิ้น",
+      label: translate('order.status.completed'),
       color: "bg-green-100 text-green-800",
     },
-    { value: "cancelled", label: "ยกเลิก", color: "bg-red-100 text-red-800" },
+    { value: "cancelled", label: translate('order.status.cancelled'), color: "bg-red-100 text-red-800" },
   ];
 
   useEffect(() => {
     fetchGuestOrders();
   }, [sortBy]);
+
+  // Fetch unread guest order IDs
+  const fetchUnreadGuestOrderIds = async () => {
+    try {
+      const response = await notificationService.getAll({
+        is_read: "false",
+        limit: 100,
+      });
+      const unreadNotifs = (response.data.results || response.data).filter((n) => !n.is_read);
+      
+      // สร้าง Set ของ guest order IDs ที่ยังไม่ได้อ่าน (เฉพาะ guest orders)
+      const unreadIds = new Set();
+      unreadNotifs.forEach(notif => {
+        if (notif.type === 'guest_order' && notif.related_guest_order) {
+          unreadIds.add(notif.related_guest_order);
+        }
+      });
+      
+      setUnreadGuestOrderIds(unreadIds);
+      console.log("📬 Found", unreadIds.size, "unread guest orders");
+    } catch (error) {
+      console.error("❌ Error fetching unread guest order IDs:", error);
+    }
+  };
+
+  useEffect(() => {
+    fetchUnreadGuestOrderIds();
+  }, []);
 
   // Note: Badge will only clear when viewing individual order details, not when entering the page
   // useEffect(() => {
@@ -407,6 +462,13 @@ const AdminGuestOrders = () => {
     try {
       // เรียก API เพื่อ mark notifications ที่เกี่ยวข้องกับ guest order นี้เป็น read
       const response = await notificationService.markOrderAsRead(guestOrderId, 'guest');
+      
+      // อัปเดต unreadGuestOrderIds ทันที
+      setUnreadGuestOrderIds(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(guestOrderId);
+        return newSet;
+      });
       
       // รีเฟรช badge counts จากฐานข้อมูลเพื่อความแม่นยำ
       if (response.data.marked_count > 0) {
@@ -428,6 +490,46 @@ const AdminGuestOrders = () => {
       // Sort by created_at descending (newest first)
       return new Date(b.created_at) - new Date(a.created_at);
     });
+  };
+
+  // Function to delete guest order
+  const handleDeleteGuestOrder = async (order) => {
+    try {
+      const response = await api.delete(`/guest-orders/${order.guest_order_id}/`);
+      return { success: true, message: `ลบ Guest Order #${order.temporary_id} เรียบร้อยแล้ว` };
+    } catch (error) {
+      console.error("❌ Error deleting guest order:", error);
+      if (error.response?.status === 403) {
+        return { success: false, message: "ไม่มีสิทธิ์ลบ Guest Order (เฉพาะแอดมินเท่านั้น)" };
+      } else {
+        return { success: false, message: "เกิดข้อผิดพลาดในการลบ Guest Order: " + (error.response?.data?.error || error.message) };
+      }
+    }
+  };
+
+  // Wrapper function to handle delete and close modal
+  const handleDeleteGuestOrderWithModalClose = async (order) => {
+    try {
+      const result = await handleDeleteGuestOrder(order);
+      if (result.success) {
+        alert(result.message);
+        setShowDetailsModal(false);
+        setSelectedGuestOrder(null);
+        await fetchGuestOrders();
+        fetchBadgeCounts();
+      } else {
+        alert(result.message);
+      }
+    } catch (error) {
+      alert("เกิดข้อผิดพลาดในการลบ Guest Order: " + (error.response?.data?.error || error.message));
+    }
+  };
+
+  // Function to handle viewing order details
+  const handleViewDetails = (order) => {
+    setSelectedGuestOrder(order);
+    setShowDetailsModal(true);
+    markGuestOrderAsRead(order.guest_order_id);
   };
 
   const fetchGuestOrders = async () => {
@@ -559,7 +661,8 @@ const AdminGuestOrders = () => {
 
   const formatDateTime = (dateString) => {
     const date = new Date(dateString);
-    return date.toLocaleString("en-US", {
+    const locale = currentLanguage === 'th' ? 'th-TH-u-ca-gregory' : currentLanguage === 'ko' ? 'ko-KR' : 'en-US';
+    return date.toLocaleString(locale, {
       year: "numeric",
       month: "short",
       day: "numeric",
@@ -600,7 +703,7 @@ const AdminGuestOrders = () => {
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-orange-200 border-t-orange-600 rounded-full animate-spin mx-auto"></div>
           <p className="mt-6 text-gray-600 font-medium text-lg">
-            กำลังโหลดข้อมูล Guest Orders...
+            {translate('common.loading')}
           </p>
         </div>
       </div>
@@ -621,15 +724,14 @@ const AdminGuestOrders = () => {
                   </svg>
                 </div>
                 <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-900 via-orange-800 to-red-800 bg-clip-text text-transparent">
-          จัดการ Guest Orders
-        </h1>
+                  {translate('admin.guest_orders')}
+                </h1>
               </div>
         <div className="flex items-center space-x-4">
                 <div className="flex items-center space-x-2">
                   <div className="w-2 h-2 bg-orange-400 rounded-full animate-pulse"></div>
                   <p className="text-sm text-gray-600">
-                    แสดง <span className="font-semibold text-orange-600">{filteredOrders.length}</span> จาก 
-                    <span className="font-semibold text-gray-800"> {guestOrders.length}</span> รายการ
+                    {translate('admin.showing_of_total', { showing: filteredOrders.length, total: guestOrders.length })}
                   </p>
                 </div>
               </div>
@@ -641,7 +743,7 @@ const AdminGuestOrders = () => {
               <svg className="w-5 h-5 group-hover:rotate-180 transition-transform duration-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
               </svg>
-              <span className="font-medium">รีเฟรช</span>
+              <span className="font-medium">{translate('admin.refresh')}</span>
           </button>
           </div>
         </div>
@@ -663,7 +765,7 @@ const AdminGuestOrders = () => {
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="ค้นหา Guest Orders, Temporary ID, ลูกค้า..."
+                  placeholder={translate('admin.guest_orders_search_placeholder')}
                   className="w-full pl-12 pr-4 py-3 bg-gray-50/50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500/20 focus:border-orange-400 focus:bg-white transition-all text-sm font-medium placeholder-gray-400"
             />
                 <div className="absolute inset-0 bg-gradient-to-r from-orange-500/5 to-red-500/5 rounded-xl opacity-0 group-focus-within:opacity-100 transition-opacity pointer-events-none"></div>
@@ -678,7 +780,7 @@ const AdminGuestOrders = () => {
               onChange={(e) => setFilter(e.target.value)}
                   className="w-full appearance-none px-4 py-3 bg-gray-50/50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500/20 focus:border-orange-400 focus:bg-white transition-all text-sm font-medium cursor-pointer"
             >
-                  <option value="all">🔍 ทุกสถานะ</option>
+                  <option value="all">🔍 {translate('admin.all_statuses')}</option>
               {orderStatuses.map((status) => (
                 <option key={status.value} value={status.value}>
                   {status.label}
@@ -701,11 +803,11 @@ const AdminGuestOrders = () => {
               onChange={(e) => setSortBy(e.target.value)}
                   className="w-full appearance-none px-4 py-3 bg-gray-50/50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500/20 focus:border-orange-400 focus:bg-white transition-all text-sm font-medium cursor-pointer"
                 >
-                  <option value="-order_date">📅 ล่าสุด</option>
-                  <option value="order_date">📅 เก่าสุด</option>
-                  <option value="-total_amount">💰 ราคาสูง</option>
-                  <option value="total_amount">💰 ราคาต่ำ</option>
-                  <option value="current_status">📊 ตามสถานะ</option>
+                  <option value="-order_date">📅 {translate('admin.sort.latest')}</option>
+                  <option value="order_date">📅 {translate('admin.sort.oldest')}</option>
+                  <option value="-total_amount">💰 {translate('admin.sort.price_high')}</option>
+                  <option value="total_amount">💰 {translate('admin.sort.price_low')}</option>
+                  <option value="current_status">📊 {translate('admin.sort.by_status')}</option>
             </select>
                 <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
                   <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -808,9 +910,16 @@ const AdminGuestOrders = () => {
                 orderStatuses={orderStatuses}
                 onUpdateStatus={updateOrderStatus}
                 onMarkAsRead={markGuestOrderAsRead}
+                onDeleteOrder={handleDeleteGuestOrderWithModalClose}
+                onViewDetails={handleViewDetails}
+                onChangeStatus={(order) => {
+                  setSelectedGuestOrder(order);
+                  setShowStatusModal(true);
+                }}
                 isUpdating={updatingOrders.has(order.guest_order_id)}
                 getStatusColor={getStatusColor}
                 formatDateTime={formatDateTime}
+                hasUnreadNotification={unreadGuestOrderIds.has(order.guest_order_id)}
               />
             ))}
         </div>
@@ -818,12 +927,12 @@ const AdminGuestOrders = () => {
           <div className="bg-white rounded-xl border p-12 text-center">
             <div className="text-6xl mb-4 opacity-20">👤</div>
             <h2 className="text-xl font-semibold text-gray-700 mb-2">
-              {searchTerm || filter !== "all" ? "ไม่พบ Guest Orders ที่ตรงกับเงื่อนไข" : "ไม่มี Guest Orders"}
-          </h2>
+              {searchTerm || filter !== "all" ? translate('admin.guest_orders_empty_search_title') : translate('admin.guest_orders_empty_title')}
+            </h2>
             <p className="text-gray-500">
               {searchTerm || filter !== "all"
-                ? "ลองปรับเปลี่ยนคำค้นหาหรือตัวกรอง"
-              : "Guest Orders จะปรากฏที่นี่เมื่อมีลูกค้าสั่งซื้อโดยไม่ล็อกอิน"}
+                ? translate('admin.guest_orders_empty_search_message')
+                : translate('admin.guest_orders_empty_message')}
           </p>
         </div>
       )}
@@ -867,6 +976,28 @@ const AdminGuestOrders = () => {
           </button>
         </div>
       )}
+
+      {/* Main Modals */}
+      <GuestOrderDetailsModal
+        order={selectedGuestOrder}
+        isOpen={showDetailsModal}
+        onClose={() => {
+          setShowDetailsModal(false);
+          setSelectedGuestOrder(null);
+        }}
+        orderStatuses={orderStatuses}
+        formatDateTime={formatDateTime}
+        onDelete={handleDeleteGuestOrderWithModalClose}
+      />
+
+      <GuestStatusUpdateModal
+        order={selectedGuestOrder}
+        isOpen={showStatusModal}
+        onClose={() => setShowStatusModal(false)}
+        orderStatuses={orderStatuses}
+        onUpdateStatus={updateOrderStatus}
+        isUpdating={updatingOrders.has(selectedGuestOrder?.guest_order_id)}
+      />
       </div>
     </div>
   );
@@ -879,14 +1010,16 @@ const GuestOrderCard = ({
   isUpdating,
   getStatusColor,
   formatDateTime,
-  onMarkAsRead, // Add this prop
+  onMarkAsRead,
+  onDeleteOrder,
+  onViewDetails,
+  onChangeStatus,
+  hasUnreadNotification = false,
 }) => {
-  const [showDetailsModal, setShowDetailsModal] = useState(false);
-  const [showStatusModal, setShowStatusModal] = useState(false);
+  const { translate } = useLanguage();
 
-  const handleViewDetails = () => {
-    setShowDetailsModal(true);
-    // Mark as read when viewing details
+  const handleViewDetailsClick = () => {
+    onViewDetails(order);
     if (onMarkAsRead) {
       onMarkAsRead(order.guest_order_id);
     }
@@ -921,12 +1054,30 @@ const GuestOrderCard = ({
     <>
     <div 
       id={`guest-order-${order.guest_order_id}`}
-        className={`group relative bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-white/20 transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 overflow-hidden ${
+        className={`group relative rounded-2xl shadow-lg transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 overflow-hidden ${
           order.guest_order_id === order.highlightOrderId ? 'ring-2 ring-orange-400 ring-opacity-60 shadow-2xl' : ''
+        } ${
+          hasUnreadNotification 
+            ? 'bg-gradient-to-r from-red-50 via-white to-red-50 border-2 border-red-300 shadow-red-200' 
+            : 'bg-white/90 backdrop-blur-sm border border-white/20'
         }`}
       >
+        {/* Unread indicator badge */}
+        {hasUnreadNotification && (
+          <div className="absolute top-3 right-3 z-20">
+            <div className="flex items-center gap-2 bg-gradient-to-r from-red-500 to-pink-500 text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg animate-pulse">
+              <span className="w-2 h-2 bg-white rounded-full"></span>
+              {translate('common.new') || 'ใหม่'}
+            </div>
+          </div>
+        )}
+        
         {/* Decorative gradient border */}
-        <div className="absolute inset-0 bg-gradient-to-r from-orange-500/10 via-red-500/10 to-pink-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
+        <div className={`absolute inset-0 transition-opacity duration-300 pointer-events-none ${
+          hasUnreadNotification 
+            ? 'bg-gradient-to-r from-red-500/10 via-pink-500/10 to-red-500/10 opacity-30 group-hover:opacity-50' 
+            : 'bg-gradient-to-r from-orange-500/10 via-red-500/10 to-pink-500/10 opacity-0 group-hover:opacity-100'
+        }`}></div>
         
         {/* Main Card Content */}
         <div className="relative z-10 p-6">
@@ -945,7 +1096,7 @@ const GuestOrderCard = ({
                 {orderStatuses.find(s => s.value === order.current_status)?.label || order.current_status}
               </span>
               <span className="bg-gradient-to-r from-orange-100 to-red-100 text-orange-800 px-3 py-1 rounded-xl text-xs font-bold shadow-sm">
-                👤 Guest
+                👤 {translate('admin.guest_label')}
               </span>
               {isMultiRestaurant && (
                 <span className="bg-gradient-to-r from-blue-100 to-purple-100 text-blue-800 px-3 py-1 rounded-xl text-xs font-bold shadow-sm">
@@ -964,12 +1115,12 @@ const GuestOrderCard = ({
           {/* Enhanced Info Grid */}
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
             <div className="bg-gray-50/50 rounded-xl p-3 border border-gray-100">
-              <p className="text-xs text-gray-500 mb-1 font-medium">👤 ลูกค้า</p>
+              <p className="text-xs text-gray-500 mb-1 font-medium">👤 {translate('admin.customer')}</p>
               <p className="font-bold text-gray-900 truncate text-sm">{order.customer_name || "ไม่ระบุ"}</p>
               <p className="text-xs text-gray-500">{order.customer_phone || "ไม่ระบุ"}</p>
           </div>
             <div className="bg-gray-50/50 rounded-xl p-3 border border-gray-100">
-              <p className="text-xs text-gray-500 mb-1 font-medium">🏪 ร้านอาหาร</p>
+              <p className="text-xs text-gray-500 mb-1 font-medium">🏪 {translate('common.restaurant')}</p>
             {isMultiRestaurant ? (
                 <p className="font-bold text-blue-600 text-sm">หลายร้าน ({restaurantCount})</p>
               ) : (
@@ -977,15 +1128,15 @@ const GuestOrderCard = ({
             )}
           </div>
             <div className="bg-gray-50/50 rounded-xl p-3 border border-gray-100">
-              <p className="text-xs text-gray-500 mb-1 font-medium">📍 ที่อยู่จัดส่ง</p>
+              <p className="text-xs text-gray-500 mb-1 font-medium">📍 {translate('order.delivery_address')}</p>
               <p className="font-bold text-gray-900 text-sm truncate">{order.delivery_address || "ไม่ระบุ"}</p>
           </div>
             <div className="bg-gray-50/50 rounded-xl p-3 border border-gray-100">
-              <p className="text-xs text-gray-500 mb-1 font-medium">📦 จำนวนรายการ</p>
-              <p className="font-bold text-gray-900 text-sm">{orderDetails.length} รายการ</p>
+              <p className="text-xs text-gray-500 mb-1 font-medium">📦 {translate('order.items')}</p>
+              <p className="font-bold text-gray-900 text-sm">{orderDetails.length} {translate('order.items_count')}</p>
             </div>
             <div className="bg-gray-50/50 rounded-xl p-3 border border-gray-100">
-              <p className="text-xs text-gray-500 mb-1 font-medium">🔖 Temp ID</p>
+              <p className="text-xs text-gray-500 mb-1 font-medium">🔖 {translate('admin.temporary_id')}</p>
               <p className="font-mono text-xs bg-gray-200 px-2 py-1 rounded truncate">{order.temporary_id}</p>
           </div>
         </div>
@@ -993,16 +1144,16 @@ const GuestOrderCard = ({
           {/* Enhanced Quick Actions */}
         <div className="flex flex-wrap gap-3">
           <button
-              onClick={handleViewDetails}
+              onClick={handleViewDetailsClick}
               className="group flex-1 min-w-0 bg-gradient-to-r from-gray-100 to-gray-200 hover:from-gray-200 hover:to-gray-300 text-gray-800 px-4 py-3 rounded-xl text-sm font-bold transition-all duration-200 transform hover:scale-105 shadow-sm hover:shadow-md"
           >
               <span className="flex items-center justify-center space-x-2">
                 <span className="group-hover:scale-110 transition-transform">📋</span>
-                <span>รายละเอียด</span>
+                <span>{translate('common.details')}</span>
               </span>
           </button>
           <button
-              onClick={() => setShowStatusModal(true)}
+              onClick={() => onChangeStatus(order)}
             disabled={isUpdating}
               className={`group flex-1 min-w-0 px-4 py-3 rounded-xl text-sm font-bold transition-all duration-200 transform shadow-sm ${
               isUpdating
@@ -1014,7 +1165,7 @@ const GuestOrderCard = ({
                 <svg className="w-5 h-5 group-hover:rotate-180 transition-transform duration-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                 </svg>
-                <span>{isUpdating ? "อัปเดท..." : "เปลี่ยนสถานะ"}</span>
+                <span>{isUpdating ? translate('admin.saving') : translate('admin.change_status')}</span>
               </span>
           </button>
           {order.current_status !== "cancelled" && (
@@ -1025,7 +1176,7 @@ const GuestOrderCard = ({
             >
                 <span className="flex items-center justify-center space-x-2">
                   <span className="group-hover:scale-110 transition-transform">❌</span>
-                  <span>ยกเลิก</span>
+                  <span>{translate('common.cancel')}</span>
                 </span>
             </button>
           )}
@@ -1033,23 +1184,6 @@ const GuestOrderCard = ({
                           </div>
                         </div>
 
-      {/* Modals */}
-      <GuestOrderDetailsModal
-        order={order}
-        isOpen={showDetailsModal}
-        onClose={() => setShowDetailsModal(false)}
-        orderStatuses={orderStatuses}
-        formatDateTime={formatDateTime}
-      />
-
-      <GuestStatusUpdateModal
-        order={order}
-        isOpen={showStatusModal}
-        onClose={() => setShowStatusModal(false)}
-        orderStatuses={orderStatuses}
-        onUpdateStatus={onUpdateStatus}
-        isUpdating={isUpdating}
-      />
     </>
   );
 };

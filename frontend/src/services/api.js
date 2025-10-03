@@ -286,6 +286,7 @@ export const orderService = {
   update: (id, data) => api.put(`/orders/${id}/`, data),
   partialUpdate: (id, data) => api.patch(`/orders/${id}/`, data),
   cancel: (id) => api.patch(`/orders/${id}/`, { current_status: 'cancelled' }),
+  delete: (id) => api.delete(`/orders/${id}/`),
 };
 
 // Review services
@@ -326,6 +327,10 @@ export const notificationService = {
   getUnreadCount: () => {
     console.log('🔍 API: Calling getUnreadCount endpoint...');
     return api.get('/notifications/unread-count/');
+  },
+  getBadgeCounts: () => {
+    console.log('🔍 API: Calling getBadgeCounts endpoint...');
+    return api.get('/notifications/badge-counts/');
   },
 };
 

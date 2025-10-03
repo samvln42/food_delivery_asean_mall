@@ -24,13 +24,23 @@ const CategoryDetail = () => {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalProducts, setTotalProducts] = useState(0);
 
   useEffect(() => {
     if (id) {
+      setCurrentPage(1); // Reset to page 1 when category changes
       fetchCategoryDetail();
-      fetchCategoryProducts();
+      fetchCategoryProducts(1);
     }
   }, [id]);
+
+  useEffect(() => {
+    if (id) {
+      fetchCategoryProducts(currentPage);
+    }
+  }, [currentPage, id]);
 
   const fetchCategoryDetail = async () => {
     try {
@@ -42,12 +52,27 @@ const CategoryDetail = () => {
     }
   };
 
-  const fetchCategoryProducts = async () => {
+  const fetchCategoryProducts = async (page = 1) => {
     try {
       setLoading(true);
-      const response = await api.get(`/products/?category_id=${id}`);
-      const productsData = response.data.results || response.data;
-      setProducts(productsData);
+      const response = await api.get(`/products/?category_id=${id}&page=${page}&page_size=12`);
+      const data = response.data;
+      
+      if (data.results) {
+        // API with pagination support
+        setProducts(data.results);
+        setTotalProducts(data.count || 0);
+        setTotalPages(Math.ceil((data.count || 0) / 12));
+      } else {
+        // API without pagination - implement client-side pagination
+        const allProducts = data || [];
+        const startIndex = (page - 1) * 12;
+        const endIndex = startIndex + 12;
+        const limitedProducts = allProducts.slice(startIndex, endIndex);
+        setProducts(limitedProducts);
+        setTotalProducts(allProducts.length || 0);
+        setTotalPages(Math.ceil((allProducts.length || 0) / 12));
+      }
     } catch (error) {
       console.error('Error fetching category products:', error);
       setError('Unable to load products');
@@ -179,7 +204,7 @@ const CategoryDetail = () => {
       {/* Products Grid */}
       <div className="mb-6">
         <h2 className="text-xl sm:text-2xl font-bold text-secondary-800 mb-4">
-          {translate('common.menu_in_this_category')} ({products.length} {translate('order.items_count')})
+          {translate('common.menu_in_this_category')} ({totalProducts} {translate('order.items_count')})
         </h2>
       </div>
 
@@ -288,7 +313,7 @@ const CategoryDetail = () => {
                 </div>
               </div>
             </div>
-          ))}
+          )          )}
         </div>
       ) : (
         <div className="text-center py-12">
@@ -305,6 +330,67 @@ const CategoryDetail = () => {
           >
             {translate('common.view_other_categories')}
           </Link>
+        </div>
+      )}
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="mt-8 flex justify-center">
+          <div className="flex items-center space-x-2">
+            {/* Previous Button */}
+            <button
+              onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+              disabled={currentPage === 1}
+              className={`px-3 py-2 rounded-lg ${
+                currentPage === 1
+                  ? "bg-secondary-200 text-secondary-400 cursor-not-allowed"
+                  : "bg-white border border-secondary-300 text-secondary-700 hover:bg-secondary-50"
+              }`}
+            >
+              {translate("common.previous")}
+            </button>
+
+            {/* Page Numbers */}
+            {Array.from({ length: Math.min(totalPages, 5) }, (_, index) => {
+              let pageNumber;
+              if (totalPages <= 5) {
+                pageNumber = index + 1;
+              } else if (currentPage <= 3) {
+                pageNumber = index + 1;
+              } else if (currentPage >= totalPages - 2) {
+                pageNumber = totalPages - 4 + index;
+              } else {
+                pageNumber = currentPage - 2 + index;
+              }
+
+              return (
+                <button
+                  key={pageNumber}
+                  onClick={() => setCurrentPage(pageNumber)}
+                  className={`px-3 py-2 rounded-lg ${
+                    currentPage === pageNumber
+                      ? "bg-primary-500 text-white"
+                      : "bg-white border border-secondary-300 text-secondary-700 hover:bg-secondary-50"
+                  }`}
+                >
+                  {pageNumber}
+                </button>
+              );
+            })}
+
+            {/* Next Button */}
+            <button
+              onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+              disabled={currentPage === totalPages}
+              className={`px-3 py-2 rounded-lg ${
+                currentPage === totalPages
+                  ? "bg-secondary-200 text-secondary-400 cursor-not-allowed"
+                  : "bg-white border border-secondary-300 text-secondary-700 hover:bg-secondary-50"
+              }`}
+            >
+              {translate("common.next")}
+            </button>
+          </div>
         </div>
       )}
     </div>

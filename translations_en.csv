@@ -94,6 +94,13 @@ common.try_again,Try again,common
 common.refresh,Refresh,common 
 common.reviews,Reviews,common
 common.load_more,Load more,common
+common.people,people,common
+common.close,Close,common
+common.no_data,No data,common
+common.items,items,common
+common.amount,Amount,common
+common.free,Free,common
+common.new,New,common
 ,,
 # Search,,
 search.search_for_restaurant_or_menu,Search for restaurant or menu,search
@@ -195,7 +202,7 @@ product.price,Price,product
 product.category,Category,product
 product.image,Image,product
 product.quantity,Quantity,product
-product.availability,Availability,product
+product.availability,Available,product
 product.create,Create Product,product
 product.edit,Edit Product,product
 product.delete,Delete Product,product
@@ -339,6 +346,32 @@ dashboard.customers,Customers,dashboard
 dashboard.popular_items,Popular Items,dashboard
 dashboard.recent_orders,Recent Orders,dashboard
 dashboard.statistics,Statistics,dashboard
+dashboard.revenue_today,Today's revenue,dashboard
+dashboard.orders_today,Orders today,dashboard
+dashboard.avg_order_value,Average order value,dashboard
+dashboard.active_users,Active users,dashboard
+dashboard.new_users,New users,dashboard
+dashboard.pending_verifications,Pending verifications,dashboard
+dashboard.refunds,Refunds,dashboard
+dashboard.conversion_rate,Conversion rate,dashboard
+dashboard.traffic,Traffic,dashboard
+dashboard.system_health,System health,dashboard
+dashboard.top_restaurants,Top restaurants,dashboard
+dashboard.top_categories,Top categories,dashboard
+dashboard.no_data,No data,dashboard
+dashboard.loading_metrics,Loading metrics...,dashboard
+dashboard.title_admin,Admin Dashboard,dashboard
+dashboard.subtitle_admin,Admin management system - overview,dashboard
+dashboard.today_statistics,Today's statistics,dashboard
+dashboard.realtime_info,Real-time daily updates,dashboard
+dashboard.total_users,Total users,dashboard
+dashboard.total_orders,Total orders,dashboard
+dashboard.active_orders,Active orders,dashboard
+dashboard.total_revenue,Total revenue,dashboard
+dashboard.popular_items_subtitle,Most popular menu items,dashboard
+dashboard.ordered_times,Ordered {count} times,dashboard
+dashboard.quick_actions,Quick actions,dashboard
+dashboard.quick_actions_subtitle,Access key admin functions quickly,dashboard
 ,,
 # Admin,,
 admin.users,Users Management,admin
@@ -347,7 +380,223 @@ admin.categories,Categories Management,admin
 admin.orders,Orders Management,admin
 admin.settings,System Settings,admin
 admin.notifications,System Notifications,admin
+admin.search_placeholder,"Search users, restaurants...",admin
+admin.orders_search_placeholder,Search orders, customer, restaurant...,admin
+admin.add_user,Add new user,admin
+admin.users_total,Total {count} users,admin
+admin.search_users,Search users,admin
+admin.users_search_placeholder,Search username, email, phone...,admin
+admin.clear_search,Clear search,admin
+admin.role.customer,Customer,admin
+admin.role.general_restaurant,General restaurant,admin
+admin.role.special_restaurant,Special restaurant,admin
+admin.role.admin,Admin,admin
+admin.table.user,User,admin
+admin.table.contact,Contact info,admin
+admin.no_restaurant,No restaurant,admin
+admin.users_empty_title,No users found,admin
+admin.users_empty_search_message,Try adjusting search or filters,admin
+admin.users_empty_message,There are no users in the system yet,admin
+admin.add_first_user,Add the first user,admin
+admin.user_deleted_success,Deleted user "{username}" successfully,admin
+admin.user_role_updated,Updated user role to {role} successfully,admin
+admin.update_role_failed,Unable to update user role,admin
+admin.delete_user_failed,Unable to delete user,admin
+admin.user_modal.view_title,User details,admin
+admin.user_modal.create_title,Add new user,admin
+admin.user_modal.edit_title,Edit user,admin
+admin.user_modal.password_optional,leave blank if unchanged,admin
+admin.user_modal.enter_password,Enter password,admin
+admin.user_modal.leave_blank_password,Leave blank if not changing password,admin
+admin.enable_account,Enable account,admin
+admin.user_extra_info,Additional information,admin
+admin.last_login,Last login,admin
+admin.never_logged_in,Never logged in,admin
+admin.confirm_delete_user,Are you sure to delete user "{username}"?\n\nThis action cannot be undone.,admin
+admin.date_range,Date range,admin
+admin.today,Today,admin
+admin.yesterday,Yesterday,admin
+admin.last_7_days,Last 7 days,admin
+admin.last_30_days,Last 30 days,admin
+admin.export_csv,Export CSV,admin
+admin.export_excel,Export Excel,admin
+admin.refresh,Refresh,admin
+admin.all_statuses,All statuses,admin
+admin.table.id,ID,admin
+admin.table.name,Name,admin
+admin.table.email,Email,admin
+admin.table.role,Role,admin
+admin.table.status,Status,admin
+admin.table.created_at,Created at,admin
+admin.table.actions,Actions,admin
+admin.action.view,View,admin
+admin.action.edit,Edit,admin
+admin.action.delete,Delete,admin
+admin.action.enable,Enable,admin
+admin.action.disable,Disable,admin
+admin.status.active,Active,admin
+admin.status.inactive,Inactive,admin
+admin.status.disabled,Disabled,admin
+admin.confirm_delete_title,Delete this item?,admin
+admin.confirm_delete_desc,This action cannot be undone.,admin
+admin.confirm_delete_product,Are you sure to delete product "{name}"?,admin
+admin.error.load_failed,Failed to load admin data,admin
+admin.success.saved,Saved successfully,admin
+admin.users_desc,Manage accounts and permissions,admin
+admin.restaurants_desc,Approve and manage restaurants,admin
+admin.orders_desc,Review and manage orders,admin
+admin.categories_desc,Organize food categories,admin
+admin.users_paragraph,Manage user accounts, restaurants, and access permissions,admin
+admin.restaurants_paragraph,Approve new restaurants and manage their statuses,admin
+admin.orders_paragraph,Review and manage all orders in real time,admin
+admin.categories_paragraph,Add, edit, and manage food categories,admin
+admin.create_restaurant,Create restaurant,admin
+admin.create_user,Create user,admin
+admin.restaurants_total,Total {count} restaurants,admin
+admin.search_restaurants,Search restaurants,admin
+admin.restaurants_search_placeholder,Search name, description, address...,admin
+admin.type,Type,admin
+admin.table.restaurant,Restaurant,admin
+admin.table.owner,Owner,admin
+admin.table.type,Type,admin
+admin.table.score,Score,admin
+admin.action.upload_image,Upload image,admin
+admin.action.manage_products,Manage products,admin
+admin.action.make_special,Make Special,admin
+admin.action.unset_special,Unset Special,admin
+admin.restaurant_status_updated,Updated restaurant status to {status},admin
+admin.update_status_failed,Unable to update status,admin
+admin.special_status_updated,Special status updated,admin
+admin.update_special_failed,Unable to update special status,admin
+admin.special_status_set_success,Added special restaurant status successfully,admin
+admin.special_status_unset_success,Removed special restaurant status successfully,admin
+admin.restaurant_deleted_success,Deleted restaurant "{name}" successfully,admin
+admin.delete_restaurant_failed,Unable to delete restaurant,admin
+admin.confirm_delete_restaurant,Are you sure to delete restaurant "{name}"?\n\nThis will remove all related data and cannot be undone.,admin
+admin.restaurants_empty_title,No restaurants found,admin
+admin.restaurants_empty_search_message,Try adjusting search or filters,admin
+admin.restaurants_empty_message,There are no restaurants in the system yet,admin
+admin.add_first_restaurant,Create the first restaurant,admin
+admin.bank_info,Bank information,admin
+admin.average_rating,Average rating,admin
+admin.total_reviews_label,Total reviews,admin
+admin.updated_at,Updated at,admin
+admin.uploading,Uploading...,admin
+admin.creating,Creating...,admin
+admin.saving,Saving...,admin
+admin.summary,Summary,admin
+admin.customer_info,Customer information,admin
+admin.payment_info,Payment information,admin
+admin.no_payment_info,No payment information,admin
+admin.please_select_new_status,Please select a new status,admin
+admin.update_status_title,Update status,admin
+admin.select_new_status,Select new status,admin
+admin.showing_of_total,Showing {showing} of {total} items,admin
+admin.payment_pending,Payment pending,admin
+admin.payment_pending_short,Pending payment,admin
+admin.payment_failed,Payment failed,admin
+admin.customer,Customer,admin
+admin.change_status,Change status,admin
+admin.orders_empty_search_message,Try adjusting search or filters,admin
+admin.orders_empty_message,Orders will appear here when customers place orders,admin
+admin.sort.latest,Latest,admin
+admin.sort.oldest,Oldest,admin
+admin.sort.price_high,Price high,admin
+admin.sort.price_low,Price low,admin
+admin.sort.by_status,By status,admin
+admin.restaurant_modal.view_title,Restaurant details,admin
+admin.restaurant_modal.upload_title,Upload restaurant image,admin
+admin.restaurant_modal.create_title,Create new restaurant,admin
+admin.restaurant_modal.edit_title,Edit restaurant,admin
+admin.restaurant_modal.image_section,Storefront image,admin
+admin.restaurant_modal.image_url,Image URL,admin
+admin.restaurant_modal.optional,(optional),admin
+admin.restaurant_modal.from_internet_hint,You can provide an image URL from the internet,admin
+admin.restaurant_modal.or,or,admin
+admin.restaurant_modal.select_image_from_device,Select image from device,admin
+admin.restaurant_modal.supported_file_hint,Supports JPG, PNG, GIF • up to 10MB,admin
+admin.restaurant_modal.upload_with_create_hint,Will be uploaded together when creating,admin
+admin.restaurant_modal.remove_image,Remove image,admin
+admin.restaurant_modal.cancel_image_selection,Cancel image selection,admin
+admin.restaurant_modal.restaurant_name,Restaurant name,admin
+admin.restaurant_modal.owner,Owner,admin
+admin.restaurant_modal.description,Description,admin
+admin.restaurant_modal.address,Address,admin
+admin.restaurant_modal.phone_number,Phone number,admin
+admin.restaurant_modal.opening_hours,Opening hours,admin
+admin.restaurant_modal.status,Status,admin
+admin.restaurant_modal.select_owner,Select owner,admin
+admin.restaurant_modal.no_owner,No owner,admin
+admin.bank_name,Bank name,admin
+admin.bank_account_number,Bank account number,admin
+admin.account_name,Account name,admin
+admin.statistics,Statistics,admin
+admin.restaurant_modal.no_available_owners,No users available to be restaurant owners,admin
+admin.restaurant_modal.go_to_users_page,→ Go create new users or change existing user roles,admin
+admin.restaurant_modal.owner_hint,Available users: {count} people (general/special restaurant without a restaurant yet),admin
+admin.product_modal.general_restaurant_hint,This is a general restaurant and cannot select special-only categories,admin
+admin.product_modal.special_restaurant_hint,Special restaurant only,admin
+admin.guest_orders,Guest Orders Management,admin
+admin.guest_order_number,Guest Order #{id},admin
+admin.guest_label,Guest User,admin
+admin.temporary_id,Temporary ID,admin
+admin.guest_orders_search_placeholder,Search guest orders, Temporary ID, customer...,admin
+admin.guest_orders_empty_title,No Guest Orders,admin
+admin.guest_orders_empty_search_title,No guest orders match your filters,admin
+admin.guest_orders_empty_search_message,Try adjusting search or filters,admin
+admin.guest_orders_empty_message,Guest orders will appear when customers order without logging in,admin
+admin.phone_order_number,Phone Order #{id},admin
+admin.phone_orders_search_placeholder,Search by name, phone, or order code...,admin
+admin.phone_orders_empty_title,No phone orders found,admin
+admin.phone_orders_empty_search_message,No orders match your filters,admin
+admin.phone_orders_empty_message,No phone orders yet,admin
+admin.phone_orders_create_new,Create new phone order,admin
+admin.payment_status,Payment status,admin
+admin.order_status,Order status,admin
+admin.current_status,Current status,admin
+admin.note_optional,Note (optional),admin
+admin.phone_orders_title,Phone Orders Management,admin
+admin.phone_orders_subtitle,Manage and track orders received by phone,admin
+admin.multiple_restaurants,Multiple restaurants,admin
 ,,
+# Admin Categories,,
+admin.categories_load_failed,Unable to load categories,admin
+admin.category_created_success,Category created successfully,admin
+admin.create_category_failed,Unable to create category,admin
+admin.category_updated_success,Category updated successfully,admin
+admin.update_category_failed,Unable to update category,admin
+admin.category_deleted_success,Category deleted successfully,admin
+admin.delete_category_failed,Unable to delete category (may have linked products),admin
+admin.categories_total,Total {count} categories,admin
+admin.add_category,Add new category,admin
+admin.search_categories,Search categories,admin
+admin.categories_search_placeholder,Search category name...,admin
+admin.table.image,Image,admin
+admin.table.category_name,Category name,admin
+admin.table.special_only,Special only,admin
+admin.table.product_count,Product count,admin
+admin.category.special_only,Special only,admin
+admin.category.general,General,admin
+admin.categories_empty_title,No categories found,admin
+admin.categories_empty_search_message,Try adjusting your search,admin
+admin.categories_empty_message,There are no categories yet,admin
+admin.add_first_category,Add the first category,admin
+admin.category_modal.create_title,Create new category,admin
+admin.category_modal.edit_title,Edit category,admin
+admin.category_modal.view_title,Category details,admin
+admin.category_modal.category_name,Category name,admin
+admin.category_modal.enter_category_name,Enter category name,admin
+admin.category_modal.description,Description,admin
+admin.category_modal.description_placeholder,Enter category description (optional),admin
+admin.category_modal.image,Category image,admin
+admin.category_modal.supported_file_hint,Supports JPG, PNG, GIF • up to 5MB,admin
+admin.category_modal.type,Category type,admin
+admin.category_modal.special_only_hint,Special-only categories show only in special restaurants,admin
+admin.category_modal.status,Category status,admin
+admin.confirm_delete_category_title,Delete this category?,admin
+admin.confirm_delete_category,Are you sure to delete category "{name}"?,admin
+admin.category_has_products_warning,This category has {count} products. Deleting may affect them.,admin
+admin.delete_category,Delete category,admin
 # Payment Methods,,
 payment.cash,Cash,payment
 payment.credit_card,Credit Card,payment
@@ -363,6 +612,32 @@ favorites.remove,Remove from favorites,favorites
 favorites.empty_message,Add your favorite restaurant or menu to the favorite list,favorites
 favorites.search_restaurant,Search for restaurant,favorites
 ,,
+# Admin (Create Phone Order),,
+admin.create_phone_order_title,Create Phone Order,admin
+admin.create_phone_order_subtitle,For phone-in customers - simple, fast, complete,admin
+admin.back_to_orders,Back to orders,admin
+admin.enter_phone_customer_info,Enter details for the calling customer,admin
+admin.customer_name,Customer name,admin
+admin.enter_customer_name,Enter customer name,admin
+admin.enter_phone_number,Enter phone number,admin
+admin.please_enter_customer_name,Please enter customer name,admin
+admin.please_enter_phone_number,Please enter phone number,admin
+admin.please_add_items_to_cart,Please add items to the cart,admin
+admin.all_menu_items,All menu items,admin
+admin.select_menu_items_subtitle,Search and select items ({count} items),admin
+admin.search_menu_or_restaurant_placeholder,Search menu or restaurant name...,admin
+admin.loading_menus,Loading menus from all restaurants...,admin
+admin.add_more,Add more,admin
+admin.no_menu_in_system,No menu in the system,admin
+admin.please_add_menu_before_create_order,Please add menu items before creating an order,admin
+admin.select_menu_items_for_customer,Select menu items for the customer,admin
+admin.review_before_order,Review before placing the order,admin
+admin.order_created_success,Order created successfully!,admin
+admin.error_creating_order,Error creating order,admin
+admin.create_order_now,Create order now,admin
+,,
+# Cart (extras),,
+cart.in_cart,In cart,cart
 # Address,,
 address.title,My address,address
 address.empty,No address,address
@@ -378,6 +653,112 @@ settings.notifications,Notification Settings,settings
 settings.language,Language Settings,settings
 settings.appearance,Appearance Settings,settings
 ,,
+# Admin Settings,,
+admin.settings.tab_app,App info,admin
+admin.settings.tab_delivery,Delivery,admin
+admin.settings.tab_payment,Payment,admin
+admin.settings.tab_notification,Notifications,admin
+admin.settings.tab_security,Security,admin
+admin.settings.tab_business,Business,admin
+admin.settings.not_found_defaults,Application settings not found, loading defaults.,admin
+admin.settings.permission_denied_view,You do not have permission to view settings,admin
+admin.settings.load_failed,Unable to load settings,admin
+admin.settings.saved_success,Settings saved successfully,admin
+admin.settings.permission_denied_save,You do not have permission to save settings,admin
+admin.settings.save_failed,Unable to save settings,admin
+admin.settings.delivery_saved_success,Delivery settings saved successfully,admin
+admin.settings.page_title,System Settings,admin
+admin.settings.save_settings,Save settings,admin
+admin.settings.application_info,Application information,admin
+admin.settings.application_info_hint,Edit basic app info. Use "Save settings" to confirm changes.,admin
+admin.settings.basic_info,Basic information,admin
+admin.settings.app_name,Application name,admin
+admin.settings.app_description,Application description,admin
+admin.settings.images,Images,admin
+admin.settings.app_logo,App logo,admin
+admin.settings.current_logo,Current logo,admin
+admin.settings.supported_file_hint_5mb,Supports JPG, PNG, GIF • up to 5MB,admin
+admin.settings.home_banner,Home banner,admin
+admin.settings.current_banner,Current banner,admin
+admin.settings.supported_file_hint_10mb,Supports JPG, PNG, GIF • up to 10MB,admin
+admin.settings.contact_info,Contact information,admin
+admin.settings.contact_email,Contact email,admin
+admin.settings.contact_phone,Phone number,admin
+admin.settings.contact_address,Address,admin
+admin.settings.hero_section,Home (Hero Section),admin
+admin.settings.hero_title,Main title,admin
+admin.settings.hero_subtitle,Subtitle,admin
+admin.settings.features,App features,admin
+admin.settings.feature_n,Feature {number},admin
+admin.settings.feature_title,Title,admin
+admin.settings.feature_icon_hint,Icon (Emoji or FontAwesome class),admin
+admin.settings.feature_icon_placeholder,e.g. 🚚 or fa-truck,admin
+admin.settings.feature_description,Description,admin
+admin.settings.social_media,Social media,admin
+admin.settings.seo,SEO (Search Engine Optimization),admin
+admin.settings.seo_keywords,Keywords (comma-separated),admin
+admin.settings.seo_keywords_placeholder,food, delivery, order, restaurant, Bangkok,admin
+admin.settings.seo_meta_description,Meta description,admin
+admin.settings.seo_meta_description_placeholder,Order food online easily, delivered to your home,admin
+admin.settings.system_settings,System settings,admin
+admin.settings.timezone,Timezone,admin
+admin.settings.timezone_placeholder,e.g. Asia/Bangkok,admin
+admin.settings.maintenance_mode,Maintenance Mode,admin
+admin.settings.maintenance_message,Maintenance message,admin
+admin.settings.bank_qr_settings,Bank transfer / QR Payment,admin
+admin.settings.qr_code_image,QR Code image,admin
+admin.settings.current_qr_code,Current QR Code,admin
+admin.settings.multi_restaurant_fees_title,Multi-restaurant delivery fees,admin
+admin.settings.multi_restaurant_base_fee,Base delivery fee (1 restaurant),admin
+admin.settings.multi_restaurant_base_fee_hint,Base delivery fee when ordering from 1 restaurant,admin
+admin.settings.multi_restaurant_additional_fee,Additional fee per extra restaurant,admin
+admin.settings.multi_restaurant_additional_fee_hint,Extra delivery fee for each additional restaurant,admin
+admin.settings.example_calculation,Example calculation:,admin
+admin.settings.order_from_n_restaurants,Order from {count} restaurants:,admin
+admin.settings.advanced_settings,Advanced settings,admin
+admin.settings.enable_scheduled_delivery,Enable scheduled delivery,admin
+admin.settings.enable_scheduled_delivery_hint,Allow customers to schedule deliveries in advance,admin
+admin.settings.rush_hour_multiplier,Rush hour multiplier,admin
+admin.settings.rush_hour_multiplier_hint,Multiply delivery fee during rush hours (e.g. 1.2 = +20%),admin
+admin.settings.weekend_multiplier,Weekend multiplier,admin
+admin.settings.weekend_multiplier_hint,Multiply delivery fee on weekends (e.g. 1.5 = +50%),admin
+admin.settings.payment_methods,Payment methods,admin
+admin.settings.fees_and_taxes,Fees and taxes,admin
+admin.settings.minimum_order_amount,Minimum order amount,admin
+admin.settings.service_fee_percentage,Service fee (%),admin
+admin.settings.vat_percentage,VAT (%),admin
+admin.settings.notification_channels,Notification channels,admin
+admin.settings.email_notifications,Email notifications,admin
+admin.settings.email_order_confirmation,Order confirmation,admin
+admin.settings.email_status_updates,Order status updates,admin
+admin.settings.sms,SMS,admin
+admin.settings.push_notification,Push Notification,admin
+admin.settings.authentication,Authentication,admin
+admin.settings.enable_2fa,Enable two-factor authentication (2FA),admin
+admin.settings.password_policy,Password policy,admin
+admin.settings.password_min_length,Minimum length,admin
+admin.settings.session_timeout_minutes,Session timeout (minutes),admin
+admin.settings.password_require_uppercase,Require uppercase letters,admin
+admin.settings.password_require_lowercase,Require lowercase letters,admin
+admin.settings.password_require_numbers,Require numbers,admin
+admin.settings.password_require_symbols,Require special symbols,admin
+admin.settings.commission,Commission,admin
+admin.settings.restaurant_commission_rate,General restaurant (%),admin
+admin.settings.special_restaurant_commission_rate,Special restaurant (%),admin
+admin.settings.restaurant_management,Restaurant management,admin
+admin.settings.auto_approve_restaurants,Auto-approve restaurants,admin
+admin.settings.require_restaurant_verification,Require restaurant verification,admin
+admin.settings.enable_reviews,Enable reviews,admin
+admin.settings.max_products_per_restaurant,Max products per restaurant,admin
+admin.settings.payout,Payout,admin
+admin.settings.minimum_payout_amount,Minimum payout amount,admin
+admin.settings.payout_schedule,Payout schedule,admin
+admin.settings.payout_daily,Daily,admin
+admin.settings.payout_weekly,Weekly,admin
+admin.settings.payout_monthly,Monthly,admin
+admin.settings.reviews,Reviews,admin
+admin.settings.min_review_rating,Minimum review rating,admin
+admin.settings.max_review_rating,Maximum review rating,admin
 # About,,
 about.title,About Us,about
 about.mission,Our Mission,about
@@ -434,7 +815,7 @@ help.track_order_text,"You can track the order status in the ""Order History"" p
 help.cancel_order,How to cancel the order,help
 help.cancel_order_text,You can cancel the order within 5 minutes after placing the order. If you exceed this time please contact the customer service,help
 help.delivery_fee,Delivery fee,help
-help.delivery_fee_text,The delivery fee is 15 baht and may vary depending on the distance. For orders over 200 baht delivery is free,help
+help.delivery_fee_text,The delivery fee is {fee} and may vary depending on the distance. For orders over {free_delivery_minimum} delivery is free,help
 help.contact_us,Contact us,help
 help.contact_us_text,If you don't find the answer you're looking for please contact us at:\nPhone: {phone} | Email: {email},help 
 ,,
@@ -476,4 +857,7 @@ privacy.rights_text,You have the right to:\n• Access your personal information
 privacy.contact,Contact Us About Privacy,privacy
 privacy.contact_text,If you have any questions about this Privacy Policy contact us at: {email},privacy
 privacy.updates,Updates to This Policy,privacy
-privacy.updates_text,We may update this policy from time to time. We will notify you of any significant changes,privacy 
+privacy.updates_text,We may update this policy from time to time. We will notify you of any significant changes,privacy
+notification.new_guest_order,New Guest Order,notification
+notification.from,From,notification
+notification.view_order,View Order,notification 

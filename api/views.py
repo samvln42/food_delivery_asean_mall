@@ -588,6 +588,47 @@ class OrderViewSet(viewsets.ModelViewSet):
             )
         
         return Response(OrderSerializer(order).data)
+    
+    def destroy(self, request, pk=None):
+        """ลบออเดอร์ (เฉพาะแอดมิน)"""
+        # ตรวจสอบ permission - เฉพาะ admin เท่านั้น
+        if request.user.role != 'admin':
+            return Response(
+                {'error': 'เฉพาะแอดมินเท่านั้นที่สามารถลบออเดอร์ได้'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        order = self.get_object()
+        order_id = order.order_id
+        customer_user = order.user
+        
+        # ส่งการแจ้งเตือนให้ลูกค้าก่อนลบ (ถ้าเป็นคำสั่งซื้อของผู้ใช้ที่ล็อกอิน)
+        if customer_user:
+            channel_layer = get_channel_layer()
+            room_group_name = f"orders_user_{customer_user.id}"
+            
+            async_to_sync(channel_layer.group_send)(
+                room_group_name,
+                {
+                    'type': 'order_deleted',
+                    'order_id': order_id,
+                    'message': 'คำสั่งซื้อของคุณถูกลบโดยระบบ',
+                    'timestamp': timezone.now().isoformat(),
+                    'restaurant_name': order.restaurant.restaurant_name if order.restaurant else '',
+                    'user_id': customer_user.id
+                }
+            )
+        
+        # ลบออเดอร์ (Django จะลบข้อมูลที่เกี่ยวข้องอัตโนมัติเพราะ CASCADE)
+        order.delete()
+        
+        return Response(
+            {
+                'success': True, 
+                'message': f'ลบออเดอร์ #{order_id} เรียบร้อยแล้ว'
+            },
+            status=status.HTTP_200_OK
+        )
 
     def perform_update(self, serializer):
         """Override to send WebSocket notification when order status changes via PUT/PATCH"""
@@ -840,6 +881,30 @@ class NotificationViewSet(viewsets.ModelViewSet):
         """Get unread notifications count"""
         count = Notification.objects.filter(user=request.user, is_read=False).count()
         return Response({'unread_count': count})
+    
+    @action(detail=False, methods=['get'], url_path='badge-counts')
+    def badge_counts(self, request):
+        """Get badge counts for regular and guest orders separately"""
+        # นับ notifications ที่ยังไม่อ่านตาม type
+        unread_notifications = Notification.objects.filter(user=request.user, is_read=False)
+        
+        # นับ regular orders (ที่ล็อกอิน)
+        regular_orders_count = unread_notifications.filter(
+            type='order',
+            related_order__isnull=False
+        ).count()
+        
+        # นับ guest orders (ที่ไม่ล็อกอิน)
+        guest_orders_count = unread_notifications.filter(
+            type='guest_order',
+            related_guest_order__isnull=False
+        ).count()
+        
+        return Response({
+            'regular_orders_count': regular_orders_count,
+            'guest_orders_count': guest_orders_count,
+            'total_unread_count': regular_orders_count + guest_orders_count
+        })
     
     @action(detail=False, methods=['post'], url_path='mark-order-read')
     def mark_order_read(self, request):
@@ -1855,6 +1920,55 @@ class GuestOrderViewSet(viewsets.ModelViewSet):
                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             return Response({'error': f'Failed to create multi-restaurant guest order: {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
+
+    def destroy(self, request, pk=None):
+        """ลบ Guest Order (เฉพาะแอดมิน)"""
+        # ตรวจสอบ permission - เฉพาะ admin เท่านั้น
+        if request.user.role != 'admin':
+            return Response(
+                {'error': 'เฉพาะแอดมินเท่านั้นที่สามารถลบ Guest Order ได้'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        guest_order = self.get_object()
+        order_id = guest_order.guest_order_id
+        temporary_id = guest_order.temporary_id
+        
+        # ส่ง WebSocket notification ก่อนลบ
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(
+            f"guest_order_{temporary_id}",
+            {
+                'type': 'guest_order_deleted',
+                'order_id': order_id,
+                'temporary_id': temporary_id,
+                'message': 'Guest Order ของคุณถูกลบโดยระบบ',
+                'timestamp': timezone.now().isoformat()
+            }
+        )
+        
+        # ส่ง notification ให้แอดมินคนอื่น
+        async_to_sync(channel_layer.group_send)(
+            "guest_orders_all",
+            {
+                'type': 'guest_order_deleted',
+                'order_id': order_id,
+                'temporary_id': temporary_id,
+                'message': f'Guest Order #{temporary_id} ถูกลบโดย {request.user.username}',
+                'timestamp': timezone.now().isoformat()
+            }
+        )
+        
+        # ลบ Guest Order (Django จะลบข้อมูลที่เกี่ยวข้องอัตโนมัติเพราะ CASCADE)
+        guest_order.delete()
+        
+        return Response(
+            {
+                'success': True, 
+                'message': f'ลบ Guest Order #{temporary_id} เรียบร้อยแล้ว'
+            },
+            status=status.HTTP_200_OK
+        )
 
 
 

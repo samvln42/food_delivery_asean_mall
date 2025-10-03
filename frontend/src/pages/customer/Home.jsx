@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from "react";
-import { useLanguage } from '../../contexts/LanguageContext';
-import { useAuth } from '../../contexts/AuthContext';
+import React, { useState, useEffect, useRef } from "react";
+import { useLanguage } from "../../contexts/LanguageContext";
+import { useAuth } from "../../contexts/AuthContext";
 import { Link, useNavigate } from "react-router-dom";
 import {
   restaurantService,
@@ -8,7 +8,8 @@ import {
   appSettingsService,
 } from "../../services/api";
 import Loading from "../../components/common/Loading";
-import { MagnifyingGlassIcon } from '@heroicons/react/24/outline';
+import AdvertisementGallery from "./AdvertisementGallery";
+import { MagnifyingGlassIcon } from "@heroicons/react/24/outline";
 
 const Home = () => {
   const [restaurants, setRestaurants] = useState([]);
@@ -17,11 +18,11 @@ const Home = () => {
   const [appSettings, setAppSettings] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
   const { translate } = useLanguage();
   // const { user } = useAuth();
   const navigate = useNavigate();
-  
+
   useEffect(() => {
     fetchData();
   }, []);
@@ -55,24 +56,23 @@ const Home = () => {
 
       // Try to fetch from API first
       try {
-        const [categoriesRes, settingsRes] =
-          await Promise.all([
-            categoryService.getAll({ page_size: 12 }),
-            appSettingsService.getPublic(),
-          ]);
+        const [categoriesRes, settingsRes] = await Promise.all([
+          categoryService.getAll({ page_size: 1000 }),
+          appSettingsService.getPublic(),
+        ]);
 
-        const categoryData = categoriesRes.data?.results || categoriesRes.data || [];
+        const categoryData =
+          categoriesRes.data?.results || categoriesRes.data || [];
         const settingsData = settingsRes.data || null;
 
         setCategories(categoryData);
         setAppSettings(settingsData);
-
       } catch (apiError) {
         console.error("API error:", apiError);
         throw apiError; // Re-throw to be caught by outer catch
       }
     } catch (err) {
-      setError('Unable to load data');
+      setError("Unable to load data");
       console.error("Error fetching data:", err);
     } finally {
       setLoading(false);
@@ -83,7 +83,7 @@ const Home = () => {
     e.preventDefault();
     if (searchQuery.trim()) {
       navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
-      setSearchQuery('');
+      setSearchQuery("");
     }
   };
 
@@ -134,36 +134,44 @@ const Home = () => {
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-16 md:py-20">
           <div className="text-center">
             <h1 className="text-3xl md:text-4xl font-bold mb-4 text-white drop-shadow-lg">
-              {appSettings?.hero_title || 'Welcome to ' + (appSettings?.app_name || 'FoodDelivery')}
+              {appSettings?.hero_title ||
+                "Welcome to " + (appSettings?.app_name || "FoodDelivery")}
             </h1>
             <p className="text-lg md:text-xl mb-6 text-white/90 drop-shadow-md">
-              {appSettings?.hero_subtitle || 'Order food from your favorite restaurants easily with just a finger'}
+              {appSettings?.hero_subtitle ||
+                "Order food from your favorite restaurants easily with just a finger"}
             </p>
-            
+
             {/* Search Bar - เฉพาะ customer */}
             {/* {user?.role === 'customer' && ( */}
-              <div className="max-w-2xl mx-auto mb-8 px-4">
-                <form onSubmit={handleSearch} className="flex shadow-2xl rounded-lg overflow-hidden">
-                  <div className="relative flex-1">
-                    <div className="absolute inset-y-0 left-0 pl-3 md:pl-4 flex items-center pointer-events-none">
-                      <MagnifyingGlassIcon className="h-5 w-5 md:h-6 md:w-6 text-secondary-400" />
-                    </div>
-                    <input
-                      type="text"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="block w-full pl-10 md:pl-12 pr-4 py-3 md:py-4 border-0 text-base md:text-lg placeholder-secondary-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 bg-white"
-                      placeholder={translate('common.search') || 'Search for food, restaurants...'}
-                    />
+            <div className="max-w-2xl mx-auto mb-8 px-4">
+              <form
+                onSubmit={handleSearch}
+                className="flex shadow-2xl rounded-lg overflow-hidden"
+              >
+                <div className="relative flex-1">
+                  <div className="absolute inset-y-0 left-0 pl-3 md:pl-4 flex items-center pointer-events-none">
+                    <MagnifyingGlassIcon className="h-5 w-5 md:h-6 md:w-6 text-secondary-400" />
                   </div>
-                  <button
-                    type="submit"
-                    className="bg-primary-600 hover:bg-primary-700 text-white px-6 md:px-8 py-3 md:py-4 font-medium text-base md:text-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 shadow-lg"
-                  >
-                    {translate('common.search') || 'Search'}
-                  </button>
-                </form>
-              </div>
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="block w-full pl-10 md:pl-12 pr-4 py-3 md:py-4 border-0 text-base md:text-lg placeholder-secondary-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 bg-white"
+                    placeholder={
+                      translate("common.search") ||
+                      "Search for food, restaurants..."
+                    }
+                  />
+                </div>
+                <button
+                  type="submit"
+                  className="bg-primary-600 hover:bg-primary-700 text-white px-6 md:px-8 py-3 md:py-4 font-medium text-base md:text-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 shadow-lg"
+                >
+                  {translate("common.search") || "Search"}
+                </button>
+              </form>
+            </div>
             {/* )} */}
 
             {/* Order Now Button - สำหรับผู้ใช้ที่ไม่ใช่ customer หรือยังไม่ได้ login */}
@@ -182,28 +190,33 @@ const Home = () => {
       </section>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        {/* Advertisement Gallery */}
+        <section className="mb-8">
+          <AdvertisementGallery />
+        </section>
+
         {/* Categories Section */}
         <section className="mb-16">
           <div className="flex items-center justify-between mb-8">
             <h2 className="text-3xl font-bold text-secondary-900">
-              {translate('common.categories')}
+              {translate("common.categories")}
             </h2>
             <Link
               to="/categories"
               className="text-primary-600 hover:text-primary-700 font-medium"
             >
-              {translate('common.view_all')} →
+              {translate("common.view_all")} →
             </Link>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+          <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
             {categories.slice(0, 18).map((category) => (
               <Link
                 key={category.category_id}
                 to={`/categories/${category.category_id}`}
-                className="group bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow p-6 text-center"
+                className="group bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow p-3 text-center"
               >
-                <div className="mb-4">
+                <div className="mb-2">
                   <img
                     src={
                       category.image_display_url ||
@@ -212,14 +225,14 @@ const Home = () => {
                       )}&background=ef4444&color=fff&size=80`
                     }
                     alt={category.category_name}
-                    className="w-16 h-16 mx-auto rounded-full object-cover"
+                    className="w-16 h-16 sm:w-20 sm:h-20 mx-auto rounded-full object-cover"
                     loading="lazy"
                     decoding="async"
-                    width="64"
-                    height="64"
+                    width="80"
+                    height="80"
                   />
                 </div>
-                <h3 className="font-medium text-secondary-900 group-hover:text-primary-600">
+                <h3 className="font-medium text-secondary-900 group-hover:text-primary-600 text-xs sm:text-sm">
                   {category.category_name}
                 </h3>
               </Link>

@@ -3,6 +3,7 @@ import { appSettingsService } from "../../services/api";
 import { toast } from "../../hooks/useNotification";
 import { useCart } from "../../contexts/CartContext";
 import { formatPrice } from "../../utils/formatPrice";
+import { useLanguage } from "../../contexts/LanguageContext";
 
 // ค่าเริ่มต้นสำหรับ App Settings
 const DEFAULT_SETTINGS = {
@@ -100,6 +101,7 @@ const DEFAULT_SETTINGS = {
 };
 
 const AdminSettings = () => {
+  const { translate, currentLanguage } = useLanguage();
   const [activeTab, setActiveTab] = useState("app");
   const [appSettingsLoading, setAppSettingsLoading] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -108,12 +110,10 @@ const AdminSettings = () => {
   const { refreshDeliverySettings } = useCart();
 
   const tabs = [
-    { id: "app", name: "ข้อมูลแอป", icon: "📱" },
-    { id: "delivery", name: "การจัดส่ง", icon: "🚚" },
-    { id: "payment", name: "การชำระเงิน", icon: "💳" },
-    { id: "notification", name: "การแจ้งเตือน", icon: "🔔" },
-    { id: "security", name: "ความปลอดภัย", icon: "🔒" },
-    { id: "business", name: "ธุรกิจ", icon: "💼" },
+    { id: "app", name: translate('admin.settings.tab_app'), icon: "📱" },
+    { id: "delivery", name: translate('admin.settings.tab_delivery'), icon: "🚚" },
+
+    
   ];
 
   useEffect(() => {
@@ -378,15 +378,15 @@ const AdminSettings = () => {
         setSettings(newSettings);
       } else {
         console.warn("No app settings found, using DEFAULT_SETTINGS.");
-        toast.warning("Application settings not found, loading defaults.");
+        toast.warning(translate('admin.settings.not_found_defaults'));
         setSettings(DEFAULT_SETTINGS);
       }
     } catch (error) {
       console.error("Error fetching settings:", error);
       if (error.response?.status === 401 || error.response?.status === 403) {
-        toast.error("You do not have permission to view settings");
+        toast.error(translate('admin.settings.permission_denied_view'));
       } else {
-        toast.error("Unable to load settings");
+        toast.error(translate('admin.settings.load_failed'));
       }
     } finally {
       setAppSettingsLoading(false);
@@ -457,16 +457,16 @@ const AdminSettings = () => {
         appSettings.id,
         dataToSend
       );
-      toast.success("Application settings saved successfully");
+      toast.success(translate('admin.settings.saved_success'));
       
       // โหลดข้อมูลใหม่หลังจากบันทึก
       await fetchSettings();
     } catch (error) {
       console.error("Error saving app settings:", error);
       if (error.response?.status === 401 || error.response?.status === 403) {
-        toast.error("You do not have permission to save settings");
+        toast.error(translate('admin.settings.permission_denied_save'));
         } else {
-        toast.error("Unable to save settings");
+        toast.error(translate('admin.settings.save_failed'));
       }
     } finally {
       setAppSettingsLoading(false);
@@ -507,7 +507,7 @@ const AdminSettings = () => {
           appSettings.id,
           deliveryData
         );
-        toast.success("Delivery settings saved successfully");
+        toast.success(translate('admin.settings.delivery_saved_success'));
         
         // โหลดข้อมูลใหม่หลังจากบันทึก
         await fetchSettings();
@@ -516,11 +516,11 @@ const AdminSettings = () => {
         await refreshDeliverySettings();
       } else {
         // For other tabs, just show success message for now
-        toast.success("Settings saved successfully");
+        toast.success(translate('admin.settings.saved_success'));
       }
     } catch (error) {
       console.error("Error saving settings:", error);
-      toast.error("Unable to save settings");
+      toast.error(translate('admin.settings.save_failed'));
     } finally {
       setLoading(false);
     }
@@ -567,7 +567,7 @@ const AdminSettings = () => {
     if (!appSettings) {
       return (
         <div className="text-center py-8">
-          <div className="text-secondary-500">กำลังโหลดข้อมูล...</div>
+          <div className="text-secondary-500">{translate('common.loading')}</div>
         </div>
       );
     }
@@ -576,23 +576,22 @@ const AdminSettings = () => {
       <div className="space-y-6">
         <div>
           <h3 className="text-lg font-semibold text-secondary-800">
-            ข้อมูลแอปพลิเคชัน
+            {translate('admin.settings.application_info')}
           </h3>
           <p className="text-sm text-secondary-600">
-            แก้ไขข้อมูลพื้นฐานของแอปพลิเคชัน ใช้ปุ่ม "บันทึกการตั้งค่า"
-            ด้านบนเพื่อบันทึกการเปลี่ยนแปลง
+            {translate('admin.settings.application_info_hint')}
           </p>
         </div>
 
         {/* Basic Information */}
         <div className="bg-white p-6 rounded-lg border border-secondary-200">
           <h4 className="text-md font-semibold text-secondary-800 mb-4">
-            ข้อมูลพื้นฐาน
+            {translate('admin.settings.basic_info')}
           </h4>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-secondary-700 mb-2">
-                ชื่อแอปพลิเคชัน
+                {translate('admin.settings.app_name')}
               </label>
               <input
                 type="text"
@@ -605,7 +604,7 @@ const AdminSettings = () => {
             </div>
             <div>
               <label className="block text-sm font-medium text-secondary-700 mb-2">
-                คำอธิบายแอป
+                {translate('admin.settings.app_description')}
               </label>
               <input
                 type="text"
@@ -622,19 +621,19 @@ const AdminSettings = () => {
         {/* Logo and Banner */}
         <div className="bg-white p-6 rounded-lg border border-secondary-200">
           <h4 className="text-md font-semibold text-secondary-800 mb-4">
-            รูปภาพ
+            {translate('admin.settings.images')}
           </h4>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <label className="block text-sm font-medium text-secondary-700 mb-2">
-                โลโก้แอป
+                {translate('admin.settings.app_logo')}
               </label>
               <div className="space-y-3">
                 {appSettings.logo_url && (
                   <div className="flex justify-center">
                     <img
                       src={appSettings.logo_url}
-                      alt="Current Logo"
+                      alt={translate('admin.settings.current_logo')}
                       className="h-20 w-auto object-contain border border-secondary-200 rounded-lg p-2"
                     />
                   </div>
@@ -646,20 +645,20 @@ const AdminSettings = () => {
                   className="w-full p-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 />
                 <p className="text-xs text-secondary-500">
-                  รองรับไฟล์ JPG, PNG, GIF ขนาดไม่เกิน 5MB
+                  {translate('admin.settings.supported_file_hint_5mb')}
                 </p>
               </div>
             </div>
             <div>
               <label className="block text-sm font-medium text-secondary-700 mb-2">
-                แบนเนอร์หน้าแรก
+                {translate('admin.settings.home_banner')}
               </label>
               <div className="space-y-3">
                 {appSettings.banner_url && (
                   <div className="flex justify-center">
                     <img
                       src={appSettings.banner_url}
-                      alt="Current Banner"
+                      alt={translate('admin.settings.current_banner')}
                       className="h-20 w-auto object-cover border border-secondary-200 rounded-lg"
                     />
                   </div>
@@ -671,7 +670,7 @@ const AdminSettings = () => {
                   className="w-full p-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 />
                 <p className="text-xs text-secondary-500">
-                  รองรับไฟล์ JPG, PNG, GIF ขนาดไม่เกิน 10MB
+                  {translate('admin.settings.supported_file_hint_10mb')}
                 </p>
               </div>
             </div>
@@ -681,12 +680,12 @@ const AdminSettings = () => {
         {/* Contact Information */}
         <div className="bg-white p-6 rounded-lg border border-secondary-200">
           <h4 className="text-md font-semibold text-secondary-800 mb-4">
-            ข้อมูลติดต่อ
+            {translate('admin.settings.contact_info')}
           </h4>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-secondary-700 mb-2">
-                อีเมลติดต่อ
+                {translate('admin.settings.contact_email')}
               </label>
               <input
                 type="email"
@@ -699,7 +698,7 @@ const AdminSettings = () => {
             </div>
             <div>
               <label className="block text-sm font-medium text-secondary-700 mb-2">
-                เบอร์โทรศัพท์
+                {translate('admin.settings.contact_phone')}
               </label>
               <input
                 type="tel"
@@ -712,7 +711,7 @@ const AdminSettings = () => {
             </div>
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-secondary-700 mb-2">
-                ที่อยู่
+                {translate('admin.settings.contact_address')}
               </label>
               <textarea
                 value={appSettings.contact_address || ""}
@@ -729,12 +728,12 @@ const AdminSettings = () => {
         {/* Hero Section */}
         <div className="bg-white p-6 rounded-lg border border-secondary-200">
           <h4 className="text-md font-semibold text-secondary-800 mb-4">
-            หน้าแรก (Hero Section)
+            {translate('admin.settings.hero_section')}
           </h4>
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-secondary-700 mb-2">
-                หัวข้อหลัก
+                {translate('admin.settings.hero_title')}
               </label>
               <input
                 type="text"
@@ -747,7 +746,7 @@ const AdminSettings = () => {
             </div>
             <div>
               <label className="block text-sm font-medium text-secondary-700 mb-2">
-                คำบรรยายหัวข้อ
+                {translate('admin.settings.hero_subtitle')}
               </label>
               <textarea
                 value={appSettings.hero_subtitle || ""}
@@ -764,7 +763,7 @@ const AdminSettings = () => {
         {/* Features Section */}
         <div className="bg-white p-6 rounded-lg border border-secondary-200">
           <h4 className="text-md font-semibold text-secondary-800 mb-4">
-            คุณสมบัติแอป
+            {translate('admin.settings.features')}
           </h4>
           <div className="space-y-4">
             {[1, 2, 3].map((num) => (
@@ -773,12 +772,12 @@ const AdminSettings = () => {
                 className="border-b border-secondary-200 pb-4 mb-4 last:border-b-0 last:pb-0 last:mb-0"
               >
                 <h5 className="text-md font-medium text-secondary-700 mb-3">
-                  คุณสมบัติที่ {num}
+                  {translate('admin.settings.feature_n', { number: num })}
                 </h5>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-secondary-700 mb-2">
-                      หัวข้อ
+                      {translate('admin.settings.feature_title')}
                     </label>
                     <input
                       type="text"
@@ -794,7 +793,7 @@ const AdminSettings = () => {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-secondary-700 mb-2">
-                      ไอคอน (Emoji หรือ FontAwesome class)
+                      {translate('admin.settings.feature_icon_hint')}
                     </label>
                     <input
                       type="text"
@@ -805,13 +804,13 @@ const AdminSettings = () => {
                           e.target.value
                         )
                       }
-                      placeholder="เช่น 🚚 หรือ fa-truck"
+                      placeholder={translate('admin.settings.feature_icon_placeholder')}
                       className="w-full p-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                     />
                   </div>
                   <div className="md:col-span-2">
                     <label className="block text-sm font-medium text-secondary-700 mb-2">
-                      คำบรรยาย
+                      {translate('admin.settings.feature_description')}
                     </label>
                     <textarea
                       value={appSettings[`feature_${num}_description`] || ""}
@@ -834,7 +833,7 @@ const AdminSettings = () => {
         {/* Social Media Links */}
         <div className="bg-white p-6 rounded-lg border border-secondary-200">
           <h4 className="text-md font-semibold text-secondary-800 mb-4">
-            Social Media
+            {translate('admin.settings.social_media')}
           </h4>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
@@ -848,7 +847,7 @@ const AdminSettings = () => {
                   handleAppSettingsChange("facebook_url", e.target.value)
                 }
                 className="w-full p-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                placeholder="https://facebook.com/yourpage"
+                placeholder={"https://facebook.com/yourpage"}
               />
             </div>
             <div>
@@ -862,7 +861,7 @@ const AdminSettings = () => {
                   handleAppSettingsChange("instagram_url", e.target.value)
                 }
                 className="w-full p-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                placeholder="https://instagram.com/yourprofile"
+                placeholder={"https://instagram.com/yourprofile"}
               />
             </div>
             <div>
@@ -876,7 +875,7 @@ const AdminSettings = () => {
                   handleAppSettingsChange("twitter_url", e.target.value)
                 }
                 className="w-full p-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                placeholder="https://twitter.com/yourprofile"
+                placeholder={"https://twitter.com/yourprofile"}
               />
             </div>
           </div>
@@ -885,12 +884,12 @@ const AdminSettings = () => {
         {/* SEO Settings */}
         <div className="bg-white p-6 rounded-lg border border-secondary-200">
           <h4 className="text-md font-semibold text-secondary-800 mb-4">
-            SEO (Search Engine Optimization)
+            {translate('admin.settings.seo')}
           </h4>
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-secondary-700 mb-2">
-                Keywords (คั่นด้วย comma)
+                {translate('admin.settings.seo_keywords')}
               </label>
               <textarea
                 value={appSettings.meta_keywords || ""}
@@ -899,12 +898,12 @@ const AdminSettings = () => {
                 }
                 rows={3}
                 className="w-full p-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                placeholder="อาหาร, เดลิเวอรี่, สั่งอาหาร, ร้านอาหาร, กรุงเทพ"
+                placeholder={translate('admin.settings.seo_keywords_placeholder')}
               />
             </div>
             <div>
               <label className="block text-sm font-medium text-secondary-700 mb-2">
-                คำอธิบาย Meta
+                {translate('admin.settings.seo_meta_description')}
               </label>
               <textarea
                 value={appSettings.meta_description || ""}
@@ -913,7 +912,7 @@ const AdminSettings = () => {
                 }
                 rows={3}
                 className="w-full p-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                placeholder="สั่งอาหารออนไลน์ง่าย ๆ ส่งตรงถึงบ้านคุณ"
+                placeholder={translate('admin.settings.seo_meta_description_placeholder')}
               />
             </div>
           </div>
@@ -922,12 +921,12 @@ const AdminSettings = () => {
         {/* System Settings */}
         <div className="bg-white p-6 rounded-lg border border-secondary-200">
           <h4 className="text-md font-semibold text-secondary-800 mb-4">
-            ตั้งค่าระบบ
+            {translate('admin.settings.system_settings')}
           </h4>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-secondary-700 mb-2">
-                Timezone
+                {translate('admin.settings.timezone')}
               </label>
               <input
                 type="text"
@@ -936,7 +935,7 @@ const AdminSettings = () => {
                   handleAppSettingsChange("timezone", e.target.value)
                 }
                 className="w-full p-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                placeholder="เช่น Asia/Bangkok"
+                placeholder={translate('admin.settings.timezone_placeholder')}
               />
             </div>
           </div>
@@ -951,13 +950,13 @@ const AdminSettings = () => {
                 className="mr-3 h-4 w-4 text-primary-600 focus:ring-primary-500 border-secondary-300 rounded"
               />
               <span className="text-sm text-secondary-700">
-                โหมดบำรุงรักษา (Maintenance Mode)
+                {translate('admin.settings.maintenance_mode')}
               </span>
             </label>
             {appSettings.maintenance_mode && (
               <div className="mt-3">
                 <label className="block text-sm font-medium text-secondary-700 mb-2">
-                  ข้อความโหมดบำรุงรักษา
+                  {translate('admin.settings.maintenance_message')}
                 </label>
                 <textarea
                   value={appSettings.maintenance_message || ""}
@@ -978,12 +977,12 @@ const AdminSettings = () => {
         {/* Bank Transfer / QR Payment Settings */}
         <div className="bg-white p-6 rounded-lg border border-secondary-200">
           <h4 className="text-md font-semibold text-secondary-800 mb-4">
-            การโอนเงิน/QR Payment
+            {translate('admin.settings.bank_qr_settings')}
           </h4>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
               <label className="block text-sm font-medium text-secondary-700 mb-2">
-                ชื่อธนาคาร
+                {translate('admin.bank_name')}
               </label>
                   <input
                     type="text"
@@ -996,7 +995,7 @@ const AdminSettings = () => {
                 </div>
                 <div>
               <label className="block text-sm font-medium text-secondary-700 mb-2">
-                เลขบัญชี
+                {translate('admin.bank_account_number')}
               </label>
                   <input
                     type="text"
@@ -1009,7 +1008,7 @@ const AdminSettings = () => {
                 </div>
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-secondary-700 mb-2">
-                ชื่อบัญชี
+                {translate('admin.account_name')}
               </label>
                   <input
                     type="text"
@@ -1022,14 +1021,14 @@ const AdminSettings = () => {
                 </div>
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-secondary-700 mb-2">
-                รูปภาพ QR Code
+                {translate('admin.settings.qr_code_image')}
               </label>
               <div className="space-y-3">
                 {appSettings.qr_code_url && (
                   <div className="flex justify-center">
                     <img
                       src={appSettings.qr_code_url}
-                      alt="Current QR Code"
+                      alt={translate('admin.settings.current_qr_code')}
                       className="h-40 w-auto object-contain border border-secondary-200 rounded-lg p-2"
                     />
                   </div>
@@ -1041,7 +1040,7 @@ const AdminSettings = () => {
                   className="w-full p-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 />
                 <p className="text-xs text-secondary-500">
-                  รองรับไฟล์ JPG, PNG, GIF ขนาดไม่เกิน 5MB
+                  {translate('admin.settings.supported_file_hint_5mb')}
                 </p>
               </div>
             </div>
@@ -1116,12 +1115,12 @@ const AdminSettings = () => {
       {/* ส่วนที่ 2: ค่าจัดส่งแบบหลายร้าน */}
       <div className="bg-white p-6 rounded-lg border border-secondary-200">
         <h4 className="text-md font-semibold text-secondary-800 mb-4">
-          ค่าจัดส่งแบบหลายร้าน
+          {translate('admin.settings.multi_restaurant_fees_title')}
         </h4>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-secondary-700 mb-2">
-              ค่าจัดส่งพื้นฐานสำหรับหลายร้าน
+              {translate('admin.settings.multi_restaurant_base_fee')}
             </label>
             <input
               type="number"
@@ -1135,13 +1134,11 @@ const AdminSettings = () => {
               }
               className="w-full p-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             />
-            <p className="mt-1 text-xs text-secondary-500">
-              ค่าจัดส่งพื้นฐานเมื่อสั่งจาก 1 ร้าน
-            </p>
+            <p className="mt-1 text-xs text-secondary-500">{translate('admin.settings.multi_restaurant_base_fee_hint')}</p>
           </div>
           <div>
             <label className="block text-sm font-medium text-secondary-700 mb-2">
-              ค่าจัดส่งเพิ่มเติมต่อร้าน
+              {translate('admin.settings.multi_restaurant_additional_fee')}
             </label>
             <input
               type="number"
@@ -1155,26 +1152,22 @@ const AdminSettings = () => {
               }
               className="w-full p-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             />
-            <p className="mt-1 text-xs text-secondary-500">
-              ค่าจัดส่งเพิ่มเติมสำหรับแต่ละร้านที่เพิ่มขึ้น
-            </p>
+            <p className="mt-1 text-xs text-secondary-500">{translate('admin.settings.multi_restaurant_additional_fee_hint')}</p>
           </div>
         </div>
 
         {/* ตัวอย่างการคำนวณ */}
         <div className="mt-6 p-4 bg-secondary-50 rounded-lg border border-secondary-200">
-          <h5 className="text-md font-semibold text-secondary-800 mb-2">
-            ตัวอย่างการคำนวณ:
-          </h5>
+          <h5 className="text-md font-semibold text-secondary-800 mb-2">{translate('admin.settings.example_calculation')}</h5>
           <ul className="list-disc list-inside text-sm text-secondary-700 space-y-1">
             <li>
-              สั่งจาก 1 ร้าน:{" "}
+              {translate('admin.settings.order_from_n_restaurants', { count: 1 })}{" "}
               {formatPrice(
                 settings.delivery.multi_restaurant_base_fee || 0
               )}
             </li>
             <li>
-              สั่งจาก 2 ร้าน:{" "}
+              {translate('admin.settings.order_from_n_restaurants', { count: 2 })}{" "}
               {formatPrice(
                 parseFloat(settings.delivery.multi_restaurant_base_fee || 0) +
                 parseFloat(
@@ -1183,7 +1176,7 @@ const AdminSettings = () => {
               )}
             </li>
             <li>
-              สั่งจาก 3 ร้าน:{" "}
+              {translate('admin.settings.order_from_n_restaurants', { count: 3 })}{" "}
               {formatPrice(
                 parseFloat(settings.delivery.multi_restaurant_base_fee || 0) +
                 2 *
@@ -1197,15 +1190,11 @@ const AdminSettings = () => {
       </div>
 
       {/* ส่วนที่ 3: การตั้งค่าการจัดส่งตามช่วงเวลาและตามสถานการณ์พิเศษ */}
-      <div className="bg-white p-6 rounded-lg border border-secondary-200">
-        <h4 className="text-md font-semibold text-secondary-800 mb-4">
-          การตั้งค่าขั้นสูง
-        </h4>
+      {/* <div className="bg-white p-6 rounded-lg border border-secondary-200">
+        <h4 className="text-md font-semibold text-secondary-800 mb-4">{translate('admin.settings.advanced_settings')}</h4>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-secondary-700 mb-2">
-              เปิดใช้งานการจัดส่งตามเวลาที่กำหนด
-            </label>
+            <label className="block text-sm font-medium text-secondary-700 mb-2">{translate('admin.settings.enable_scheduled_delivery')}</label>
             <input
               type="checkbox"
               checked={settings.delivery.enable_scheduled_delivery ?? false}
@@ -1214,14 +1203,10 @@ const AdminSettings = () => {
               }
               className="form-checkbox h-5 w-5 text-primary-600"
             />
-            <p className="mt-1 text-xs text-secondary-500">
-              อนุญาตให้ลูกค้ากำหนดเวลาจัดส่งล่วงหน้าได้
-            </p>
+            <p className="mt-1 text-xs text-secondary-500">{translate('admin.settings.enable_scheduled_delivery_hint')}</p>
         </div>
           <div>
-            <label className="block text-sm font-medium text-secondary-700 mb-2">
-              ตัวคูณสำหรับช่วงเวลาเร่งด่วน
-            </label>
+            <label className="block text-sm font-medium text-secondary-700 mb-2">{translate('admin.settings.rush_hour_multiplier')}</label>
             <input
               type="number"
               step="0.1"
@@ -1235,15 +1220,10 @@ const AdminSettings = () => {
               }
               className="w-full p-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             />
-            <p className="mt-1 text-xs text-secondary-500">
-              ค่าจัดส่งจะถูกคูณด้วยค่านี้ในช่วงเวลาเร่งด่วน (เช่น 1.2
-              สำหรับเพิ่ม 20%)
-            </p>
+            <p className="mt-1 text-xs text-secondary-500">{translate('admin.settings.rush_hour_multiplier_hint')}</p>
           </div>
           <div>
-            <label className="block text-sm font-medium text-secondary-700 mb-2">
-              ตัวคูณสำหรับวันหยุดสุดสัปดาห์
-            </label>
+            <label className="block text-sm font-medium text-secondary-700 mb-2">{translate('admin.settings.weekend_multiplier')}</label>
             <input
               type="number"
               step="0.1"
@@ -1257,13 +1237,10 @@ const AdminSettings = () => {
               }
               className="w-full p-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             />
-            <p className="mt-1 text-xs text-secondary-500">
-              ค่าจัดส่งจะถูกคูณด้วยค่านี้ในวันหยุดสุดสัปดาห์ (เช่น 1.5
-              สำหรับเพิ่ม 50%)
-            </p>
+            <p className="mt-1 text-xs text-secondary-500">{translate('admin.settings.weekend_multiplier_hint')}</p>
           </div>
         </div>
-      </div>
+      </div> */}
     </div>
   );
 
@@ -1697,7 +1674,7 @@ const AdminSettings = () => {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-secondary-800">ตั้งค่าระบบ</h1>
+        <h1 className="text-3xl font-bold text-secondary-800">{translate('admin.settings.page_title')}</h1>
         <button
           onClick={saveSettings}
           disabled={loading || appSettingsLoading}
@@ -1706,10 +1683,10 @@ const AdminSettings = () => {
           {loading || appSettingsLoading ? (
             <>
               <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-              กำลังบันทึก...
+              {translate('admin.saving')}
             </>
           ) : (
-            <>💾 บันทึกการตั้งค่า</>
+            <>💾 {translate('admin.settings.save_settings')}</>
           )}
         </button>
       </div>

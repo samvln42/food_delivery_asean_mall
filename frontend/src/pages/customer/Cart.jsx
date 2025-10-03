@@ -410,8 +410,8 @@ const Cart = () => {
                           key={item.id}
                           className="border-b pb-4 last:border-b-0"
                         >
-                          <div className="flex items-center space-x-4">
-                            <div className="w-16 h-16 bg-secondary-100 rounded-lg flex items-center justify-center">
+                          <div className="flex items-center space-x-3 sm:space-x-4">
+                            <div className="w-12 h-12 sm:w-16 sm:h-16 bg-secondary-100 rounded-lg flex items-center justify-center flex-shrink-0">
                               {item.image_display_url || item.image_url ? (
                                 <img
                                   src={item.image_display_url || item.image_url}
@@ -422,52 +422,53 @@ const Cart = () => {
                                   }}
                                 />
                               ) : (
-                                <span className="text-2xl">🍽️</span>
+                                <span className="text-lg sm:text-2xl">🍽️</span>
                               )}
                             </div>
 
-                            <div className="flex-1">
-                              <h3 className="font-semibold text-secondary-800">
+                            <div className="flex-1 min-w-0">
+                              <h3 className="font-semibold text-secondary-800 text-sm sm:text-base truncate">
                                 {item.product_name}
                               </h3>
                               {item.special_instructions && (
-                                <p className="text-sm text-secondary-500 italic">
+                                <p className="text-xs sm:text-sm text-secondary-500 italic truncate">
                                   {translate("cart.note")}:{" "}
                                   {item.special_instructions}
                                 </p>
                               )}
-                              <p className="text-primary-600 font-semibold">
+                              <p className="text-primary-600 font-semibold text-sm sm:text-base">
                                 {formatCurrency(item.price)}
                               </p>
                             </div>
 
-                            <div className="flex items-center space-x-3">
+                            <div className="flex items-center space-x-2 sm:space-x-3">
                               <button
                                 onClick={() =>
                                   updateQuantity(item.id, item.quantity - 1)
                                 }
-                                className="w-8 h-8 rounded-full bg-secondary-100 flex items-center justify-center hover:bg-secondary-200 transition-colors"
+                                className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-secondary-100 flex items-center justify-center hover:bg-secondary-200 transition-colors"
                               >
-                                <span className="text-secondary-600">−</span>
+                                <span className="text-secondary-600 text-sm sm:text-base">−</span>
                               </button>
-                              <span className="text-secondary-800 font-semibold min-w-[2rem] text-center">
+                              <span className="text-secondary-800 font-semibold min-w-[1.5rem] sm:min-w-[2rem] text-center text-sm sm:text-base">
                                 {item.quantity}
                               </span>
                               <button
                                 onClick={() =>
                                   updateQuantity(item.id, item.quantity + 1)
                                 }
-                                className="w-8 h-8 rounded-full bg-secondary-100 flex items-center justify-center hover:bg-secondary-200 transition-colors"
+                                className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-secondary-100 flex items-center justify-center hover:bg-secondary-200 transition-colors"
                               >
-                                <span className="text-secondary-600">+</span>
+                                <span className="text-secondary-600 text-sm sm:text-base">+</span>
                               </button>
                             </div>
 
                             <button
                               onClick={() => removeItem(item.id)}
-                              className="text-red-500 hover:text-red-700 p-2"
+                              className="text-red-500 hover:text-red-700 p-1 sm:p-2 flex-shrink-0"
+                              title="ลบสินค้า"
                             >
-                              🗑️
+                              <span className="text-sm sm:text-base">🗑️</span>
                             </button>
                           </div>
                         </div>
@@ -639,7 +640,7 @@ const Cart = () => {
                       {proofOfPayment ? (
                         <div className="text-green-600">
                           <span className="text-2xl block mb-2">✅</span>
-                          <p className="text-sm font-medium">
+                          <p className="text-sm font-medium break-all overflow-hidden">
                             {proofOfPayment.name}
                           </p>
                           <p className="text-xs text-secondary-500">

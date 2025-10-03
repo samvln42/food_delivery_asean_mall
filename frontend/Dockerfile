@@ -9,12 +9,14 @@ RUN npm ci
 # คัดลอกซอร์สโค้ดที่เหลือ
 COPY . .
 
-# รับค่า API URL ตอน build (Vite จะอ่านเฉพาะตัวแปรที่ขึ้นต้นด้วย VITE_)
+# รับค่า API URL ตอน build (ไม่บังคับ). ถ้าไม่ส่ง จะใช้ค่าใน .env/.env.production
 ARG VITE_API_URL
-ENV VITE_API_URL=${VITE_API_URL}
 
-# สร้างไฟล์ production build
-RUN npm run build
+# สร้างไฟล์ production build (ส่งผ่าน env ให้ Vite เฉพาะกรณีมีค่า ARG)
+RUN if [ -n "$VITE_API_URL" ]; then \
+      echo "Using build arg VITE_API_URL=$VITE_API_URL"; \
+      export VITE_API_URL="$VITE_API_URL"; \
+    fi && npm run build
 
 # ----- Production image: Nginx เสิร์ฟไฟล์ dist พร้อม gzip/cache -----
 FROM nginx:1.25-alpine AS runner

@@ -94,6 +94,13 @@ common.try_again,다시 시도,common
 common.refresh,새로고침,common 
 common.reviews,리뷰,common
 common.load_more,더 보기,common
+common.people,명,common
+common.close,닫다,common
+common.no_data,데이터 없음,common
+common.items,품목,common
+common.amount,금액,common
+common.free,무료,common
+common.new,새로운,common
 ,,
 # Search,,
 search.search_for_restaurant_or_menu,레스토랑 또는 메뉴 검색,search
@@ -195,7 +202,7 @@ product.price,가격,product
 product.category,카테고리,product
 product.image,이미지,product
 product.quantity,수량,product
-product.availability,재고 상태,product
+product.availability,사용 가능,product
 product.create,제품 생성,product
 product.edit,제품 수정,product
 product.delete,제품 삭제,product
@@ -339,6 +346,32 @@ dashboard.customers,고객,dashboard
 dashboard.popular_items,인기 항목,dashboard
 dashboard.recent_orders,최근 주문,dashboard
 dashboard.statistics,통계,dashboard 
+dashboard.revenue_today,오늘 매출,dashboard
+dashboard.orders_today,오늘 주문,dashboard
+dashboard.avg_order_value,평균 주문 금액,dashboard
+dashboard.active_users,활성 사용자,dashboard
+dashboard.new_users,신규 사용자,dashboard
+dashboard.pending_verifications,대기 중 인증,dashboard
+dashboard.refunds,환불,dashboard
+dashboard.conversion_rate,전환율,dashboard
+dashboard.traffic,트래픽,dashboard
+dashboard.system_health,시스템 상태,dashboard
+dashboard.top_restaurants,인기 레스토랑 상위,dashboard
+dashboard.top_categories,인기 카테고리,dashboard
+dashboard.no_data,데이터 없음,dashboard
+dashboard.loading_metrics,지표 불러오는 중...,dashboard
+dashboard.title_admin,관리자 대시보드,dashboard
+dashboard.subtitle_admin,관리자 시스템 - 개요,dashboard
+dashboard.today_statistics,오늘 통계,dashboard
+dashboard.realtime_info,실시간 일일 업데이트,dashboard
+dashboard.total_users,총 사용자,dashboard
+dashboard.total_orders,총 주문,dashboard
+dashboard.active_orders,진행 중 주문,dashboard
+dashboard.total_revenue,총 매출,dashboard
+dashboard.popular_items_subtitle,가장 인기 있는 메뉴,dashboard
+dashboard.ordered_times,{count}회 주문됨,dashboard
+dashboard.quick_actions,빠른 작업,dashboard
+dashboard.quick_actions_subtitle,주요 관리자 기능에 빠르게 접근,dashboard
 ,,
 # Admin,,
 admin.users,사용자 관리,admin
@@ -347,7 +380,223 @@ admin.categories,카테고리 관리,admin
 admin.orders,주문 관리,admin
 admin.settings,시스템 설정,admin
 admin.notifications,시스템 알림,admin
+admin.search_placeholder,"사용자, 레스토랑 검색...",admin
+admin.orders_search_placeholder,주문/고객/레스토랑 검색...,admin
+admin.add_user,새 사용자 추가,admin
+admin.users_total,총 {count}명 사용자,admin
+admin.search_users,사용자 검색,admin
+admin.users_search_placeholder,사용자명, 이메일, 전화번호 검색...,admin
+admin.clear_search,검색 지우기,admin
+admin.role.customer,고객,admin
+admin.role.general_restaurant,일반 레스토랑,admin
+admin.role.special_restaurant,특별 레스토랑,admin
+admin.role.admin,관리자,admin
+admin.table.user,사용자,admin
+admin.table.contact,연락처 정보,admin
+admin.no_restaurant,매장 없음,admin
+admin.users_empty_title,사용자를 찾을 수 없습니다,admin
+admin.users_empty_search_message,검색어나 필터를 조정해보세요,admin
+admin.users_empty_message,아직 시스템에 사용자가 없습니다,admin
+admin.add_first_user,첫 사용자를 추가,admin
+admin.user_deleted_success,사용자 "{username}" 삭제 완료,admin
+admin.user_role_updated,사용자 역할이 {role}(으)로 업데이트되었습니다,admin
+admin.update_role_failed,사용자 역할을 업데이트할 수 없습니다,admin
+admin.delete_user_failed,사용자를 삭제할 수 없습니다,admin
+admin.user_modal.view_title,사용자 정보,admin
+admin.user_modal.create_title,새 사용자 추가,admin
+admin.user_modal.edit_title,사용자 수정,admin
+admin.user_modal.password_optional,변경하지 않으면 비워두세요,admin
+admin.user_modal.enter_password,비밀번호 입력,admin
+admin.user_modal.leave_blank_password,비밀번호를 변경하지 않으면 비워두세요,admin
+admin.enable_account,계정 활성화,admin
+admin.user_extra_info,추가 정보,admin
+admin.last_login,마지막 로그인,admin
+admin.never_logged_in,로그인 이력 없음,admin
+admin.confirm_delete_user,사용자 "{username}"을(를) 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없습니다.,admin
+admin.date_range,기간,admin
+admin.today,오늘,admin
+admin.yesterday,어제,admin
+admin.last_7_days,지난 7일,admin
+admin.last_30_days,지난 30일,admin
+admin.export_csv,CSV 내보내기,admin
+admin.export_excel,Excel 내보내기,admin
+admin.refresh,새로고침,admin
+admin.all_statuses,모든 상태,admin
+admin.table.id,ID,admin
+admin.table.name,이름,admin
+admin.table.email,이메일,admin
+admin.table.role,역할,admin
+admin.table.status,상태,admin
+admin.table.created_at,생성일,admin
+admin.table.actions,동작,admin
+admin.action.view,보기,admin
+admin.action.edit,수정,admin
+admin.action.delete,삭제,admin
+admin.action.enable,활성화,admin
+admin.action.disable,비활성화,admin
+admin.status.active,활성,admin
+admin.status.inactive,비활성,admin
+admin.status.disabled,사용 중지,admin
+admin.confirm_delete_title,이 항목을 삭제할까요?,admin
+admin.confirm_delete_desc,이 작업은 되돌릴 수 없습니다.,admin
+admin.confirm_delete_product,상품 "{name}"을(를) 삭제하시겠습니까?,admin
+admin.error.load_failed,관리자 데이터를 불러오지 못했습니다,admin
+admin.success.saved,성공적으로 저장되었습니다,admin
+admin.users_desc,계정 및 권한 관리,admin
+admin.restaurants_desc,레스토랑 승인 및 관리,admin
+admin.orders_desc,주문 검토 및 관리,admin
+admin.categories_desc,음식 카테고리 구성,admin
+admin.users_paragraph,사용자 계정, 레스토랑 및 접근 권한을 관리하세요,admin
+admin.restaurants_paragraph,새 레스토랑 승인 및 상태 관리,admin
+admin.orders_paragraph,모든 주문을 실시간으로 검토 및 관리,admin
+admin.categories_paragraph,음식 카테고리를 추가, 편집 및 관리,admin
+admin.create_restaurant,레스토랑 생성,admin
+admin.create_user,사용자 생성,admin
+admin.restaurants_total,총 {count}개 레스토랑,admin
+admin.search_restaurants,레스토랑 검색,admin
+admin.restaurants_search_placeholder,가게명, 설명, 주소 검색...,admin
+admin.type,유형,admin
+admin.table.restaurant,레스토랑,admin
+admin.table.owner,소유자,admin
+admin.table.type,유형,admin
+admin.table.score,점수,admin
+admin.action.upload_image,이미지 업로드,admin
+admin.action.manage_products,상품 관리,admin
+admin.action.make_special,스페셜로 지정,admin
+admin.action.unset_special,스페셜 해제,admin
+admin.restaurant_status_updated,레스토랑 상태가 {status}(으)로 업데이트되었습니다,admin
+admin.update_status_failed,상태를 업데이트할 수 없습니다,admin
+admin.special_status_updated,스페셜 상태가 업데이트되었습니다,admin
+admin.update_special_failed,스페셜 상태를 업데이트할 수 없습니다,admin
+admin.special_status_set_success,스페셜 상태가 추가되었습니다,admin
+admin.special_status_unset_success,스페셜 상태가 제거되었습니다,admin
+admin.restaurant_deleted_success,레스토랑 "{name}" 삭제 완료,admin
+admin.delete_restaurant_failed,레스토랑을 삭제할 수 없습니다,admin
+admin.confirm_delete_restaurant,레스토랑 "{name}"을(를) 삭제하시겠습니까?\n\n관련 데이터가 모두 삭제되며 되돌릴 수 없습니다.,admin
+admin.restaurants_empty_title,레스토랑을 찾을 수 없습니다,admin
+admin.restaurants_empty_search_message,검색어나 필터를 조정해보세요,admin
+admin.restaurants_empty_message,아직 시스템에 레스토랑이 없습니다,admin
+admin.add_first_restaurant,첫 레스토랑 생성,admin
+admin.bank_info,은행 정보,admin
+admin.average_rating,평균 평점,admin
+admin.total_reviews_label,리뷰 수,admin
+admin.updated_at,마지막 업데이트,admin
+admin.uploading,업로드 중...,admin
+admin.creating,생성 중...,admin
+admin.saving,저장 중...,admin
+admin.summary,요약,admin
+admin.customer_info,고객 정보,admin
+admin.payment_info,결제 정보,admin
+admin.no_payment_info,결제 정보가 없습니다,admin
+admin.please_select_new_status,새 상태를 선택해주세요,admin
+admin.update_status_title,상태 업데이트,admin
+admin.select_new_status,새 상태 선택,admin
+admin.showing_of_total,{total}개 중 {showing}개 표시,admin
+admin.payment_pending,대기 중,admin
+admin.payment_pending_short,결제 대기,admin
+admin.payment_failed,실패,admin
+admin.customer,고객,admin
+admin.change_status,상태 변경,admin
+admin.orders_empty_search_message,검색어나 필터를 조정해보세요,admin
+admin.orders_empty_message,고객이 주문하면 여기에 표시됩니다,admin
+admin.sort.latest,최신,admin
+admin.sort.oldest,오래된 순,admin
+admin.sort.price_high,높은 가격,admin
+admin.sort.price_low,낮은 가격,admin
+admin.sort.by_status,상태별,admin
+admin.restaurant_modal.view_title,레스토랑 정보,admin
+admin.restaurant_modal.upload_title,레스토랑 이미지 업로드,admin
+admin.restaurant_modal.create_title,새 레스토랑 생성,admin
+admin.restaurant_modal.edit_title,레스토랑 수정,admin
+admin.restaurant_modal.image_section,매장 이미지,admin
+admin.restaurant_modal.image_url,이미지 URL,admin
+admin.restaurant_modal.optional,(선택 사항),admin
+admin.restaurant_modal.from_internet_hint,인터넷의 이미지 URL을 입력할 수 있습니다,admin
+admin.restaurant_modal.or,또는,admin
+admin.restaurant_modal.select_image_from_device,기기에서 이미지 선택,admin
+admin.restaurant_modal.supported_file_hint,JPG, PNG, GIF 지원 • 최대 10MB,admin
+admin.restaurant_modal.upload_with_create_hint,생성 시 함께 업로드됩니다,admin
+admin.restaurant_modal.remove_image,이미지 삭제,admin
+admin.restaurant_modal.cancel_image_selection,이미지 선택 취소,admin
+admin.restaurant_modal.restaurant_name,레스토랑 이름,admin
+admin.restaurant_modal.owner,소유자,admin
+admin.restaurant_modal.description,설명,admin
+admin.restaurant_modal.address,주소,admin
+admin.restaurant_modal.phone_number,전화번호,admin
+admin.restaurant_modal.opening_hours,영업 시간,admin
+admin.restaurant_modal.status,상태,admin
+admin.restaurant_modal.select_owner,소유자 선택,admin
+admin.restaurant_modal.no_owner,소유자 없음,admin
+admin.bank_name,은행명,admin
+admin.bank_account_number,계좌 번호,admin
+admin.account_name,예금주명,admin
+admin.statistics,통계,admin
+admin.restaurant_modal.no_available_owners,레스토랑 소유자가 될 수 있는 사용자가 없습니다,admin
+admin.restaurant_modal.go_to_users_page,→ 새 사용자를 생성하거나 기존 사용자의 역할을 변경하세요,admin
+admin.restaurant_modal.owner_hint,선택 가능한 사용자: {count}명 (일반/특별 레스토랑이며 아직 매장 없음),admin
+admin.product_modal.general_restaurant_hint,이 매장은 일반 레스토랑으로 특별 전용 카테고리를 선택할 수 없습니다,admin
+admin.product_modal.special_restaurant_hint,특별 레스토랑 전용,admin
+admin.guest_orders,게스트 주문 관리,admin
+admin.guest_order_number,게스트 주문 #{id},admin
+admin.guest_label,게스트 사용자,admin
+admin.temporary_id,임시 ID,admin
+admin.guest_orders_search_placeholder,게스트 주문/임시 ID/고객 검색...,admin
+admin.guest_orders_empty_title,게스트 주문 없음,admin
+admin.guest_orders_empty_search_title,조건에 맞는 게스트 주문이 없습니다,admin
+admin.guest_orders_empty_search_message,검색어나 필터를 조정해보세요,admin
+admin.guest_orders_empty_message,로그인 없이 주문하면 이곳에 표시됩니다,admin
+admin.phone_order_number,전화 주문 #{id},admin
+admin.phone_orders_search_placeholder,이름/전화/주문 코드로 검색...,admin
+admin.phone_orders_empty_title,전화 주문이 없습니다,admin
+admin.phone_orders_empty_search_message,조건에 맞는 주문이 없습니다,admin
+admin.phone_orders_empty_message,아직 전화 주문이 없습니다,admin
+admin.phone_orders_create_new,전화 주문 생성,admin
+admin.payment_status,결제 상태,admin
+admin.order_status,주문 상태,admin
+admin.current_status,현재 상태,admin
+admin.note_optional,메모 (선택),admin
+admin.phone_orders_title,전화 주문 관리,admin
+admin.phone_orders_subtitle,전화로 접수된 주문을 관리하고 추적합니다,admin
+admin.multiple_restaurants,여러 매장,admin
 ,,
+# Admin Categories,,
+admin.categories_load_failed,카테고리 정보를 불러올 수 없습니다,admin
+admin.category_created_success,카테고리가 생성되었습니다,admin
+admin.create_category_failed,카테고리를 생성할 수 없습니다,admin
+admin.category_updated_success,카테고리가 업데이트되었습니다,admin
+admin.update_category_failed,카테고리를 업데이트할 수 없습니다,admin
+admin.category_deleted_success,카테고리가 삭제되었습니다,admin
+admin.delete_category_failed,카테고리를 삭제할 수 없습니다 (연결된 상품이 있을 수 있음),admin
+admin.categories_total,총 {count}개 카테고리,admin
+admin.add_category,새 카테고리 추가,admin
+admin.search_categories,카테고리 검색,admin
+admin.categories_search_placeholder,카테고리 이름 검색...,admin
+admin.table.image,이미지,admin
+admin.table.category_name,카테고리 이름,admin
+admin.table.special_only,특별 전용,admin
+admin.table.product_count,상품 수,admin
+admin.category.special_only,특별 전용,admin
+admin.category.general,일반,admin
+admin.categories_empty_title,카테고리를 찾을 수 없습니다,admin
+admin.categories_empty_search_message,검색어를 조정해보세요,admin
+admin.categories_empty_message,아직 카테고리가 없습니다,admin
+admin.add_first_category,첫 카테고리 추가,admin
+admin.category_modal.create_title,새 카테고리 생성,admin
+admin.category_modal.edit_title,카테고리 수정,admin
+admin.category_modal.view_title,카테고리 정보,admin
+admin.category_modal.category_name,카테고리 이름,admin
+admin.category_modal.enter_category_name,카테고리 이름을 입력하세요,admin
+admin.category_modal.description,설명,admin
+admin.category_modal.description_placeholder,카테고리 설명 입력 (선택),admin
+admin.category_modal.image,카테고리 이미지,admin
+admin.category_modal.supported_file_hint,JPG, PNG, GIF 지원 • 최대 5MB,admin
+admin.category_modal.type,카테고리 유형,admin
+admin.category_modal.special_only_hint,특별 전용 카테고리는 특별 레스토랑에서만 표시됩니다,admin
+admin.category_modal.status,카테고리 상태,admin
+admin.confirm_delete_category_title,이 카테고리를 삭제할까요?,admin
+admin.confirm_delete_category,카테고리 "{name}"을(를) 삭제하시겠습니까?,admin
+admin.category_has_products_warning,이 카테고리에는 상품 {count}개가 있습니다. 삭제 시 영향을 줄 수 있습니다.,admin
+admin.delete_category,카테고리 삭제,admin
 # Payment Methods,,
 payment.cash,현금,payment
 payment.credit_card,신용카드,payment
@@ -363,6 +612,32 @@ favorites.remove,즐겨찾기에서 제거,favorites
 favorites.empty_message,좋아하는 레스토랑이나 메뉴를 즐겨찾기 목록에 추가하세요,favorites
 favorites.search_restaurant,레스토랑 검색,favorites
 ,,
+# Admin (Create Phone Order),,
+admin.create_phone_order_title,전화 주문 생성,admin
+admin.create_phone_order_subtitle,전화로 주문하는 고객용 - 간단, 빠름, 완벽,admin
+admin.back_to_orders,주문 목록으로 돌아가기,admin
+admin.enter_phone_customer_info,전화 주문 고객 정보를 입력하세요,admin
+admin.customer_name,고객 이름,admin
+admin.enter_customer_name,고객 이름 입력,admin
+admin.enter_phone_number,전화번호 입력,admin
+admin.please_enter_customer_name,고객 이름을 입력하세요,admin
+admin.please_enter_phone_number,전화번호를 입력하세요,admin
+admin.please_add_items_to_cart,장바구니에 상품을 추가하세요,admin
+admin.all_menu_items,전체 메뉴,admin
+admin.select_menu_items_subtitle,고객이 원하는 메뉴 선택 ({count}개),admin
+admin.search_menu_or_restaurant_placeholder,메뉴 또는 매장 이름 검색...,admin
+admin.loading_menus,모든 매장에서 메뉴를 불러오는 중...,admin
+admin.add_more,더 추가,admin
+admin.no_menu_in_system,시스템에 메뉴가 없습니다,admin
+admin.please_add_menu_before_create_order,주문 생성 전에 메뉴를 추가하세요,admin
+admin.select_menu_items_for_customer,고객이 원하는 메뉴를 선택하세요,admin
+admin.review_before_order,주문 전 확인,admin
+admin.order_created_success,주문이 생성되었습니다!,admin
+admin.error_creating_order,주문 생성 중 오류,admin
+admin.create_order_now,지금 주문 생성,admin
+,,
+# Cart (extras),,
+cart.in_cart,장바구니에 있음,cart
 # Address,,
 address.title,내 주소,address
 address.empty,주소가 없습니다,address
@@ -378,6 +653,112 @@ settings.notifications,알림 설정,settings
 settings.language,언어 설정,settings
 settings.appearance,화면 설정,settings 
 ,,
+# Admin Settings,,
+admin.settings.tab_app,앱 정보,admin
+admin.settings.tab_delivery,배송,admin
+admin.settings.tab_payment,결제,admin
+admin.settings.tab_notification,알림,admin
+admin.settings.tab_security,보안,admin
+admin.settings.tab_business,비즈니스,admin
+admin.settings.not_found_defaults,앱 설정을 찾을 수 없어 기본값을 불러옵니다.,admin
+admin.settings.permission_denied_view,설정을 볼 권한이 없습니다,admin
+admin.settings.load_failed,설정을 불러올 수 없습니다,admin
+admin.settings.saved_success,설정이 저장되었습니다,admin
+admin.settings.permission_denied_save,설정을 저장할 권한이 없습니다,admin
+admin.settings.save_failed,설정을 저장할 수 없습니다,admin
+admin.settings.delivery_saved_success,배송 설정이 저장되었습니다,admin
+admin.settings.page_title,시스템 설정,admin
+admin.settings.save_settings,설정 저장,admin
+admin.settings.application_info,애플리케이션 정보,admin
+admin.settings.application_info_hint,기본 앱 정보를 수정하세요. “설정 저장”을 눌러 확정합니다.,admin
+admin.settings.basic_info,기본 정보,admin
+admin.settings.app_name,앱 이름,admin
+admin.settings.app_description,앱 설명,admin
+admin.settings.images,이미지,admin
+admin.settings.app_logo,앱 로고,admin
+admin.settings.current_logo,현재 로고,admin
+admin.settings.supported_file_hint_5mb,JPG, PNG, GIF 지원 • 최대 5MB,admin
+admin.settings.home_banner,홈 배너,admin
+admin.settings.current_banner,현재 배너,admin
+admin.settings.supported_file_hint_10mb,JPG, PNG, GIF 지원 • 최대 10MB,admin
+admin.settings.contact_info,연락처 정보,admin
+admin.settings.contact_email,연락처 이메일,admin
+admin.settings.contact_phone,전화번호,admin
+admin.settings.contact_address,주소,admin
+admin.settings.hero_section,홈 (히어로 섹션),admin
+admin.settings.hero_title,메인 제목,admin
+admin.settings.hero_subtitle,부제목,admin
+admin.settings.features,앱 기능,admin
+admin.settings.feature_n,기능 {number},admin
+admin.settings.feature_title,제목,admin
+admin.settings.feature_icon_hint,아이콘 (이모지 또는 FontAwesome 클래스),admin
+admin.settings.feature_icon_placeholder,예: 🚚 또는 fa-truck,admin
+admin.settings.feature_description,설명,admin
+admin.settings.social_media,소셜 미디어,admin
+admin.settings.seo,SEO (검색 엔진 최적화),admin
+admin.settings.seo_keywords,키워드 (콤마로 구분),admin
+admin.settings.seo_keywords_placeholder,음식, 배달, 주문, 레스토랑, 방콕,admin
+admin.settings.seo_meta_description,메타 설명,admin
+admin.settings.seo_meta_description_placeholder,집까지 편하게 배달되는 온라인 음식 주문,admin
+admin.settings.system_settings,시스템 설정,admin
+admin.settings.timezone,시간대,admin
+admin.settings.timezone_placeholder,예: Asia/Bangkok,admin
+admin.settings.maintenance_mode,점검 모드 (Maintenance Mode),admin
+admin.settings.maintenance_message,점검 모드 메시지,admin
+admin.settings.bank_qr_settings,은행 이체 / QR 결제,admin
+admin.settings.qr_code_image,QR 코드 이미지,admin
+admin.settings.current_qr_code,현재 QR 코드,admin
+admin.settings.multi_restaurant_fees_title,여러 매장 배송비,admin
+admin.settings.multi_restaurant_base_fee,기본 배송비 (1개 매장),admin
+admin.settings.multi_restaurant_base_fee_hint,1개 매장에서 주문 시 기본 배송비,admin
+admin.settings.multi_restaurant_additional_fee,추가 매장당 추가 요금,admin
+admin.settings.multi_restaurant_additional_fee_hint,추가 매장마다 부과되는 추가 배송비,admin
+admin.settings.example_calculation,계산 예시:,admin
+admin.settings.order_from_n_restaurants,{count}개 매장에서 주문:,admin
+admin.settings.advanced_settings,고급 설정,admin
+admin.settings.enable_scheduled_delivery,예약 배송 활성화,admin
+admin.settings.enable_scheduled_delivery_hint,고객이 배송 일정을 미리 지정할 수 있도록 허용,admin
+admin.settings.rush_hour_multiplier,러시아워 배수,admin
+admin.settings.rush_hour_multiplier_hint,러시아워에 배송비를 이 배수로 곱합니다 (예: 1.2 = 20% 증가),admin
+admin.settings.weekend_multiplier,주말 배수,admin
+admin.settings.weekend_multiplier_hint,주말에 배송비를 이 배수로 곱합니다 (예: 1.5 = 50% 증가),admin
+admin.settings.payment_methods,결제 방법,admin
+admin.settings.fees_and_taxes,수수료 및 세금,admin
+admin.settings.minimum_order_amount,최소 주문 금액,admin
+admin.settings.service_fee_percentage,서비스 수수료 (%),admin
+admin.settings.vat_percentage,부가가치세 (%),admin
+admin.settings.notification_channels,알림 채널,admin
+admin.settings.email_notifications,이메일 알림,admin
+admin.settings.email_order_confirmation,주문 확인,admin
+admin.settings.email_status_updates,주문 상태 업데이트,admin
+admin.settings.sms,SMS,admin
+admin.settings.push_notification,푸시 알림,admin
+admin.settings.authentication,인증,admin
+admin.settings.enable_2fa,2단계 인증(2FA) 활성화,admin
+admin.settings.password_policy,비밀번호 정책,admin
+admin.settings.password_min_length,최소 길이,admin
+admin.settings.session_timeout_minutes,세션 시간 제한 (분),admin
+admin.settings.password_require_uppercase,대문자 포함 필수,admin
+admin.settings.password_require_lowercase,소문자 포함 필수,admin
+admin.settings.password_require_numbers,숫자 포함 필수,admin
+admin.settings.password_require_symbols,특수 문자 포함 필수,admin
+admin.settings.commission,수수료,admin
+admin.settings.restaurant_commission_rate,일반 레스토랑 (%),admin
+admin.settings.special_restaurant_commission_rate,특별 레스토랑 (%),admin
+admin.settings.restaurant_management,레스토랑 관리,admin
+admin.settings.auto_approve_restaurants,레스토랑 자동 승인,admin
+admin.settings.require_restaurant_verification,레스토랑 인증 필요,admin
+admin.settings.enable_reviews,리뷰 활성화,admin
+admin.settings.max_products_per_restaurant,매장당 최대 상품 수,admin
+admin.settings.payout,정산,admin
+admin.settings.minimum_payout_amount,최소 정산 금액,admin
+admin.settings.payout_schedule,정산 주기,admin
+admin.settings.payout_daily,매일,admin
+admin.settings.payout_weekly,매주,admin
+admin.settings.payout_monthly,매월,admin
+admin.settings.reviews,리뷰,admin
+admin.settings.min_review_rating,최소 리뷰 점수,admin
+admin.settings.max_review_rating,최대 리뷰 점수,admin
 # About,,
 about.title,회사 소개,about
 about.mission,우리의 사명,about
@@ -434,7 +815,7 @@ help.track_order_text,"주문 내역" 페이지 또는 이메일과 SMS를 통�
 help.cancel_order,주문 취소 방법,help
 help.cancel_order_text,주문 후 5분 이내에 주문을 취소할 수 있습니다. 시간이 지나면 고객 서비스에 문의해주세요,help
 help.delivery_fee,배달비,help
-help.delivery_fee_text,배달비는 15바트이며 거리에 따라 달라질 수 있습니다. 200바트 이상 주문 시 배달비가 무료입니다,help
+help.delivery_fee_text,배달비는 {fee}이며 거리에 따라 달라질 수 있습니다. {free_delivery_minimum} 이상 주문 시 배달비가 무료입니다,help
 help.contact_us,문의하기,help
 help.contact_us_text,원하는 답변을 찾을 수 없으시면 다음으로 연락해주세요:\n전화: {phone} | 이메일: {email},help
 ,,
@@ -476,4 +857,7 @@ privacy.rights_text,귀하는 다음과 같은 권리가 있습니다:\n• 개�
 privacy.contact,개인정보 관련 문의,privacy
 privacy.contact_text,이 개인정보 처리방침에 대해 질문이 있으시면 다음으로 연락해주세요: {email},privacy
 privacy.updates,정책 업데이트,privacy
-privacy.updates_text,저희는 수시로 이 정책을 업데이트할 수 있습니다. 중요한 변경사항이 있을 때 알려드리겠습니다,privacy 
+privacy.updates_text,저희는 수시로 이 정책을 업데이트할 수 있습니다. 중요한 변경사항이 있을 때 알려드리겠습니다,privacy
+notification.new_guest_order,새 게스트 주문,notification
+notification.from,발신,notification
+notification.view_order,주문 보기,notification 

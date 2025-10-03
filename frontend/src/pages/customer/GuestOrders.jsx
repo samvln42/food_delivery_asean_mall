@@ -661,6 +661,18 @@ const GuestOrders = () => {
         try {
           response = await api.get(trackUrl);
           const trackedOrder = response.data;
+          console.log('🔍 Guest Order API Response:', trackedOrder);
+          if (trackedOrder.order_details) {
+            console.log('📦 Order Details:', trackedOrder.order_details);
+            trackedOrder.order_details.forEach((item, index) => {
+              console.log(`🛍️ Item ${index}:`, {
+                product_name: item.product_name,
+                image_display_url: item.image_display_url,
+                image_url: item.image_url,
+                product_image_url: item.product_image_url
+              });
+            });
+          }
 
           // หากคำสั่งเสร็จสิ้นหรือยกเลิก ให้ลบ temporary_id ออกจาก URL และ localStorage
           if (
@@ -718,6 +730,18 @@ const GuestOrders = () => {
                 `/guest-orders/track/?temporary_id=${cleanTempId}`
               );
               const orderData = orderResponse.data;
+              console.log(`🔍 Guest Order ${cleanTempId} API Response:`, orderData);
+              if (orderData.order_details) {
+                console.log(`📦 Order ${cleanTempId} Details:`, orderData.order_details);
+                orderData.order_details.forEach((item, index) => {
+                  console.log(`🛍️ Order ${cleanTempId} Item ${index}:`, {
+                    product_name: item.product_name,
+                    image_display_url: item.image_display_url,
+                    image_url: item.image_url,
+                    product_image_url: item.product_image_url
+                  });
+                });
+              }
 
               // ตรวจสอบสถานะออเดอร์
               if (
@@ -1480,15 +1504,24 @@ const GuestOrders = () => {
                                 >
                                   <div className="flex items-center space-x-3">
                                     <div className="w-10 h-10 bg-secondary-100 rounded-lg flex items-center justify-center text-sm">
-                                      {item.product_image_url ? (
+                                      {item.image_display_url || item.image_url || item.product_image_url ? (
                                         <img
-                                          src={item.product_image_url}
+                                          src={item.image_display_url || item.image_url || item.product_image_url}
                                           alt={item.product_name}
                                           className="w-full h-full object-cover rounded-lg"
+                                          onError={(e) => {
+                                            console.log('❌ GuestOrders Image load error:', item.image_display_url || item.image_url || item.product_image_url);
+                                            e.target.style.display = 'none';
+                                            e.target.nextSibling.style.display = 'flex';
+                                          }}
+                                          onLoad={() => {
+                                            console.log('✅ GuestOrders Image loaded successfully:', item.image_display_url || item.image_url || item.product_image_url);
+                                          }}
                                         />
-                                      ) : (
-                                        "🍽️"
-                                      )}
+                                      ) : null}
+                                      <div className={`w-full h-full flex items-center justify-center text-sm ${item.image_display_url || item.image_url || item.product_image_url ? 'hidden' : ''}`}>
+                                        🍽️
+                                      </div>
                                     </div>
                                     <div>
                                       <p className="font-medium text-secondary-800">
@@ -1522,15 +1555,24 @@ const GuestOrders = () => {
                         >
                           <div className="flex items-center space-x-3">
                             <div className="w-12 h-12 bg-secondary-100 rounded-lg flex items-center justify-center">
-                              {item.product_image_url ? (
+                              {item.image_display_url || item.image_url || item.product_image_url ? (
                                 <img
-                                  src={item.product_image_url}
+                                  src={item.image_display_url || item.image_url || item.product_image_url}
                                   alt={item.product_name}
                                   className="w-full h-full object-cover rounded-lg"
+                                  onError={(e) => {
+                                    console.log('❌ GuestOrders Single Restaurant Image load error:', item.image_display_url || item.image_url || item.product_image_url);
+                                    e.target.style.display = 'none';
+                                    e.target.nextSibling.style.display = 'flex';
+                                  }}
+                                  onLoad={() => {
+                                    console.log('✅ GuestOrders Single Restaurant Image loaded successfully:', item.image_display_url || item.image_url || item.product_image_url);
+                                  }}
                                 />
-                              ) : (
+                              ) : null}
+                              <div className={`w-full h-full flex items-center justify-center ${item.image_display_url || item.image_url || item.product_image_url ? 'hidden' : ''}`}>
                                 <span className="text-lg">🍽️</span>
-                              )}
+                              </div>
                             </div>
                             <div>
                               <p className="font-medium text-secondary-800">

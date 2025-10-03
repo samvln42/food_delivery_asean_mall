@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLanguage } from '../../contexts/LanguageContext';
 import { restaurantService, userService } from '../../services/api';
 
 const AdminRestaurants = () => {
@@ -13,6 +14,7 @@ const AdminRestaurants = () => {
   const [showModal, setShowModal] = useState(false);
   const [modalType, setModalType] = useState('view'); // 'view', 'edit', 'create', 'upload'
   const [availableUsers, setAvailableUsers] = useState([]);
+  const { translate, currentLanguage } = useLanguage();
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -90,7 +92,7 @@ const AdminRestaurants = () => {
       setError(null);
     } catch (err) {
       console.error('Error fetching restaurants:', err);
-      setError('ไม่สามารถโหลดข้อมูลร้านอาหารได้');
+      setError(translate('admin.error.load_failed'));
     } finally {
       setLoading(false);
       setSearching(false);
@@ -185,7 +187,9 @@ const AdminRestaurants = () => {
     try {
       await restaurantService.partialUpdate(restaurantId, { is_special: isSpecial });
       fetchRestaurants(); // Refresh data
-      alert(`${isSpecial ? 'เพิ่ม' : 'ลบ'}สถานะร้านพิเศษเรียบร้อยแล้ว`);
+      alert(isSpecial 
+        ? translate('admin.special_status_set_success') 
+        : translate('admin.special_status_unset_success'));
     } catch (err) {
       console.error('Error updating special status:', err);
       alert('ไม่สามารถอัปเดตสถานะพิเศษได้');
@@ -264,7 +268,8 @@ const AdminRestaurants = () => {
   };
 
   const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
+    const locale = currentLanguage === 'th' ? 'th-TH-u-ca-gregory' : currentLanguage === 'ko' ? 'ko-KR' : 'en-US';
+    return new Date(dateString).toLocaleString(locale, {
       year: 'numeric',
       month: 'long',
       day: 'numeric'
@@ -276,7 +281,7 @@ const AdminRestaurants = () => {
       <div className="container mx-auto px-4 py-8">
         <div className="flex justify-center items-center h-64">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500"></div>
-          <span className="ml-4 text-lg">กำลังโหลดข้อมูล...</span>
+          <span className="ml-4 text-lg">{translate('common.loading')}</span>
         </div>
       </div>
     );
@@ -285,7 +290,7 @@ const AdminRestaurants = () => {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-secondary-800">จัดการร้านอาหาร</h1>
+        <h1 className="text-3xl font-bold text-secondary-800">{translate('admin.restaurants')}</h1>
         <div className="flex items-center space-x-4">
           <button
             onClick={openCreateModal}
@@ -294,11 +299,11 @@ const AdminRestaurants = () => {
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
             </svg>
-            <span>สร้างร้านใหม่</span>
+            <span>{translate('admin.create_restaurant')}</span>
           </button>
 
           <div className="text-sm text-secondary-600">
-            รวม {restaurants.length} ร้านอาหาร
+            {translate('admin.restaurants_total', { count: restaurants.length })}
           </div>
         </div>
       </div>
@@ -314,12 +319,12 @@ const AdminRestaurants = () => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <label className="block text-sm font-medium text-secondary-700 mb-2">
-              ค้นหาร้านอาหาร
+              {translate('admin.search_restaurants')}
             </label>
             <div className="relative">
               <input
                 type="text"
-                placeholder="ค้นหาชื่อร้าน, คำอธิบาย, ที่อยู่..."
+                placeholder={translate('admin.restaurants_search_placeholder')}
                 value={searchTerm}
                 onChange={handleSearch}
                 className="w-full p-3 pr-10 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
@@ -333,7 +338,7 @@ const AdminRestaurants = () => {
                 <button
                   onClick={clearSearch}
                   className="absolute right-3 top-1/2 transform -translate-y-1/2 text-secondary-400 hover:text-secondary-600 transition-colors"
-                  title="ล้างการค้นหา"
+                  title={translate('admin.clear_search')}
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
@@ -344,30 +349,30 @@ const AdminRestaurants = () => {
           </div>
           <div>
             <label className="block text-sm font-medium text-secondary-700 mb-2">
-              สถานะ
+              {translate('admin.table.status')}
             </label>
             <select
               value={statusFilter}
               onChange={handleStatusFilter}
               className="w-full p-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             >
-              <option value="all">ทั้งหมด</option>
-              <option value="open">เปิด</option>
-              <option value="closed">ปิด</option>
+              <option value="all">{translate('common.all')}</option>
+              <option value="open">{translate('common.open')}</option>
+              <option value="closed">{translate('common.closed')}</option>
             </select>
           </div>
           <div>
             <label className="block text-sm font-medium text-secondary-700 mb-2">
-              ประเภท
+              {translate('admin.type')}
             </label>
             <select
               value={specialFilter}
               onChange={handleSpecialFilter}
               className="w-full p-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             >
-              <option value="all">ทั้งหมด</option>
-              <option value="special">ร้านพิเศษ</option>
-              <option value="general">ร้านทั่วไป</option>
+              <option value="all">{translate('common.all')}</option>
+              <option value="special">{translate('admin.role.special_restaurant')}</option>
+              <option value="general">{translate('admin.role.general_restaurant')}</option>
             </select>
           </div>
         </div>
@@ -380,25 +385,25 @@ const AdminRestaurants = () => {
             <thead className="bg-secondary-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
-                  ร้านอาหาร
+                  {translate('admin.table.restaurant')}
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
-                  เจ้าของ
+                  {translate('admin.table.owner')}
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
-                  ประเภท
+                  {translate('admin.table.type')}
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
-                  สถานะ
+                  {translate('admin.table.status')}
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
-                  คะแนน
+                  {translate('admin.table.score')}
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
-                  วันที่สร้าง
+                  {translate('admin.table.created_at')}
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
-                  การจัดการ
+                  {translate('admin.table.actions')}
                 </th>
               </tr>
             </thead>
@@ -444,7 +449,7 @@ const AdminRestaurants = () => {
                         ? 'bg-yellow-100 text-yellow-800' 
                         : 'bg-gray-100 text-gray-800'
                     }`}>
-                      {restaurant.is_special ? 'ร้านพิเศษ' : 'ร้านทั่วไป'}
+                      {restaurant.is_special ? translate('admin.role.special_restaurant') : translate('admin.role.general_restaurant')}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
@@ -453,7 +458,7 @@ const AdminRestaurants = () => {
                         ? 'bg-green-100 text-green-800' 
                         : 'bg-red-100 text-red-800'
                     }`}>
-                      {restaurant.status === 'open' ? 'เปิด' : 'ปิด'}
+                      {restaurant.status === 'open' ? translate('common.open') : translate('common.closed')}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
@@ -462,7 +467,7 @@ const AdminRestaurants = () => {
                         {restaurant.average_rating}/5
                       </span>
                       <span className="text-xs text-secondary-500 ml-1">
-                        ({restaurant.total_reviews} รีวิว)
+                        ({restaurant.total_reviews} {translate('common.reviews')})
                       </span>
                     </div>
                   </td>
@@ -475,25 +480,25 @@ const AdminRestaurants = () => {
                         onClick={() => openModal(restaurant, 'view')}
                         className="text-blue-600 hover:text-blue-900"
                       >
-                        ดู
+                        {translate('admin.action.view')}
                       </button>
                       <button
                         onClick={() => openModal(restaurant, 'edit')}
                         className="text-indigo-600 hover:text-indigo-900"
                       >
-                        แก้ไข
+                        {translate('admin.action.edit')}
                       </button>
                       <button
                         onClick={() => openModal(restaurant, 'upload')}
                         className="text-emerald-600 hover:text-emerald-900"
                       >
-                        อัปโหลดรูป
+                        {translate('admin.action.upload_image')}
                       </button>
                       <button
                         onClick={() => window.location.href = `/admin/restaurants/${restaurant.restaurant_id}/products`}
                         className="text-purple-600 hover:text-purple-900"
                       >
-                        จัดการสินค้า
+                        {translate('admin.action.manage_products')}
                       </button>
                       <button
                         onClick={() => handleStatusChange(
@@ -505,7 +510,7 @@ const AdminRestaurants = () => {
                           : 'text-green-600 hover:text-green-900'
                         }
                       >
-                        {restaurant.status === 'open' ? 'ปิด' : 'เปิด'}
+                        {restaurant.status === 'open' ? translate('common.closed') : translate('common.open')}
                       </button>
                       <button
                         onClick={() => handleSpecialStatusChange(
@@ -514,14 +519,14 @@ const AdminRestaurants = () => {
                         )}
                         className="text-yellow-600 hover:text-yellow-900"
                       >
-                        {restaurant.is_special ? 'ยก Special' : 'ทำ Special'}
+                        {restaurant.is_special ? translate('admin.action.unset_special') : translate('admin.action.make_special')}
                       </button>
                       <button
                         onClick={() => handleDeleteRestaurant(restaurant.restaurant_id, restaurant.restaurant_name)}
                         className="text-red-600 hover:text-red-900 font-medium"
-                        title="ลบร้านอาหาร"
+                        title={translate('admin.action.delete')}
                       >
-                        ลบ
+                        {translate('admin.action.delete')}
                       </button>
                     </div>
                   </td>
@@ -535,12 +540,12 @@ const AdminRestaurants = () => {
           <div className="text-center py-12">
             <div className="text-6xl mb-4 opacity-30">🏪</div>
             <h3 className="text-lg font-medium text-secondary-900 mb-2">
-              ไม่พบร้านอาหาร
+              {translate('admin.restaurants_empty_title')}
             </h3>
             <p className="text-secondary-500 mb-4">
               {searchTerm.trim() || statusFilter !== 'all' || specialFilter !== 'all' 
-                ? 'ลองปรับเปลี่ยนเงื่อนไขการค้นหาหรือตัวกรอง'
-                : 'ยังไม่มีร้านอาหารในระบบ'
+                ? translate('admin.restaurants_empty_search_message')
+                : translate('admin.restaurants_empty_message')
               }
             </p>
             {(!searchTerm.trim() && statusFilter === 'all' && specialFilter === 'all') && (
@@ -551,7 +556,7 @@ const AdminRestaurants = () => {
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
                 </svg>
-                <span>สร้างร้านแรก</span>
+                <span>{translate('admin.add_first_restaurant')}</span>
               </button>
             )}
           </div>
@@ -567,7 +572,7 @@ const AdminRestaurants = () => {
               disabled={currentPage === 1}
               className="px-3 py-2 text-sm font-medium text-secondary-500 bg-white border border-secondary-300 rounded-md hover:bg-secondary-50 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              ก่อนหน้า
+              {translate('common.previous')}
             </button>
             
             {[...Array(totalPages)].map((_, index) => {
@@ -608,7 +613,7 @@ const AdminRestaurants = () => {
               disabled={currentPage === totalPages}
               className="px-3 py-2 text-sm font-medium text-secondary-500 bg-white border border-secondary-300 rounded-md hover:bg-secondary-50 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              ถัดไป
+              {translate('common.next')}
             </button>
           </div>
         </div>
@@ -630,6 +635,7 @@ const AdminRestaurants = () => {
 
 // Restaurant Detail Modal Component
 const RestaurantModal = ({ restaurant, type, onClose, onUpdate, availableUsers }) => {
+  const { translate, currentLanguage } = useLanguage();
   
   const [formData, setFormData] = useState({
     restaurant_name: restaurant?.restaurant_name || '',
@@ -647,6 +653,14 @@ const RestaurantModal = ({ restaurant, type, onClose, onUpdate, availableUsers }
   });
   
   const [loading, setLoading] = useState(false);
+  const formatDate = (dateString) => {
+    const locale = currentLanguage === 'th' ? 'th-TH-u-ca-gregory' : currentLanguage === 'ko' ? 'ko-KR' : 'en-US';
+    return new Date(dateString).toLocaleString(locale, {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+  };
   const [selectedFile, setSelectedFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(restaurant?.image_display_url || null);
   const [uploadLoading, setUploadLoading] = useState(false);
@@ -861,10 +875,10 @@ const RestaurantModal = ({ restaurant, type, onClose, onUpdate, availableUsers }
       <div className="bg-white rounded-lg max-w-2xl w-full max-h-screen overflow-y-auto">
         <div className="flex justify-between items-center p-6 border-b">
           <h2 className="text-xl font-semibold text-secondary-900">
-            {type === 'view' ? 'ข้อมูลร้านอาหาร' : 
-             type === 'upload' ? 'อัปโหลดรูปภาพร้าน' : 
-             type === 'create' ? 'สร้างร้านอาหารใหม่' :
-             'แก้ไขข้อมูลร้านอาหาร'}
+            {type === 'view' ? translate('admin.restaurant_modal.view_title') : 
+             type === 'upload' ? translate('admin.restaurant_modal.upload_title') : 
+             type === 'create' ? translate('admin.restaurant_modal.create_title') :
+             translate('admin.restaurant_modal.edit_title')}
           </h2>
           <button
             onClick={onClose}
@@ -880,7 +894,7 @@ const RestaurantModal = ({ restaurant, type, onClose, onUpdate, availableUsers }
           {/* Image Upload Section - แสดงในทุกโหมดยกเว้น view */}
           {(isUploadMode || isEditable) && (
             <div className="mb-6 p-4 border border-secondary-200 rounded-lg bg-secondary-50">
-              <h3 className="text-lg font-medium text-secondary-900 mb-4">รูปภาพหน้าร้าน</h3>
+              <h3 className="text-lg font-medium text-secondary-900 mb-4">{translate('admin.restaurant_modal.image_section')}</h3>
               
               {/* Current/Preview Image */}
               {(imagePreview || formData.image_url) && (
@@ -899,7 +913,7 @@ const RestaurantModal = ({ restaurant, type, onClose, onUpdate, availableUsers }
                       onClick={handleRemovePreview}
                       className="mt-2 text-sm text-red-600 hover:text-red-800"
                     >
-                      {isCreateMode ? 'ลบรูป' : 'ยกเลิกการเลือกรูป'}
+                      {isCreateMode ? translate('admin.restaurant_modal.remove_image') : translate('admin.restaurant_modal.cancel_image_selection')}
                     </button>
                   )}
                 </div>
@@ -908,7 +922,7 @@ const RestaurantModal = ({ restaurant, type, onClose, onUpdate, availableUsers }
               {/* URL Input - แสดงในโหมด create หรือ edit */}
               <div className="mb-4">
                 <label className="block text-sm font-medium text-secondary-700 mb-2">
-                  URL รูปภาพ {isCreateMode && '(ทางเลือก)'}
+                  {translate('admin.restaurant_modal.image_url')} {isCreateMode && '(' + translate('admin.restaurant_modal.optional') + ')'}
                 </label>
                 <input
                   type="url"
@@ -924,21 +938,21 @@ const RestaurantModal = ({ restaurant, type, onClose, onUpdate, availableUsers }
                   className="w-full p-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent disabled:bg-secondary-50"
                 />
                 <p className="mt-1 text-sm text-secondary-500">
-                  สามารถใส่ลิงก์รูปภาพจากอินเทอร์เน็ต
+                  {translate('admin.restaurant_modal.from_internet_hint')}
                 </p>
               </div>
               
               {/* Separator */}
               <div className="mb-4 flex items-center">
                 <div className="flex-grow border-t border-secondary-300"></div>
-                <span className="px-4 text-sm text-secondary-500">หรือ</span>
+                <span className="px-4 text-sm text-secondary-500">{translate('admin.restaurant_modal.or')}</span>
                 <div className="flex-grow border-t border-secondary-300"></div>
               </div>
               
               {/* File Input - แสดงในทุกโหมด */}
               <div className="mb-4">
                 <label className="block text-sm font-medium text-secondary-700 mb-2">
-                  เลือกรูปภาพจากเครื่อง
+                  {translate('admin.restaurant_modal.select_image_from_device')}
                 </label>
                 <input
                   type="file"
@@ -947,8 +961,8 @@ const RestaurantModal = ({ restaurant, type, onClose, onUpdate, availableUsers }
                   className="w-full p-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 />
                 <p className="mt-1 text-sm text-secondary-500">
-                  รองรับ JPG, PNG, GIF • ขนาดไม่เกิน 10MB
-                  {isCreateMode && ' • จะอัปโหลดพร้อมกับการสร้างร้าน'}
+                  {translate('admin.restaurant_modal.supported_file_hint')}
+                  {isCreateMode && ' • ' + translate('admin.restaurant_modal.upload_with_create_hint')}
                 </p>
               </div>
               
@@ -960,7 +974,7 @@ const RestaurantModal = ({ restaurant, type, onClose, onUpdate, availableUsers }
                   disabled={uploadLoading}
                   className="w-full bg-emerald-500 text-white py-2 px-4 rounded-lg hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {uploadLoading ? 'กำลังอัปโหลด...' : 'อัปโหลดรูปภาพ'}
+                  {uploadLoading ? translate('admin.uploading') : translate('admin.action.upload_image')}
                 </button>
               )}
             </div>
@@ -970,7 +984,7 @@ const RestaurantModal = ({ restaurant, type, onClose, onUpdate, availableUsers }
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <label className="block text-sm font-medium text-secondary-700 mb-2">
-                ชื่อร้านอาหาร
+                {translate('admin.table.restaurant')}
               </label>
               <input
                 type="text"
@@ -983,7 +997,7 @@ const RestaurantModal = ({ restaurant, type, onClose, onUpdate, availableUsers }
 
             <div>
               <label className="block text-sm font-medium text-secondary-700 mb-2">
-                เจ้าของร้าน
+                {translate('admin.table.owner')}
               </label>
               {isCreateMode ? (
                 <div>
@@ -993,7 +1007,7 @@ const RestaurantModal = ({ restaurant, type, onClose, onUpdate, availableUsers }
                     className="w-full p-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                     required
                   >
-                    <option value="">-- เลือกเจ้าของร้าน --</option>
+                    <option value="">-- {translate('admin.restaurant_modal.select_owner')} --</option>
                     {availableUsers && availableUsers.length > 0 ? (
                       availableUsers.map(user => (
                         <option key={user.id || user.user_id} value={user.id || user.user_id}>
@@ -1001,29 +1015,29 @@ const RestaurantModal = ({ restaurant, type, onClose, onUpdate, availableUsers }
                         </option>
                       ))
                     ) : (
-                      <option value="" disabled>ไม่มีผู้ใช้ที่สามารถเป็นเจ้าของร้านได้</option>
+                      <option value="" disabled>{translate('admin.restaurant_modal.no_owner')}</option>
                     )}
                   </select>
                   {(!availableUsers || availableUsers.length === 0) && (
                     <div className="mt-1">
                       <p className="text-sm text-red-600">
-                        ไม่พบผู้ใช้ที่สามารถเป็นเจ้าของร้านได้ (ต้องเป็นร้านทั่วไปหรือร้านพิเศษ และยังไม่มีร้าน)
+                        {translate('admin.restaurant_modal.no_available_owners')}
                       </p>
                       <p className="text-sm text-blue-600 mt-1">
                         <a href="/admin/users" className="hover:underline">
-                          → ไปสร้างผู้ใช้ใหม่หรือเปลี่ยน Role ผู้ใช้ที่มีอยู่
+                          {translate('admin.restaurant_modal.go_to_users_page')}
                         </a>
                       </p>
                     </div>
                   )}
                   <p className="mt-1 text-sm text-secondary-500">
-                    ผู้ใช้ที่เลือกได้: {availableUsers ? availableUsers.length : 0} คน (ร้านทั่วไป/พิเศษที่ยังไม่มีร้าน)
+                    {translate('admin.restaurant_modal.owner_hint', { count: (availableUsers ? availableUsers.length : 0) })}
                   </p>
                 </div>
               ) : (
                 <input
                   type="text"
-                  value={restaurant?.user_username || 'ไม่พบข้อมูล'}
+                  value={restaurant?.user_username || translate('common.no_data')}
                   disabled
                   className="w-full p-3 border border-secondary-300 rounded-lg bg-secondary-50"
                 />
@@ -1032,7 +1046,7 @@ const RestaurantModal = ({ restaurant, type, onClose, onUpdate, availableUsers }
 
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-secondary-700 mb-2">
-                คำอธิบาย
+                {translate('admin.restaurant_modal.description')}
               </label>
               <textarea
                 value={formData.description}
@@ -1045,7 +1059,7 @@ const RestaurantModal = ({ restaurant, type, onClose, onUpdate, availableUsers }
 
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-secondary-700 mb-2">
-                ที่อยู่
+                {translate('auth.address')}
               </label>
               <input
                 type="text"
@@ -1058,7 +1072,7 @@ const RestaurantModal = ({ restaurant, type, onClose, onUpdate, availableUsers }
 
             <div>
               <label className="block text-sm font-medium text-secondary-700 mb-2">
-                เบอร์โทรศัพท์
+                {translate('auth.phone')}
               </label>
               <input
                 type="text"
@@ -1071,21 +1085,21 @@ const RestaurantModal = ({ restaurant, type, onClose, onUpdate, availableUsers }
 
             <div>
               <label className="block text-sm font-medium text-secondary-700 mb-2">
-                เวลาเปิด-ปิด
+              {translate('admin.restaurant_modal.opening_hours')}
               </label>
               <input
                 type="text"
                 value={formData.opening_hours}
                 onChange={(e) => setFormData({ ...formData, opening_hours: e.target.value })}
                 disabled={!isEditable}
-                placeholder="เช่น 08:00 - 22:00"
+                placeholder="08:00 - 22:00"
                 className="w-full p-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent disabled:bg-secondary-50"
               />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-secondary-700 mb-2">
-                สถานะ
+                {translate('admin.restaurant_modal.status')}
               </label>
               <select
                 value={formData.status}
@@ -1093,14 +1107,14 @@ const RestaurantModal = ({ restaurant, type, onClose, onUpdate, availableUsers }
                 disabled={!isEditable}
                 className="w-full p-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent disabled:bg-secondary-50"
               >
-                <option value="open">เปิด</option>
-                <option value="closed">ปิด</option>
+                <option value="open">{translate('common.open')}</option>
+                <option value="closed">{translate('common.closed')}</option>
               </select>
             </div>
 
             <div>
               <label className="block text-sm font-medium text-secondary-700 mb-2">
-                ประเภทร้าน
+                {translate('admin.type')}
               </label>
               <div className="flex items-center">
                 <input
@@ -1111,20 +1125,18 @@ const RestaurantModal = ({ restaurant, type, onClose, onUpdate, availableUsers }
                   className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-secondary-300 rounded disabled:opacity-50"
                 />
                 <label className="ml-2 text-sm text-secondary-700">
-                  ร้านพิเศษ
+                  {translate('admin.role.special_restaurant')}
                 </label>
               </div>
             </div>
 
             {/* Bank Information */}
             <div className="md:col-span-2">
-              <h3 className="text-lg font-medium text-secondary-900 mb-4">ข้อมูลธนาคาร</h3>
+              <h3 className="text-lg font-medium text-secondary-900 mb-4">{translate('admin.bank_info')}</h3>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-secondary-700 mb-2">
-                ชื่อธนาคาร
-              </label>
+              <label className="block text-sm font-medium text-secondary-700 mb-2">{translate('admin.bank_name')}</label>
               <input
                 type="text"
                 value={formData.bank_name}
@@ -1135,9 +1147,7 @@ const RestaurantModal = ({ restaurant, type, onClose, onUpdate, availableUsers }
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-secondary-700 mb-2">
-                เลขที่บัญชี
-              </label>
+              <label className="block text-sm font-medium text-secondary-700 mb-2">{translate('admin.bank_account_number')}</label>
               <input
                 type="text"
                 value={formData.bank_account_number}
@@ -1148,9 +1158,7 @@ const RestaurantModal = ({ restaurant, type, onClose, onUpdate, availableUsers }
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-secondary-700 mb-2">
-                ชื่อบัญชี
-              </label>
+              <label className="block text-sm font-medium text-secondary-700 mb-2">{translate('admin.account_name')}</label>
               <input
                 type="text"
                 value={formData.account_name}
@@ -1164,12 +1172,12 @@ const RestaurantModal = ({ restaurant, type, onClose, onUpdate, availableUsers }
             {!isCreateMode && (
               <>
                 <div className="md:col-span-2">
-                  <h3 className="text-lg font-medium text-secondary-900 mb-4">สถิติ</h3>
+                  <h3 className="text-lg font-medium text-secondary-900 mb-4">{translate('admin.statistics')}</h3>
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-secondary-700 mb-2">
-                    คะแนนเฉลี่ย
+                    {translate('admin.average_rating')}
                   </label>
                   <input
                     type="text"
@@ -1181,11 +1189,11 @@ const RestaurantModal = ({ restaurant, type, onClose, onUpdate, availableUsers }
 
                 <div>
                   <label className="block text-sm font-medium text-secondary-700 mb-2">
-                    จำนวนรีวิว
+                    {translate('admin.total_reviews_label')}
                   </label>
                   <input
                     type="text"
-                    value={`${restaurant?.total_reviews || 0} รีวิว`}
+                    value={`${restaurant?.total_reviews || 0}`}
                     disabled
                     className="w-full p-3 border border-secondary-300 rounded-lg bg-secondary-50"
                   />
@@ -1193,11 +1201,11 @@ const RestaurantModal = ({ restaurant, type, onClose, onUpdate, availableUsers }
 
                 <div>
                   <label className="block text-sm font-medium text-secondary-700 mb-2">
-                    วันที่สร้าง
+                    {translate('admin.table.created_at')}
                   </label>
                   <input
                     type="text"
-                    value={restaurant?.created_at ? new Date(restaurant.created_at).toLocaleDateString('en-US') : ''}
+                    value={restaurant?.created_at ? formatDate(restaurant.created_at) : ''}
                     disabled
                     className="w-full p-3 border border-secondary-300 rounded-lg bg-secondary-50"
                   />
@@ -1205,11 +1213,11 @@ const RestaurantModal = ({ restaurant, type, onClose, onUpdate, availableUsers }
 
                 <div>
                   <label className="block text-sm font-medium text-secondary-700 mb-2">
-                    อัปเดตล่าสุด
+                    {translate('admin.updated_at')}
                   </label>
                   <input
                     type="text"
-                    value={restaurant?.updated_at ? new Date(restaurant.updated_at).toLocaleDateString('en-US') : ''}
+                    value={restaurant?.updated_at ? formatDate(restaurant.updated_at) : ''}
                     disabled
                     className="w-full p-3 border border-secondary-300 rounded-lg bg-secondary-50"
                   />
@@ -1225,7 +1233,7 @@ const RestaurantModal = ({ restaurant, type, onClose, onUpdate, availableUsers }
               onClick={onClose}
               className="px-4 py-2 text-sm font-medium text-secondary-700 bg-white border border-secondary-300 rounded-md hover:bg-secondary-50"
             >
-              ปิด
+              {translate('common.close')}
             </button>
             {isEditable && (
               <button
@@ -1234,8 +1242,8 @@ const RestaurantModal = ({ restaurant, type, onClose, onUpdate, availableUsers }
                 className="px-4 py-2 text-sm font-medium text-white bg-primary-600 border border-transparent rounded-md hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loading ? 
-                  (isCreateMode ? 'กำลังสร้าง...' : 'กำลังบันทึก...') : 
-                  (isCreateMode ? 'สร้างร้าน' : 'บันทึก')
+                  (isCreateMode ? translate('admin.creating') : translate('admin.saving')) : 
+                  (isCreateMode ? translate('admin.create_restaurant') : translate('common.save'))
                 }
               </button>
             )}

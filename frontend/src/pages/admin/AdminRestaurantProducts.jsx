@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { restaurantService, productService, categoryService } from '../../services/api';
 import { formatPrice } from '../../utils/formatPrice';
+import { useLanguage } from '../../contexts/LanguageContext';
 
 const AdminRestaurantProducts = () => {
   const { restaurantId } = useParams();
@@ -25,6 +26,8 @@ const AdminRestaurantProducts = () => {
   const [totalPages, setTotalPages] = useState(1);
   const itemsPerPage = 10;
 
+  const { translate, currentLanguage } = useLanguage();
+
   useEffect(() => {
     if (restaurantId) {
       fetchRestaurantInfo();
@@ -45,7 +48,7 @@ const AdminRestaurantProducts = () => {
       setRestaurant(response.data);
     } catch (err) {
       console.error('Error fetching restaurant:', err);
-      setError('ไม่สามารถโหลดข้อมูลร้านอาหารได้');
+      setError(translate('common.failed_to_load_data'));
     }
   };
 
@@ -98,7 +101,7 @@ const AdminRestaurantProducts = () => {
       setError(null);
     } catch (err) {
       console.error('Error fetching products:', err);
-      setError('ไม่สามารถโหลดข้อมูลสินค้าได้');
+      setError(translate('common.failed_to_load_data'));
     } finally {
       setLoading(false);
     }
@@ -126,7 +129,7 @@ const AdminRestaurantProducts = () => {
       }
       
       fetchProducts(); // Refresh data
-      alert('สร้างสินค้าเรียบร้อยแล้ว');
+      alert(translate('admin.success.saved'));
       closeModal();
     } catch (err) {
       console.error('Error creating product:', err);
@@ -138,11 +141,11 @@ const AdminRestaurantProducts = () => {
     try {
       await productService.update(productId, { ...formData, restaurant: restaurantId });
       fetchProducts(); // Refresh data
-      alert('อัปเดตสินค้าเรียบร้อยแล้ว');
+      alert(translate('admin.success.saved'));
       closeModal();
     } catch (err) {
       console.error('Error updating product:', err);
-      alert('ไม่สามารถอัปเดตสินค้าได้');
+      alert(translate('error.server_error'));
     }
   };
 
@@ -150,11 +153,11 @@ const AdminRestaurantProducts = () => {
     try {
       await productService.delete(productId);
       fetchProducts(); // Refresh data
-      alert('ลบสินค้าเรียบร้อยแล้ว');
+      alert(translate('admin.user_deleted_success', { username: '' }).replace('""',''));
       setDeleteConfirm(null);
     } catch (err) {
       console.error('Error deleting product:', err);
-      alert('ไม่สามารถลบสินค้าได้');
+      alert(translate('error.server_error'));
     }
   };
 
@@ -164,7 +167,7 @@ const AdminRestaurantProducts = () => {
       fetchProducts(); // Refresh data
     } catch (err) {
       console.error('Error toggling availability:', err);
-      alert('ไม่สามารถเปลี่ยนสถานะสินค้าได้');
+      alert(translate('error.server_error'));
     }
   };
 
@@ -198,7 +201,8 @@ const AdminRestaurantProducts = () => {
 
 
   const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
+    const locale = currentLanguage === 'th' ? 'th-TH-u-ca-gregory' : currentLanguage === 'ko' ? 'ko-KR' : 'en-US';
+    return new Date(dateString).toLocaleDateString(locale, {
       year: 'numeric',
       month: 'long',
       day: 'numeric'
@@ -210,7 +214,7 @@ const AdminRestaurantProducts = () => {
       <div className="container mx-auto px-4 py-8">
         <div className="flex justify-center items-center h-64">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500"></div>
-          <span className="ml-4 text-lg">กำลังโหลดข้อมูล...</span>
+          <span className="ml-4 text-lg">{translate('common.loading')}</span>
         </div>
       </div>
     );
@@ -232,23 +236,19 @@ const AdminRestaurantProducts = () => {
             </button>
             <div>
               <h1 className="text-3xl font-bold text-secondary-800">
-                จัดการสินค้า - {restaurant?.restaurant_name}
+                {translate('admin.action.manage_products')} - {restaurant?.restaurant_name}
               </h1>
               <p className="text-secondary-600 mt-1">
-                จัดการสินค้าของร้าน {restaurant?.restaurant_name}
+                {translate('admin.table.restaurant')}: {restaurant?.restaurant_name}
               </p>
             </div>
           </div>
           <div className="flex items-center space-x-4">
-            <div className="text-right">
-              <div className="text-sm text-secondary-600">จำนวนสินค้า</div>
-              <div className="text-lg font-semibold text-secondary-900">{products.length} รายการ</div>
-            </div>
             <button
               onClick={() => openModal(null, 'create')}
               className="bg-primary-500 text-white px-4 py-2 rounded-lg hover:bg-primary-600 transition-colors"
             >
-              เพิ่มสินค้าใหม่
+              {translate('product.create')}
             </button>
           </div>
         </div>
@@ -256,26 +256,26 @@ const AdminRestaurantProducts = () => {
         {restaurant && (
           <div className="mt-4 grid grid-cols-1 md:grid-cols-4 gap-4 p-4 bg-secondary-50 rounded-lg">
             <div>
-              <div className="text-sm text-secondary-600">ประเภทร้าน</div>
+              <div className="text-sm text-secondary-600">{translate('admin.type')}</div>
               <div className={`text-sm font-medium ${restaurant.is_special ? 'text-yellow-600' : 'text-gray-600'}`}>
-                {restaurant.is_special ? 'ร้านพิเศษ' : 'ร้านทั่วไป'}
+                {restaurant.is_special ? translate('admin.role.special_restaurant') : translate('admin.role.general_restaurant')}
               </div>
             </div>
             <div>
-              <div className="text-sm text-secondary-600">สถานะ</div>
+              <div className="text-sm text-secondary-600">{translate('admin.table.status')}</div>
               <div className={`text-sm font-medium ${restaurant.status === 'open' ? 'text-green-600' : 'text-red-600'}`}>
-                {restaurant.status === 'open' ? 'เปิดให้บริการ' : 'ปิดร้าน'}
+                {restaurant.status === 'open' ? translate('common.open') : translate('common.closed')}
               </div>
             </div>
             <div>
-              <div className="text-sm text-secondary-600">คะแนนเฉลี่ย</div>
+              <div className="text-sm text-secondary-600">{translate('admin.average_rating')}</div>
               <div className="text-sm font-medium text-secondary-900">
-                {restaurant.average_rating}/5 ({restaurant.total_reviews} รีวิว)
+                {restaurant.average_rating}/5 ({restaurant.total_reviews} {translate('common.reviews')})
               </div>
             </div>
             <div>
-              <div className="text-sm text-secondary-600">จำนวนสินค้าทั้งหมด</div>
-              <div className="text-sm font-medium text-secondary-900">{restaurant.products_count || 0} รายการ</div>
+              <div className="text-sm text-secondary-600">{translate('nav.all_products')}</div>
+              <div className="text-sm font-medium text-secondary-900">{restaurant.products_count || 0} {translate('common.items')}</div>
             </div>
           </div>
         )}
@@ -292,11 +292,11 @@ const AdminRestaurantProducts = () => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <label className="block text-sm font-medium text-secondary-700 mb-2">
-              ค้นหาสินค้า
+              {translate('search.search')}
             </label>
             <input
               type="text"
-              placeholder="ค้นหาชื่อสินค้า..."
+              placeholder={translate('admin.search_placeholder')}
               value={searchTerm}
               onChange={handleSearch}
               className="w-full p-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
@@ -305,18 +305,18 @@ const AdminRestaurantProducts = () => {
 
           <div>
             <label className="block text-sm font-medium text-secondary-700 mb-2">
-              หมวดหมู่
+              {translate('product.category')}
             </label>
             <select
               value={categoryFilter}
               onChange={handleCategoryFilter}
               className="w-full p-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             >
-              <option value="">ทุกหมวดหมู่</option>
+              <option value="">{translate('common.all_categories')}</option>
               {categories.map((category) => (
                 <option key={category.category_id} value={category.category_id}>
                   {category.category_name}
-                  {category.is_special_only && ' (เฉพาะร้านพิเศษ)'}
+                  {category.is_special_only && ' (' + translate('admin.role.special_restaurant') + ')'}
                 </option>
               ))}
             </select>
@@ -324,16 +324,16 @@ const AdminRestaurantProducts = () => {
 
           <div>
             <label className="block text-sm font-medium text-secondary-700 mb-2">
-              สถานะ
+              {translate('admin.table.status')}
             </label>
             <select
               value={availabilityFilter}
               onChange={handleAvailabilityFilter}
               className="w-full p-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             >
-              <option value="">ทุกสถานะ</option>
-              <option value="available">มีให้บริการ</option>
-              <option value="unavailable">ไม่มีให้บริการ</option>
+              <option value="">{translate('common.all')}</option>
+              <option value="available">{translate('product.availability')}</option>
+              <option value="unavailable">{translate('common.not_available')}</option>
             </select>
           </div>
         </div>
@@ -346,22 +346,22 @@ const AdminRestaurantProducts = () => {
             <thead className="bg-secondary-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
-                  สินค้า
+                  {translate('product.name')}
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
-                  หมวดหมู่
+                  {translate('product.category')}
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
-                  ราคา
+                  {translate('product.price')}
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
-                  สถานะ
+                  {translate('admin.table.status')}
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
-                  วันที่สร้าง
+                  {translate('admin.table.created_at')}
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
-                  การจัดการ
+                  {translate('common.actions')}
                 </th>
               </tr>
             </thead>
@@ -408,7 +408,7 @@ const AdminRestaurantProducts = () => {
                         ? 'bg-green-100 text-green-800' 
                         : 'bg-red-100 text-red-800'
                     }`}>
-                      {product.is_available ? 'มีให้บริการ' : 'ไม่มีให้บริการ'}
+                      {product.is_available ? translate('product.availability') : translate('common.not_available')}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-500">
@@ -420,13 +420,13 @@ const AdminRestaurantProducts = () => {
                         onClick={() => openModal(product, 'view')}
                         className="text-blue-600 hover:text-blue-900"
                       >
-                        ดู
+                        {translate('admin.action.view')}
                       </button>
                       <button
                         onClick={() => openModal(product, 'edit')}
                         className="text-indigo-600 hover:text-indigo-900"
                       >
-                        แก้ไข
+                        {translate('admin.action.edit')}
                       </button>
                       <button
                         onClick={() => handleToggleAvailability(product.product_id, product.is_available)}
@@ -435,13 +435,13 @@ const AdminRestaurantProducts = () => {
                           : 'text-green-600 hover:text-green-900'
                         }
                       >
-                        {product.is_available ? 'ปิดขาย' : 'เปิดขาย'}
+                        {product.is_available ? translate('admin.action.disable') : translate('admin.action.enable')}
                       </button>
                       <button
                         onClick={() => setDeleteConfirm(product)}
                         className="text-red-600 hover:text-red-900"
                       >
-                        ลบ
+                        {translate('admin.action.delete')}
                       </button>
                     </div>
                   </td>
@@ -455,12 +455,12 @@ const AdminRestaurantProducts = () => {
           <div className="text-center py-12">
             <div className="text-6xl mb-4 opacity-30">🍽️</div>
             <h3 className="text-lg font-medium text-secondary-900 mb-2">
-              ไม่พบสินค้า
+              {translate('common.no_products_found')}
             </h3>
             <p className="text-secondary-500 mb-4">
               {searchTerm || categoryFilter || availabilityFilter
-                ? 'ลองปรับเปลี่ยนเงื่อนไขการค้นหาหรือตัวกรอง' 
-                : 'ยังไม่มีสินค้าในร้านนี้'
+                ? translate('admin.restaurants_empty_search_message') 
+                : translate('cart.empty')
               }
             </p>
             {!searchTerm && !categoryFilter && !availabilityFilter && (
@@ -468,7 +468,7 @@ const AdminRestaurantProducts = () => {
                 onClick={() => openModal(null, 'create')}
                 className="bg-primary-500 text-white px-6 py-3 rounded-lg hover:bg-primary-600 transition-colors"
               >
-                เพิ่มสินค้าแรก
+                {translate('product.create')}
               </button>
             )}
           </div>
@@ -484,7 +484,7 @@ const AdminRestaurantProducts = () => {
               disabled={currentPage === 1}
               className="px-3 py-2 text-sm font-medium text-secondary-500 bg-white border border-secondary-300 rounded-md hover:bg-secondary-50 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              ก่อนหน้า
+              {translate('common.previous')}
             </button>
             
             {[...Array(totalPages)].map((_, index) => {
@@ -525,7 +525,7 @@ const AdminRestaurantProducts = () => {
               disabled={currentPage === totalPages}
               className="px-3 py-2 text-sm font-medium text-secondary-500 bg-white border border-secondary-300 rounded-md hover:bg-secondary-50 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              ถัดไป
+              {translate('common.next')}
             </button>
           </div>
         </div>
@@ -557,6 +557,7 @@ const AdminRestaurantProducts = () => {
 
 // Product Modal Component
 const ProductModal = ({ product, type, categories, restaurant, onClose, onSave }) => {
+  const { translate, currentLanguage } = useLanguage();
   const [formData, setFormData] = useState({
     product_name: product?.product_name || '',
     description: product?.description || '',
@@ -590,14 +591,14 @@ const ProductModal = ({ product, type, categories, restaurant, onClose, onSave }
       // ตรวจสอบประเภทไฟล์
       const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif'];
       if (!allowedTypes.includes(file.type)) {
-        alert('รองรับเฉพาะไฟล์ JPG, PNG และ GIF');
+        alert(translate('admin.restaurant_modal.file_type_error'));
         e.target.value = '';
         return;
       }
 
       // ตรวจสอบขนาดไฟล์ (5MB)
       if (file.size > 5 * 1024 * 1024) {
-        alert('ขนาดไฟล์ต้องไม่เกิน 5MB');
+        alert(translate('cart.supports_files_up_to_5mb'));
         e.target.value = '';
         return;
       }
@@ -628,7 +629,7 @@ const ProductModal = ({ product, type, categories, restaurant, onClose, onSave }
       // ใช้ productService.uploadImage() แทน fetch โดยตรง
       const response = await productService.uploadImage(product.product_id, formData);
       
-      alert('อัปโหลดรูปภาพสำเร็จ');
+      alert(translate('admin.restaurant_modal.upload_image_success'));
       
       // อัปเดต preview ด้วย URL ใหม่
       if (response.data.product?.image_display_url) {
@@ -639,7 +640,7 @@ const ProductModal = ({ product, type, categories, restaurant, onClose, onSave }
       window.location.reload();
     } catch (error) {
       console.error('Upload error:', error);
-      alert(error.response?.data?.error || 'เกิดข้อผิดพลาดในการอัปโหลด');
+      alert(error.response?.data?.error || translate('admin.restaurant_modal.upload_image_failed'));
     } finally {
       setUploadLoading(false);
       setSelectedFile(null);
@@ -653,21 +654,30 @@ const ProductModal = ({ product, type, categories, restaurant, onClose, onSave }
     setFormData({ ...formData, image_url: '' });
   };
 
+  const formatDateLocal = (dateString) => {
+    const locale = currentLanguage === 'th' ? 'th-TH-u-ca-gregory' : currentLanguage === 'ko' ? 'ko-KR' : 'en-US';
+    return new Date(dateString).toLocaleDateString(locale, {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     
     if (!formData.product_name.trim()) {
-      alert('กรุณากรอกชื่อสินค้า');
+      alert(translate('validation.required'));
       return;
     }
     
     if (!formData.price || formData.price <= 0) {
-      alert('กรุณากรอกราคาที่ถูกต้อง');
+      alert(translate('validation.required'));
       return;
     }
     
     if (!formData.category) {
-      alert('กรุณาเลือกหมวดหมู่');
+      alert(translate('validation.required'));
       return;
     }
 
@@ -692,8 +702,8 @@ const ProductModal = ({ product, type, categories, restaurant, onClose, onSave }
   };
 
   const isEditable = type === 'edit' || type === 'create';
-  const modalTitle = type === 'create' ? 'เพิ่มสินค้าใหม่' : 
-                    type === 'edit' ? 'แก้ไขสินค้า' : 'ข้อมูลสินค้า';
+  const modalTitle = type === 'create' ? translate('product.create') : 
+                   type === 'edit' ? translate('product.edit') : translate('common.details');
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
@@ -716,14 +726,14 @@ const ProductModal = ({ product, type, categories, restaurant, onClose, onSave }
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <label className="block text-sm font-medium text-secondary-700 mb-2">
-                ชื่อสินค้า *
+                {translate('product.name')} *
               </label>
               <input
                 type="text"
                 value={formData.product_name}
                 onChange={(e) => setFormData({ ...formData, product_name: e.target.value })}
                 disabled={!isEditable}
-                placeholder="กรอกชื่อสินค้า"
+                placeholder={translate('product.name')}
                 className="w-full p-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent disabled:bg-secondary-50"
                 required
               />
@@ -731,7 +741,7 @@ const ProductModal = ({ product, type, categories, restaurant, onClose, onSave }
 
             <div>
               <label className="block text-sm font-medium text-secondary-700 mb-2">
-                ราคา *
+                {translate('product.price')} *
               </label>
               <input
                 type="number"
@@ -748,7 +758,7 @@ const ProductModal = ({ product, type, categories, restaurant, onClose, onSave }
 
             <div>
               <label className="block text-sm font-medium text-secondary-700 mb-2">
-                หมวดหมู่ *
+                {translate('product.category')} *
               </label>
               <select
                 value={formData.category}
@@ -757,24 +767,24 @@ const ProductModal = ({ product, type, categories, restaurant, onClose, onSave }
                 className="w-full p-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent disabled:bg-secondary-50"
                 required
               >
-                <option value="">เลือกหมวดหมู่</option>
+                <option value="">{translate('common.all_categories')}</option>
                 {availableCategories.map((category) => (
                   <option key={category.category_id} value={category.category_id}>
                     {category.category_name}
-                    {category.is_special_only && ' (เฉพาะร้านพิเศษ)'}
+                    {category.is_special_only && ' (' + translate('admin.product_modal.special_restaurant_hint') + ')'}
                   </option>
                 ))}
               </select>
               {restaurant && !restaurant.is_special && (
                 <p className="text-xs text-amber-600 mt-1">
-                  ⚠️ ร้านนี้เป็นร้านทั่วไป ไม่สามารถเลือกหมวดหมู่เฉพาะร้านพิเศษได้
+                  ⚠️ {translate('admin.product_modal.general_restaurant_hint')}
                 </p>
               )}
             </div>
 
             <div>
               <label className="block text-sm font-medium text-secondary-700 mb-2">
-                สถานะ
+                {translate('admin.table.status')}
               </label>
               <div className="flex items-center space-x-4 pt-3">
                 <label className="flex items-center">
@@ -786,7 +796,7 @@ const ProductModal = ({ product, type, categories, restaurant, onClose, onSave }
                     disabled={!isEditable}
                     className="mr-2 text-primary-600 focus:ring-primary-500"
                   />
-                  <span className="text-sm text-secondary-700">มีให้บริการ</span>
+                  <span className="text-sm text-secondary-700">{translate('product.availability')}</span>
                 </label>
                 <label className="flex items-center">
                   <input
@@ -797,28 +807,28 @@ const ProductModal = ({ product, type, categories, restaurant, onClose, onSave }
                     disabled={!isEditable}
                     className="mr-2 text-primary-600 focus:ring-primary-500"
                   />
-                  <span className="text-sm text-secondary-700">ไม่มีให้บริการ</span>
+                  <span className="text-sm text-secondary-700">{translate('common.not_available')}</span>
                 </label>
               </div>
             </div>
 
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-secondary-700 mb-2">
-                คำอธิบาย
+                {translate('product.description')}
               </label>
               <textarea
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 disabled={!isEditable}
                 rows={3}
-                placeholder="คำอธิบายสินค้า"
+                placeholder={translate('product.description')}
                 className="w-full p-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent disabled:bg-secondary-50"
               />
             </div>
 
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-secondary-700 mb-2">
-                รูปภาพสินค้า
+                {translate('product.image')}
               </label>
               
               {/* Image Preview */}
@@ -849,7 +859,7 @@ const ProductModal = ({ product, type, categories, restaurant, onClose, onSave }
                   {/* File Upload Section */}
                   <div>
                     <label className="block text-sm font-medium text-secondary-700 mb-2">
-                      อัปโหลดรูปภาพจากเครื่อง
+                      {translate('admin.restaurant_modal.select_image_from_device')}
                     </label>
                     <div className="flex items-center space-x-3">
                       <input
@@ -865,15 +875,15 @@ const ProductModal = ({ product, type, categories, restaurant, onClose, onSave }
                           disabled={uploadLoading}
                           className="px-4 py-2 bg-green-500 text-white text-sm rounded-lg hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                          {uploadLoading ? 'กำลังอัปโหลด...' : 'อัปโหลด'}
+                          {uploadLoading ? translate('admin.uploading') : translate('admin.action.upload_image')}
                         </button>
                       )}
                     </div>
                     <p className="text-xs text-secondary-500 mt-1">
-                      รองรับไฟล์: JPG, PNG, GIF (ขนาดไม่เกิน 5MB)
+                      {translate('admin.restaurant_modal.supported_file_hint')}
                       {selectedFile && type === 'create' && (
                         <span className="text-blue-600 block">
-                          ✓ ไฟล์จะถูกอัปโหลดพร้อมกับการบันทึกสินค้า
+                          ✓ {translate('admin.restaurant_modal.upload_with_create_hint')}
                         </span>
                       )}
                     </p>
@@ -882,7 +892,7 @@ const ProductModal = ({ product, type, categories, restaurant, onClose, onSave }
                   {/* URL Input Section */}
                   <div>
                     <label className="block text-sm font-medium text-secondary-700 mb-2">
-                      หรือใส่ URL รูปภาพ
+                      {translate('admin.restaurant_modal.or')} {translate('admin.restaurant_modal.image_url')}
                     </label>
                     <div className="flex items-center space-x-3">
                       <input
@@ -905,7 +915,7 @@ const ProductModal = ({ product, type, categories, restaurant, onClose, onSave }
 
               {!isEditable && !imagePreview && (
                 <div className="text-center py-8 border-2 border-dashed border-secondary-300 rounded-lg">
-                  <div className="text-secondary-400 text-sm">ไม่มีรูปภาพ</div>
+                  <div className="text-secondary-400 text-sm">{translate('common.no_data')}</div>
                 </div>
               )}
             </div>
@@ -913,22 +923,22 @@ const ProductModal = ({ product, type, categories, restaurant, onClose, onSave }
 
           {product && type !== 'create' && (
             <div className="mt-6 p-4 bg-secondary-50 rounded-lg">
-              <h3 className="text-lg font-medium text-secondary-900 mb-2">ข้อมูลเพิ่มเติม</h3>
+              <h3 className="text-lg font-medium text-secondary-900 mb-2">{translate('admin.statistics')}</h3>
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
-                  <span className="text-secondary-600">ID:</span>
+                  <span className="text-secondary-600">{translate('admin.table.id')}:</span>
                   <span className="ml-2 font-medium">{product.product_id}</span>
                 </div>
                 <div>
-                  <span className="text-secondary-600">วันที่สร้าง:</span>
+                  <span className="text-secondary-600">{translate('admin.table.created_at')}:</span>
                   <span className="ml-2 font-medium">
-                    {new Date(product.created_at).toLocaleDateString('en-US')}
+                    {formatDateLocal(product.created_at)}
                   </span>
                 </div>
                 <div>
-                  <span className="text-secondary-600">อัปเดตล่าสุด:</span>
+                  <span className="text-secondary-600">{translate('admin.updated_at')}:</span>
                   <span className="ml-2 font-medium">
-                    {new Date(product.updated_at).toLocaleDateString('en-US')}
+                    {formatDateLocal(product.updated_at)}
                   </span>
                 </div>
               </div>
@@ -941,7 +951,7 @@ const ProductModal = ({ product, type, categories, restaurant, onClose, onSave }
               onClick={onClose}
               className="px-4 py-2 text-sm font-medium text-secondary-700 bg-white border border-secondary-300 rounded-md hover:bg-secondary-50"
             >
-              ยกเลิก
+              {translate('common.cancel')}
             </button>
             {isEditable && (
               <button
@@ -949,7 +959,7 @@ const ProductModal = ({ product, type, categories, restaurant, onClose, onSave }
                 disabled={loading}
                 className="px-4 py-2 text-sm font-medium text-white bg-primary-600 border border-transparent rounded-md hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {loading ? 'กำลังบันทึก...' : 'บันทึก'}
+                {loading ? translate('admin.saving') : translate('common.save')}
               </button>
             )}
           </div>
@@ -961,6 +971,7 @@ const ProductModal = ({ product, type, categories, restaurant, onClose, onSave }
 
 // Delete Confirmation Modal Component
 const DeleteConfirmModal = ({ product, onConfirm, onCancel }) => {
+  const { translate } = useLanguage();
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-lg max-w-md w-full">
@@ -972,31 +983,25 @@ const DeleteConfirmModal = ({ product, onConfirm, onCancel }) => {
               </svg>
             </div>
             <div className="ml-4">
-              <h3 className="text-lg font-medium text-secondary-900">
-                ยืนยันการลบสินค้า
-              </h3>
-              <p className="text-sm text-secondary-500">
-                การดำเนินการนี้ไม่สามารถยกเลิกได้
-              </p>
+              <h3 className="text-lg font-medium text-secondary-900">{translate('admin.confirm_delete_title')}</h3>
+              <p className="text-sm text-secondary-500">{translate('admin.confirm_delete_desc')}</p>
             </div>
           </div>
           
-          <p className="text-secondary-700 mb-6">
-            คุณแน่ใจหรือไม่ที่จะลบสินค้า "<strong>{product.product_name}</strong>" ?
-          </p>
+          <p className="text-secondary-700 mb-6">{translate('admin.confirm_delete_product', { name: product.product_name })}</p>
 
           <div className="flex justify-end space-x-4">
             <button
               onClick={onCancel}
               className="px-4 py-2 text-sm font-medium text-secondary-700 bg-white border border-secondary-300 rounded-md hover:bg-secondary-50"
             >
-              ยกเลิก
+              {translate('common.cancel')}
             </button>
             <button
               onClick={onConfirm}
               className="px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700"
             >
-              ลบสินค้า
+              {translate('admin.action.delete')}
             </button>
           </div>
         </div>

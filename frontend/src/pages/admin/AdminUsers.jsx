@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { userService } from '../../services/api';
+import { useLanguage } from '../../contexts/LanguageContext';
 
 const AdminUsers = () => {
   const [users, setUsers] = useState([]);
@@ -11,6 +12,7 @@ const AdminUsers = () => {
   const [selectedUser, setSelectedUser] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [modalType, setModalType] = useState('view'); // 'view', 'edit', 'create'
+  const { translate, currentLanguage } = useLanguage();
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -81,11 +83,11 @@ const AdminUsers = () => {
       console.error('Response data:', err.response?.data);
       console.error('Response status:', err.response?.status);
       
-      let errorMessage = 'ไม่สามารถโหลดข้อมูลผู้ใช้งานได้';
+      let errorMessage = translate('admin.error.load_failed');
       if (err.response?.status === 403) {
-        errorMessage = 'คุณไม่มีสิทธิ์เข้าถึงข้อมูลผู้ใช้งาน';
+        errorMessage = translate('error.forbidden');
       } else if (err.response?.status === 404) {
-        errorMessage = 'ไม่พบ API endpoint สำหรับผู้ใช้งาน';
+        errorMessage = translate('error.not_found');
       } else if (err.response?.data?.detail) {
         errorMessage = err.response.data.detail;
       }
@@ -104,14 +106,14 @@ const AdminUsers = () => {
     try {
       await userService.partialUpdate(userId, { role: newRole });
       fetchUsers(); // Refresh data
-      alert(`อัปเดต Role ผู้ใช้เป็น ${getRoleName(newRole)} เรียบร้อยแล้ว`);
+      alert(translate('admin.user_role_updated', { role: getRoleName(newRole) }));
     } catch (err) {
       console.error('❌ Error updating user role:', err);
       console.error('Response:', err.response?.data);
       
-      let errorMessage = 'ไม่สามารถอัปเดต Role ได้';
+      let errorMessage = translate('admin.update_role_failed');
       if (err.response?.status === 403) {
-        errorMessage = 'คุณไม่มีสิทธิ์แก้ไขผู้ใช้รายนี้';
+        errorMessage = translate('error.forbidden');
       } else if (err.response?.data?.detail) {
         errorMessage = err.response.data.detail;
       }
@@ -124,7 +126,7 @@ const AdminUsers = () => {
     try {
       // ยืนยันการลบ
       const confirmation = window.confirm(
-        `คุณแน่ใจหรือไม่ที่จะลบผู้ใช้ "${username}"?\n\nการดำเนินการนี้ไม่สามารถกู้คืนได้`
+        translate('admin.confirm_delete_user', { username })
       );
       
       if (!confirmation) {
@@ -133,16 +135,16 @@ const AdminUsers = () => {
 
       await userService.delete(userId);
       fetchUsers(); // Refresh data
-      alert(`ลบผู้ใช้ "${username}" เรียบร้อยแล้ว`);
+      alert(translate('admin.user_deleted_success', { username }));
     } catch (err) {
       console.error('❌ Error deleting user:', err);
       console.error('Response:', err.response?.data);
       
-      let errorMessage = 'ไม่สามารถลบผู้ใช้ได้';
+      let errorMessage = translate('admin.delete_user_failed');
       if (err.response?.status === 403) {
-        errorMessage = 'คุณไม่มีสิทธิ์ลบผู้ใช้รายนี้';
+        errorMessage = translate('error.forbidden');
       } else if (err.response?.status === 404) {
-        errorMessage = 'ไม่พบผู้ใช้ที่ต้องการลบ';
+        errorMessage = translate('error.not_found');
       } else if (err.response?.data?.detail) {
         errorMessage = err.response.data.detail;
       }
@@ -187,10 +189,10 @@ const AdminUsers = () => {
 
   const getRoleName = (role) => {
     const roleNames = {
-      'customer': 'ลูกค้า',
-      'general_restaurant': 'ร้านทั่วไป',
-      'special_restaurant': 'ร้านพิเศษ',
-      'admin': 'แอดมิน'
+      'customer': translate('admin.role.customer'),
+      'general_restaurant': translate('admin.role.general_restaurant'),
+      'special_restaurant': translate('admin.role.special_restaurant'),
+      'admin': translate('admin.role.admin')
     };
     return roleNames[role] || role;
   };
@@ -206,7 +208,8 @@ const AdminUsers = () => {
   };
 
   const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
+    const locale = currentLanguage === 'th' ? 'th-TH-u-ca-gregory' : currentLanguage === 'ko' ? 'ko-KR' : 'en-US';
+    return new Date(dateString).toLocaleString(locale, {
       year: 'numeric',
       month: 'long',
       day: 'numeric',
@@ -220,7 +223,7 @@ const AdminUsers = () => {
       <div className="container mx-auto px-4 py-8">
         <div className="flex justify-center items-center h-64">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500"></div>
-          <span className="ml-4 text-lg">กำลังโหลดข้อมูล...</span>
+          <span className="ml-4 text-lg">{translate('common.loading')}</span>
         </div>
       </div>
     );
@@ -229,7 +232,7 @@ const AdminUsers = () => {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-secondary-800">จัดการผู้ใช้งาน</h1>
+        <h1 className="text-3xl font-bold text-secondary-800">{translate('admin.users')}</h1>
         <div className="flex items-center space-x-4">
           <button
             onClick={openCreateModal}
@@ -238,10 +241,10 @@ const AdminUsers = () => {
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
             </svg>
-            <span>เพิ่มผู้ใช้ใหม่</span>
+            <span>{translate('admin.add_user')}</span>
           </button>
           <div className="text-sm text-secondary-600">
-            รวม {users.length} ผู้ใช้งาน
+            {translate('admin.users_total', { count: users.length })}
           </div>
         </div>
       </div>
@@ -257,12 +260,12 @@ const AdminUsers = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-secondary-700 mb-2">
-              ค้นหาผู้ใช้งาน
+              {translate('admin.search_users')}
             </label>
             <div className="relative">
               <input
                 type="text"
-                placeholder="ค้นหาชื่อผู้ใช้, อีเมล, เบอร์โทร..."
+                placeholder={translate('admin.users_search_placeholder')}
                 value={searchTerm}
                 onChange={handleSearch}
                 className="w-full p-3 pr-10 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
@@ -276,7 +279,7 @@ const AdminUsers = () => {
                 <button
                   onClick={clearSearch}
                   className="absolute right-3 top-1/2 transform -translate-y-1/2 text-secondary-400 hover:text-secondary-600 transition-colors"
-                  title="ล้างการค้นหา"
+                  title={translate('admin.clear_search')}
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
@@ -287,18 +290,18 @@ const AdminUsers = () => {
           </div>
           <div>
             <label className="block text-sm font-medium text-secondary-700 mb-2">
-              บทบาท
+              {translate('admin.table.role')}
             </label>
             <select
               value={roleFilter}
               onChange={handleRoleFilter}
               className="w-full p-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             >
-              <option value="all">ทั้งหมด</option>
-              <option value="customer">ลูกค้า</option>
-              <option value="general_restaurant">ร้านทั่วไป</option>
-              <option value="special_restaurant">ร้านพิเศษ</option>
-              <option value="admin">แอดมิน</option>
+              <option value="all">{translate('common.all')}</option>
+              <option value="customer">{translate('admin.role.customer')}</option>
+              <option value="general_restaurant">{translate('admin.role.general_restaurant')}</option>
+              <option value="special_restaurant">{translate('admin.role.special_restaurant')}</option>
+              <option value="admin">{translate('admin.role.admin')}</option>
             </select>
           </div>
         </div>
@@ -312,22 +315,22 @@ const AdminUsers = () => {
             <thead className="bg-secondary-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
-                  ผู้ใช้งาน
+                  {translate('admin.table.user')}
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
-                  ข้อมูลติดต่อ
+                  {translate('admin.table.contact')}
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
-                  บทบาท
+                  {translate('admin.table.role')}
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
-                  สถานะ
+                  {translate('admin.table.status')}
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
-                  วันที่สมัคร
+                  {translate('admin.table.created_at')}
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
-                  การจัดการ
+                  {translate('admin.table.actions')}
                 </th>
               </tr>
             </thead>
@@ -358,7 +361,7 @@ const AdminUsers = () => {
                       {user.email}
                     </div>
                     <div className="text-sm text-secondary-500">
-                      {user.phone_number || 'ไม่ระบุ'}
+                      {user.phone_number}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
@@ -368,8 +371,8 @@ const AdminUsers = () => {
                       </span>
                       
                       {user.role !== 'customer' && user.role !== 'admin' && !user.restaurant_info && (
-                        <span className="inline-flex px-2 py-1 text-xs bg-gray-100 text-gray-800 rounded-full" title="ยังไม่มีร้าน">
-                          ไม่มีร้าน
+                        <span className="inline-flex px-2 py-1 text-xs bg-gray-100 text-gray-800 rounded-full" title={translate('admin.no_restaurant')}>
+                          {translate('admin.no_restaurant')}
                         </span>
                       )}
                     </div>
@@ -380,7 +383,7 @@ const AdminUsers = () => {
                         ? 'bg-green-100 text-green-800' 
                         : 'bg-red-100 text-red-800'
                     }`}>
-                      {user.is_active ? 'ใช้งาน' : 'ปิดใช้งาน'}
+                      {user.is_active ? translate('admin.status.active') : translate('admin.status.inactive')}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-500">
@@ -392,13 +395,13 @@ const AdminUsers = () => {
                         onClick={() => openModal(user, 'view')}
                         className="text-blue-600 hover:text-blue-900"
                       >
-                        ดู
+                        {translate('admin.action.view')}
                       </button>
                       <button
                         onClick={() => openModal(user, 'edit')}
                         className="text-indigo-600 hover:text-indigo-900"
                       >
-                        แก้ไข
+                        {translate('admin.action.edit')}
                       </button>
                       {user.role !== 'admin' && (
                         <>
@@ -408,16 +411,16 @@ const AdminUsers = () => {
                             className="text-xs border border-secondary-300 rounded px-2 py-1"
                             onClick={(e) => e.stopPropagation()}
                           >
-                            <option value="customer">ลูกค้า</option>
-                            <option value="general_restaurant">ร้านทั่วไป</option>
-                            <option value="special_restaurant">ร้านพิเศษ</option>
+                            <option value="customer">{translate('admin.role.customer')}</option>
+                            <option value="general_restaurant">{translate('admin.role.general_restaurant')}</option>
+                            <option value="special_restaurant">{translate('admin.role.special_restaurant')}</option>
                           </select>
                           <button
                             onClick={() => handleDeleteUser(user.id, user.username)}
                             className="text-red-600 hover:text-red-900 font-medium"
-                            title="ลบผู้ใช้"
+                            title={translate('admin.action.delete')}
                           >
-                            ลบ
+                            {translate('admin.action.delete')}
                           </button>
                         </>
                       )}
@@ -433,12 +436,12 @@ const AdminUsers = () => {
           <div className="text-center py-12">
             <div className="text-6xl mb-4 opacity-30">👥</div>
             <h3 className="text-lg font-medium text-secondary-900 mb-2">
-              ไม่พบผู้ใช้งาน
+              {translate('admin.users_empty_title')}
             </h3>
             <p className="text-secondary-500 mb-4">
               {searchTerm || roleFilter !== 'all' 
-                ? 'ลองปรับเปลี่ยนเงื่อนไขการค้นหาหรือตัวกรอง'
-                : 'ยังไม่มีผู้ใช้งานในระบบ'
+                ? translate('admin.users_empty_search_message')
+                : translate('admin.users_empty_message')
               }
             </p>
             {(!searchTerm && roleFilter === 'all') && (
@@ -449,7 +452,7 @@ const AdminUsers = () => {
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
                 </svg>
-                <span>เพิ่มผู้ใช้คนแรก</span>
+                <span>{translate('admin.add_first_user')}</span>
               </button>
             )}
           </div>
@@ -465,7 +468,7 @@ const AdminUsers = () => {
               disabled={currentPage === 1}
               className="px-3 py-2 text-sm font-medium text-secondary-500 bg-white border border-secondary-300 rounded-md hover:bg-secondary-50 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              ก่อนหน้า
+              {translate('common.previous')}
             </button>
             
             {[...Array(totalPages)].map((_, index) => {
@@ -506,7 +509,7 @@ const AdminUsers = () => {
               disabled={currentPage === totalPages}
               className="px-3 py-2 text-sm font-medium text-secondary-500 bg-white border border-secondary-300 rounded-md hover:bg-secondary-50 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              ถัดไป
+              {translate('common.next')}
             </button>
           </div>
         </div>
@@ -527,6 +530,7 @@ const AdminUsers = () => {
 
 // User Detail Modal Component
 const UserModal = ({ user, type, onClose, onUpdate }) => {
+  const { translate, currentLanguage } = useLanguage();
   const [formData, setFormData] = useState({
     username: user?.username || '',
     email: user?.email || '',
@@ -538,6 +542,16 @@ const UserModal = ({ user, type, onClose, onUpdate }) => {
   });
   
   const [loading, setLoading] = useState(false);
+  const formatDate = (dateString) => {
+    const locale = currentLanguage === 'th' ? 'th-TH-u-ca-gregory' : currentLanguage === 'ko' ? 'ko-KR' : 'en-US';
+    return new Date(dateString).toLocaleString(locale, {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -614,10 +628,10 @@ const UserModal = ({ user, type, onClose, onUpdate }) => {
 
   const getRoleName = (role) => {
     const roleNames = {
-      'customer': 'ลูกค้า',
-      'general_restaurant': 'ร้านทั่วไป',
-      'special_restaurant': 'ร้านพิเศษ',
-      'admin': 'แอดมิน'
+      'customer': translate('admin.role.customer'),
+      'general_restaurant': translate('admin.role.general_restaurant'),
+      'special_restaurant': translate('admin.role.special_restaurant'),
+      'admin': translate('admin.role.admin')
     };
     return roleNames[role] || role;
   };
@@ -627,9 +641,9 @@ const UserModal = ({ user, type, onClose, onUpdate }) => {
       <div className="bg-white rounded-lg max-w-2xl w-full max-h-screen overflow-y-auto">
         <div className="flex justify-between items-center p-6 border-b">
           <h2 className="text-xl font-semibold text-secondary-900">
-            {type === 'view' ? 'ข้อมูลผู้ใช้งาน' : 
-             type === 'create' ? 'เพิ่มผู้ใช้ใหม่' :
-             'แก้ไขข้อมูลผู้ใช้งาน'}
+            {type === 'view' ? translate('admin.user_modal.view_title') : 
+             type === 'create' ? translate('admin.user_modal.create_title') :
+             translate('admin.user_modal.edit_title')}
           </h2>
           <button
             onClick={onClose}
@@ -645,7 +659,7 @@ const UserModal = ({ user, type, onClose, onUpdate }) => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <label className="block text-sm font-medium text-secondary-700 mb-2">
-                ชื่อผู้ใช้ *
+                {translate('auth.username')} *
               </label>
               <input
                 type="text"
@@ -659,7 +673,7 @@ const UserModal = ({ user, type, onClose, onUpdate }) => {
 
             <div>
               <label className="block text-sm font-medium text-secondary-700 mb-2">
-                อีเมล *
+                {translate('auth.email')} *
               </label>
               <input
                 type="email"
@@ -673,7 +687,7 @@ const UserModal = ({ user, type, onClose, onUpdate }) => {
 
             <div>
               <label className="block text-sm font-medium text-secondary-700 mb-2">
-                เบอร์โทรศัพท์
+                {translate('auth.phone')}
               </label>
               <input
                 type="tel"
@@ -686,7 +700,7 @@ const UserModal = ({ user, type, onClose, onUpdate }) => {
 
             <div>
               <label className="block text-sm font-medium text-secondary-700 mb-2">
-                บทบาท
+                {translate('auth.role')}
               </label>
               <select
                 value={formData.role}
@@ -694,16 +708,16 @@ const UserModal = ({ user, type, onClose, onUpdate }) => {
                 disabled={!isEditable}
                 className="w-full p-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent disabled:bg-secondary-50"
               >
-                <option value="customer">ลูกค้า</option>
-                <option value="general_restaurant">ร้านทั่วไป</option>
-                <option value="special_restaurant">ร้านพิเศษ</option>
-                <option value="admin">แอดมิน</option>
+                <option value="customer">{translate('admin.role.customer')}</option>
+                <option value="general_restaurant">{translate('admin.role.general_restaurant')}</option>
+                <option value="special_restaurant">{translate('admin.role.special_restaurant')}</option>
+                <option value="admin">{translate('admin.role.admin')}</option>
               </select>
             </div>
 
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-secondary-700 mb-2">
-                ที่อยู่
+                {translate('auth.address')}
               </label>
               <textarea
                 value={formData.address}
@@ -717,14 +731,14 @@ const UserModal = ({ user, type, onClose, onUpdate }) => {
             {isEditable && (
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-secondary-700 mb-2">
-                  รหัสผ่าน {isCreateMode ? '*' : '(เว้นว่างถ้าไม่เปลี่ยน)'}
+                  {isCreateMode ? `${translate('auth.password')} *` : `${translate('auth.password')} (${translate('admin.user_modal.password_optional')})`}
                 </label>
                 <input
                   type="password"
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                   required={isCreateMode}
-                  placeholder={isCreateMode ? 'ใส่รหัสผ่าน' : 'เว้นว่างถ้าไม่เปลี่ยนรหัสผ่าน'}
+                  placeholder={isCreateMode ? translate('admin.user_modal.enter_password') : translate('admin.user_modal.leave_blank_password')}
                   className="w-full p-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 />
               </div>
@@ -740,7 +754,7 @@ const UserModal = ({ user, type, onClose, onUpdate }) => {
                     className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-secondary-300 rounded"
                   />
                   <label className="ml-2 text-sm text-secondary-700">
-                    เปิดใช้งานบัญชี
+                    {translate('admin.enable_account')}
                   </label>
                 </div>
               </div>
@@ -750,16 +764,16 @@ const UserModal = ({ user, type, onClose, onUpdate }) => {
             {!isCreateMode && (
               <>
                 <div className="md:col-span-2">
-                  <h3 className="text-lg font-medium text-secondary-900 mb-4">ข้อมูลเพิ่มเติม</h3>
+                  <h3 className="text-lg font-medium text-secondary-900 mb-4">{translate('admin.user_extra_info')}</h3>
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-secondary-700 mb-2">
-                    วันที่สมัคร
+                    {translate('admin.table.created_at')}
                   </label>
                   <input
                     type="text"
-                    value={user?.date_joined ? new Date(user.date_joined).toLocaleDateString('en-US') : ''}
+                    value={user?.date_joined ? formatDate(user.date_joined) : ''}
                     disabled
                     className="w-full p-3 border border-secondary-300 rounded-lg bg-secondary-50"
                   />
@@ -767,11 +781,11 @@ const UserModal = ({ user, type, onClose, onUpdate }) => {
 
                 <div>
                   <label className="block text-sm font-medium text-secondary-700 mb-2">
-                    เข้าสู่ระบบล่าสุด
+                    {translate('admin.last_login')}
                   </label>
                   <input
                     type="text"
-                    value={user?.last_login ? new Date(user.last_login).toLocaleDateString('en-US') : 'Never logged in'}
+                    value={user?.last_login ? formatDate(user.last_login) : translate('admin.never_logged_in')}
                     disabled
                     className="w-full p-3 border border-secondary-300 rounded-lg bg-secondary-50"
                   />
@@ -786,7 +800,7 @@ const UserModal = ({ user, type, onClose, onUpdate }) => {
               onClick={onClose}
               className="px-4 py-2 text-sm font-medium text-secondary-700 bg-white border border-secondary-300 rounded-md hover:bg-secondary-50"
             >
-              ปิด
+              {translate('common.close')}
             </button>
             {isEditable && (
               <button
@@ -795,8 +809,8 @@ const UserModal = ({ user, type, onClose, onUpdate }) => {
                 className="px-4 py-2 text-sm font-medium text-white bg-primary-600 border border-transparent rounded-md hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loading ? 
-                  (isCreateMode ? 'กำลังสร้าง...' : 'กำลังบันทึก...') : 
-                  (isCreateMode ? 'สร้างผู้ใช้' : 'บันทึก')
+                  (isCreateMode ? translate('admin.creating') : translate('admin.saving')) : 
+                  (isCreateMode ? translate('admin.create_user') : translate('common.save'))
                 }
               </button>
             )}

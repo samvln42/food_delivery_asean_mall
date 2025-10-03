@@ -407,6 +407,10 @@ class DeliveryStatusLogSerializer(serializers.ModelSerializer):
 
 
 class NotificationSerializer(serializers.ModelSerializer):
+    # ใช้ PrimaryKeyRelatedField กับ allow_null=True เพื่อป้องกัน error เมื่อ related object ถูกลบ
+    related_order = serializers.PrimaryKeyRelatedField(read_only=True, allow_null=True)
+    related_guest_order = serializers.PrimaryKeyRelatedField(read_only=True, allow_null=True)
+    
     class Meta:
         model = Notification
         fields = ['notification_id', 'user', 'title', 'message', 'type', 
