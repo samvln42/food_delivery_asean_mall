@@ -94,10 +94,12 @@ class Category(models.Model):
     description = models.TextField(blank=True, null=True, help_text="Category description")
     image = models.ImageField(upload_to=category_image_upload_path, blank=True, null=True, help_text="Category image")
     is_special_only = models.BooleanField(default=False, help_text="Only special restaurants can use this category")
+    sort_order = models.PositiveIntegerField(default=0, unique=True, help_text="Order for sorting categories")
     
     class Meta:
         db_table = 'categories'
         verbose_name_plural = 'Categories'
+        ordering = ['sort_order', 'category_name']
     
     def get_image_url(self):
         """Get category image URL"""

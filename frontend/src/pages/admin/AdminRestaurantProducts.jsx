@@ -54,7 +54,7 @@ const AdminRestaurantProducts = () => {
 
   const fetchCategories = async () => {
     try {
-      const params = { page_size: 100 };
+      const params = { page_size: 100, ordering: 'sort_order,category_name' };
       
       // เพิ่ม parameter restaurant_type ตามประเภทร้าน
       if (restaurant) {

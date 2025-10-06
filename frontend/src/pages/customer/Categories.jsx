@@ -24,7 +24,7 @@ const Categories = () => {
     try {
       setLoading(true);
       // โหลดหมวดหมู่แบบ pagination
-      const response = await api.get(`/categories/?page=${page}&page_size=20`);
+      const response = await api.get(`/categories/?page=${page}&page_size=20&ordering=sort_order,category_name`);
       const data = response.data;
       if (Array.isArray(data)) {
         setCategories(data);

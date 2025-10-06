@@ -150,8 +150,8 @@ class CategoryViewSet(viewsets.ModelViewSet):
     serializer_class = CategorySerializer
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['category_name']
-    ordering_fields = ['category_name', 'category_id']
-    ordering = ['category_name']
+    ordering_fields = ['category_name', 'category_id', 'sort_order']
+    ordering = ['sort_order', 'category_name']
     parser_classes = [JSONParser, MultiPartParser, FormParser]  # เพิ่มเพื่อรองรับ image upload
     
     def get_permissions(self):
@@ -162,7 +162,7 @@ class CategoryViewSet(viewsets.ModelViewSet):
         return [permission() for permission in permission_classes]
     
     def get_queryset(self):
-        queryset = Category.objects.all()
+        queryset = Category.objects.all().order_by('sort_order', 'category_name')
         
         # กรองหมวดหมู่ตามประเภทร้าน
         restaurant_type = self.request.query_params.get('restaurant_type')

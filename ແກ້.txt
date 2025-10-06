@@ -1,0 +1,9 @@
+1. models.py
+2. serializer.py
+3. admin.py
+4. views.py
+
+python manage.py makemigrations api
+python manage.py migrate api
+
+python manage.py migrate

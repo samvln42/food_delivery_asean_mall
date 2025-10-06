@@ -22,8 +22,11 @@ class RestaurantAdmin(admin.ModelAdmin):
 
 @admin.register(Category)
 class CategoryAdmin(admin.ModelAdmin):
-    list_display = ['category_name']
+    list_display = ['category_name', 'sort_order', 'is_special_only']
+    list_filter = ['is_special_only']
     search_fields = ['category_name']
+    list_editable = ['sort_order']
+    ordering = ['sort_order', 'category_name']
 
 
 @admin.register(Product)

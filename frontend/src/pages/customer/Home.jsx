@@ -57,7 +57,7 @@ const Home = () => {
       // Try to fetch from API first
       try {
         const [categoriesRes, settingsRes] = await Promise.all([
-          categoryService.getAll({ page_size: 1000 }),
+          categoryService.getAll({ page_size: 1000, ordering: 'sort_order,category_name' }),
           appSettingsService.getPublic(),
         ]);
 

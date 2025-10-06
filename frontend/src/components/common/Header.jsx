@@ -160,7 +160,7 @@ const Header = ({ appSettings: appSettingsProp }) => {
       return [
         // ...baseItems,
         {
-          name: "Admin",
+          name: translate("admin.role.admin"),
           href: "/admin",
           current: location.pathname === "/admin",
         },

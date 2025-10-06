@@ -53,7 +53,7 @@ const AdminCategories = () => {
       const params = {
         page: currentPage,
         page_size: itemsPerPage,
-        ordering: 'category_name'
+        ordering: 'sort_order,category_name'
       };
 
       // เพิ่ม search parameter เฉพาะเมื่อมีการค้นหา
@@ -100,7 +100,11 @@ const AdminCategories = () => {
       closeModal();
     } catch (err) {
       console.error('Error creating category:', err);
-      alert(translate('admin.create_category_failed'));
+      if (err.response?.data?.sort_order) {
+        alert(translate('admin.sort_order_already_exists'));
+      } else {
+        alert(translate('admin.create_category_failed'));
+      }
     }
   };
 
@@ -112,7 +116,11 @@ const AdminCategories = () => {
       closeModal();
     } catch (err) {
       console.error('Error updating category:', err);
-      alert(translate('admin.update_category_failed'));
+      if (err.response?.data?.sort_order) {
+        alert(translate('admin.sort_order_already_exists'));
+      } else {
+        alert(translate('admin.update_category_failed'));
+      }
     }
   };
 
@@ -243,6 +251,9 @@ const AdminCategories = () => {
                   {translate('admin.table.category_name')}
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
+                  {translate('admin.table.sort_order')}
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
                   {translate('admin.table.special_only')}
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
@@ -285,6 +296,9 @@ const AdminCategories = () => {
                         </div>
                       )}
                     </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-900">
+                    {category.sort_order || 0}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
@@ -388,7 +402,8 @@ const CategoryModal = ({ category, type, onClose, onSave }) => {
   const [formData, setFormData] = useState({
     category_name: category?.category_name || '',
     description: category?.description || '',
-    is_special_only: category?.is_special_only || false
+    is_special_only: category?.is_special_only || false,
+    sort_order: category?.sort_order || 0
   });
   
   const [imageFile, setImageFile] = useState(null);
@@ -413,6 +428,12 @@ const CategoryModal = ({ category, type, onClose, onSave }) => {
       return;
     }
 
+    // ตรวจสอบ sort_order ต้องเป็นตัวเลขและไม่เป็นลบ
+    if (formData.sort_order < 0) {
+      alert(translate('admin.sort_order_must_be_positive'));
+      return;
+    }
+
     try {
       setLoading(true);
       
@@ -421,6 +442,7 @@ const CategoryModal = ({ category, type, onClose, onSave }) => {
       submitData.append('category_name', formData.category_name);
       submitData.append('description', formData.description);
       submitData.append('is_special_only', formData.is_special_only);
+      submitData.append('sort_order', formData.sort_order);
       
       // เพิ่มรูปภาพถ้ามี
       if (imageFile) {
@@ -490,6 +512,24 @@ const CategoryModal = ({ category, type, onClose, onSave }) => {
               rows={3}
               className="w-full p-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent disabled:bg-secondary-50"
             />
+          </div>
+
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-secondary-700 mb-2">
+              {translate('admin.table.sort_order')}
+            </label>
+            <input
+              type="number"
+              min="0"
+              value={formData.sort_order}
+              onChange={(e) => setFormData({ ...formData, sort_order: parseInt(e.target.value) || 0 })}
+              disabled={!isEditable}
+              placeholder="0"
+              className="w-full p-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent disabled:bg-secondary-50"
+            />
+            <p className="text-xs text-secondary-500 mt-1">
+              {translate('admin.table.sort_order_hint')}
+            </p>
           </div>
 
           {/* รูปภาพหมวดหมู่ */}
@@ -568,6 +608,18 @@ const CategoryModal = ({ category, type, onClose, onSave }) => {
                 <input
                   type="text"
                   value={category.category_id}
+                  disabled
+                  className="w-full p-3 border border-secondary-300 rounded-lg bg-secondary-50"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-secondary-700 mb-2">
+                  {translate('admin.table.sort_order')}
+                </label>
+                <input
+                  type="text"
+                  value={category.sort_order || 0}
                   disabled
                   className="w-full p-3 border border-secondary-300 rounded-lg bg-secondary-50"
                 />
