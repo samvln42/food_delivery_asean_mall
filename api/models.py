@@ -855,3 +855,41 @@ class GuestDeliveryStatusLog(models.Model):
     def __str__(self):
         return f"Guest Status Log for Order #{self.guest_order.guest_order_id}"
 
+
+def advertisement_image_upload_path(instance, filename):
+    """Generate upload path for advertisement images"""
+    import os
+    
+    # Get file extension
+    ext = filename.split('.')[-1]
+    # Create filename using advertisement_id
+    filename = f"ad_{instance.advertisement_id}.{ext}" if instance.advertisement_id else f"ad_new.{ext}"
+    return os.path.join('advertisements', filename)
+
+
+class Advertisement(models.Model):
+    """
+    โมเดลสำหรับจัดการโฆษณา/แบนเนอร์ที่แสดงบนหน้าหลัก (เก็บแค่รูปภาพ)
+    """
+    advertisement_id = models.AutoField(primary_key=True)
+    image = models.ImageField(upload_to=advertisement_image_upload_path, help_text="รูปภาพโฆษณา (แนะนำ 800x400px)")
+    sort_order = models.PositiveIntegerField(default=0, help_text="ลำดับการแสดงผล (เลขน้อยแสดงก่อน)")
+    is_active = models.BooleanField(default=True, help_text="เปิดใช้งานโฆษณา")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'advertisements'
+        ordering = ['sort_order', '-created_at']
+        indexes = [
+            models.Index(fields=['is_active', 'sort_order']),
+        ]
+    
+    def get_image_url(self):
+        """Get advertisement image URL"""
+        if self.image:
+            return self.image.url
+        return None
+    
+    def __str__(self):
+        return f"Advertisement #{self.advertisement_id} (Order: {self.sort_order})"

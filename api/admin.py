@@ -1,11 +1,13 @@
 from django.contrib import admin
+from django.utils.html import format_html
 from accounts.models import User
 from .models import (
     Restaurant, Category, Product, Order, OrderDetail, Payment,
     Review, ProductReview, DeliveryStatusLog, Notification,
     SearchHistory, PopularSearch, UserFavorite, AnalyticsDaily,
     RestaurantAnalytics, ProductAnalytics, AppSettings, Language, Translation,
-    CategoryTranslation, ProductTranslation, GuestOrder, GuestOrderDetail, GuestDeliveryStatusLog
+    CategoryTranslation, ProductTranslation, GuestOrder, GuestOrderDetail, GuestDeliveryStatusLog,
+    Advertisement
 )
 
 
@@ -232,3 +234,44 @@ class GuestDeliveryStatusLogAdmin(admin.ModelAdmin):
     list_filter = ['status', 'timestamp']
     search_fields = ['guest_order__temporary_id', 'note']
     readonly_fields = ['log_id', 'timestamp']
+
+
+@admin.register(Advertisement)
+class AdvertisementAdmin(admin.ModelAdmin):
+    list_display = ['advertisement_id', 'image_thumbnail', 'sort_order', 'is_active', 'created_at']
+    list_filter = ['is_active', 'created_at']
+    readonly_fields = ['advertisement_id', 'created_at', 'updated_at', 'image_preview']
+    ordering = ['sort_order', '-created_at']
+    
+    fieldsets = (
+        ('รูปภาพโฆษณา', {
+            'fields': ('image', 'image_preview')
+        }),
+        ('การตั้งค่า', {
+            'fields': ('sort_order', 'is_active')
+        }),
+        ('ข้อมูลระบบ', {
+            'fields': ('advertisement_id', 'created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+    
+    def image_thumbnail(self, obj):
+        """แสดงรูปภาพขนาดเล็กในรายการ"""
+        if obj.image:
+            return format_html(
+                '<img src="{}" style="max-width: 100px; max-height: 50px;"/>',
+                obj.image.url
+            )
+        return '-'
+    image_thumbnail.short_description = 'รูปภาพ'
+    
+    def image_preview(self, obj):
+        """แสดงตัวอย่างรูปภาพ"""
+        if obj.image:
+            return format_html(
+                '<img src="{}" style="max-width: 800px; max-height: 400px;"/>',
+                obj.image.url
+            )
+        return 'ยังไม่ได้อัปโหลดรูปภาพ'
+    image_preview.short_description = 'ตัวอย่างรูปภาพ'

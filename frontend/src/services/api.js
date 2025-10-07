@@ -420,7 +420,70 @@ export const appSettingsService = {
   },
 
   getLanguages: async () => {
-    return await api.get('/api/languages/');
+    return await api.get('/languages/');
+  },
+};
+
+// Advertisement Service
+export const advertisementService = {
+  // Get all advertisements (admin only)
+  getAll: (params = {}) => {
+    return api.get('/advertisements/', { params });
+  },
+  
+  // Get active advertisements (public)
+  getActive: () => {
+    return api.get('/advertisements/active/');
+  },
+  
+  // Get single advertisement
+  get: (id) => {
+    return api.get(`/advertisements/${id}/`);
+  },
+  
+  // Create new advertisement (admin only)
+  create: (data) => {
+    const formData = new FormData();
+    if (data.image instanceof File) {
+      formData.append('image', data.image);
+    }
+    formData.append('sort_order', data.sort_order || 0);
+    formData.append('is_active', data.is_active !== undefined ? data.is_active : true);
+    
+    return api.post('/advertisements/', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+  },
+  
+  // Update advertisement (admin only)
+  update: (id, data) => {
+    const formData = new FormData();
+    
+    // Only append image if it's a new file
+    if (data.image instanceof File) {
+      formData.append('image', data.image);
+    }
+    
+    formData.append('sort_order', data.sort_order || 0);
+    formData.append('is_active', data.is_active !== undefined ? data.is_active : true);
+    
+    console.log('AdvertisementService update - FormData contents:');
+    for (let [key, value] of formData.entries()) {
+      console.log(`${key}:`, value);
+    }
+    
+    return api.patch(`/advertisements/${id}/`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+  },
+  
+  // Delete advertisement (admin only)
+  delete: (id) => {
+    return api.delete(`/advertisements/${id}/`);
   },
 };
 

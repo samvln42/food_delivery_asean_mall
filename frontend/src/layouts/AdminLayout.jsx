@@ -12,7 +12,7 @@ import { useAuth } from "../contexts/AuthContext";
 import websocketService from "../services/websocket";
 import AdminNotificationBridge from "../components/admin/AdminNotificationBridge";
 import { useLocation } from "react-router-dom";
-import { FaBars, FaTimes, FaChartBar, FaUsers, FaStore, FaFolder, FaCog } from "react-icons/fa";
+import { FaBars, FaTimes, FaChartBar, FaUsers, FaStore, FaFolder, FaCog, FaBullhorn } from "react-icons/fa";
 import { FaUserCheck, FaUserXmark } from "react-icons/fa6";
 import { IoIosCreate  } from "react-icons/io";
 import { BiSolidPhoneCall } from "react-icons/bi";
@@ -360,6 +360,13 @@ const AdminLayout = ({ children }) => {
                   className="flex items-center px-4 py-2 text-secondary-700 rounded-lg hover:bg-primary-50 hover:text-primary-600 transition-colors"
                 >
                   <FaFolder className="h-6 w-6 mr-2" /> {translate('admin.categories')}
+                </Link>
+                <Link
+                  to="/admin/advertisements"
+                  onClick={() => setSidebarOpen(false)}
+                  className="flex items-center px-4 py-2 text-secondary-700 rounded-lg hover:bg-primary-50 hover:text-primary-600 transition-colors"
+                >
+                  <FaBullhorn className="h-6 w-6 mr-2" /> จัดการโฆษณา
                 </Link>
                 
                 {/* <Link

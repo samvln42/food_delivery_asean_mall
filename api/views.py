@@ -19,7 +19,7 @@ from .models import (
     Payment, Review, ProductReview, DeliveryStatusLog, Notification,
     SearchHistory, PopularSearch, UserFavorite, AnalyticsDaily,
     RestaurantAnalytics, ProductAnalytics, AppSettings, Language, Translation,
-    GuestOrder, GuestOrderDetail, GuestDeliveryStatusLog
+    GuestOrder, GuestOrderDetail, GuestDeliveryStatusLog, Advertisement
 )
 from .serializers import (
     RestaurantSerializer, CategorySerializer, ProductSerializer,
@@ -29,7 +29,8 @@ from .serializers import (
     UserFavoriteSerializer, AnalyticsDailySerializer, RestaurantAnalyticsSerializer,
     ProductAnalyticsSerializer, MultiRestaurantOrderSerializer, AppSettingsSerializer,
     LanguageSerializer, TranslationSerializer, GuestOrderSerializer, 
-    CreateGuestOrderSerializer, GuestOrderTrackingSerializer, GuestMultiRestaurantOrderSerializer
+    CreateGuestOrderSerializer, GuestOrderTrackingSerializer, GuestMultiRestaurantOrderSerializer,
+    AdvertisementSerializer
 )
 
 
@@ -1977,6 +1978,53 @@ class GuestOrderViewSet(viewsets.ModelViewSet):
             },
             status=status.HTTP_200_OK
         )
+
+
+class AdvertisementViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet สำหรับจัดการโฆษณา/แบนเนอร์ (เก็บแค่รูปภาพ)
+    - Admin: สามารถจัดการได้ทั้งหมด (CRUD)
+    - ผู้ใช้ทั่วไป: ดูได้เฉพาะโฆษณาที่เปิดใช้งาน
+    """
+    queryset = Advertisement.objects.all()
+    serializer_class = AdvertisementSerializer
+    filter_backends = [filters.OrderingFilter, DjangoFilterBackend]
+    ordering_fields = ['sort_order', 'created_at']
+    ordering = ['sort_order', '-created_at']
+    filterset_fields = ['is_active']
+    parser_classes = [JSONParser, MultiPartParser, FormParser]
+    
+    def get_queryset(self):
+        queryset = Advertisement.objects.all()
+        
+        # ถ้าไม่ใช่แอดมิน ให้แสดงเฉพาะโฆษณาที่เปิดใช้งาน
+        if not self.request.user.is_authenticated or self.request.user.role != 'admin':
+            queryset = queryset.filter(is_active=True)
+        
+        return queryset
+    
+    def get_permissions(self):
+        """
+        - list, retrieve, active: ทุกคนดูได้
+        - create, update, delete: เฉพาะ admin
+        """
+        if self.action in ['list', 'retrieve', 'active']:
+            permission_classes = [AllowAny]
+        else:
+            permission_classes = [IsAuthenticated, IsAdminUser]
+        return [permission() for permission in permission_classes]
+    
+    @action(detail=False, methods=['get'], permission_classes=[AllowAny])
+    def active(self, request):
+        """
+        ดึงเฉพาะโฆษณาที่เปิดใช้งาน สำหรับแสดงบนหน้าเว็บ
+        """
+        advertisements = Advertisement.objects.filter(
+            is_active=True
+        ).order_by('sort_order', '-created_at')
+        
+        serializer = self.get_serializer(advertisements, many=True)
+        return Response(serializer.data)
 
 
 

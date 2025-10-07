@@ -20,6 +20,7 @@ router.register(r'popular-searches', views.PopularSearchViewSet)
 router.register(r'app-settings', views.AppSettingsViewSet, basename='app-settings')
 router.register(r'languages', views.LanguageViewSet)
 router.register(r'translations', views.TranslationViewSet)
+router.register(r'advertisements', views.AdvertisementViewSet)
 
 urlpatterns = [
     # Health check endpoint for ALB/ELB

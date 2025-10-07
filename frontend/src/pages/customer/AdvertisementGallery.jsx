@@ -1,41 +1,41 @@
 import React, { useState, useEffect, useRef } from "react";
+import { advertisementService } from "../../services/api";
 
 const AdvertisementGallery = () => {
   const [isDragging, setIsDragging] = useState(false);
   const [startX, setStartX] = useState(0);
   const [scrollLeft, setScrollLeft] = useState(0);
+  const [advertisements, setAdvertisements] = useState([]);
+  const [loading, setLoading] = useState(true);
   const galleryRef = useRef(null);
   const autoScrollInterval = useRef(null);
 
-  const advertisements = [
-    {
-      id: 1,
-      image:
-        "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=800&h=400&fit=crop&crop=center",
-    },
-    {
-      id: 2,
-      image:
-        "https://images.unsplash.com/photo-1565958011703-44f9829ba187?w=800&h=400&fit=crop&crop=center",
-    },
-    {
-      id: 3,
-      image:
-        "https://images.unsplash.com/photo-1551782450-17144efb9c50?w=800&h=400&fit=crop&crop=center",
-    },
-    {
-      id: 4,
-      image:
-        "https://images.unsplash.com/photo-1571091655789-405eb7a3a3a8?w=800&h=400&fit=crop&crop=center",
-    },
-  ];
+  // ดึงข้อมูลโฆษณาจาก API
+  useEffect(() => {
+    const fetchAdvertisements = async () => {
+      try {
+        const response = await advertisementService.getActive();
+        // Ensure response.data is an array
+        const data = Array.isArray(response.data) ? response.data : [];
+        setAdvertisements(data);
+      } catch (error) {
+        console.error("Error fetching advertisements:", error);
+        // ถ้าเกิดข้อผิดพลาด แสดงเป็น array ว่าง (ไม่แสดงอะไร)
+        setAdvertisements([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAdvertisements();
+  }, []);
 
   // 🔁 Duplicate 3 ชุด
-  const duplicatedAdvertisements = [
+  const duplicatedAdvertisements = Array.isArray(advertisements) ? [
     ...advertisements,
     ...advertisements,
     ...advertisements,
-  ];
+  ] : [];
 
   // ✅ ใช้ scrollWidth/3 เป็นความกว้างของชุดจริง
   const adjustCircularScroll = () => {
@@ -69,7 +69,7 @@ const AdvertisementGallery = () => {
   };
 
   useEffect(() => {
-    if (galleryRef.current) {
+    if (galleryRef.current && Array.isArray(advertisements) && advertisements.length > 0) {
       const singleSetWidth = galleryRef.current.scrollWidth / 3;
       // เริ่มต้นที่ชุดกลาง
       galleryRef.current.scrollLeft = singleSetWidth;
@@ -77,7 +77,7 @@ const AdvertisementGallery = () => {
       startAutoScroll();
       return () => stopAutoScroll();
     }
-  }, []);
+  }, [advertisements]);
 
   useEffect(() => {
     if (isDragging) stopAutoScroll();
@@ -132,6 +132,20 @@ const AdvertisementGallery = () => {
 
   const handleTouchEnd = () => setIsDragging(false);
 
+  // แสดง loading state
+  if (loading) {
+    return (
+      <div className="relative overflow-hidden bg-gray-200 rounded-xl h-32 sm:h-40 flex items-center justify-center">
+        <div className="text-gray-500">กำลังโหลด...</div>
+      </div>
+    );
+  }
+
+  // ถ้าไม่มีโฆษณา ไม่แสดงอะไรเลย
+  if (!Array.isArray(advertisements) || advertisements.length === 0) {
+    return null;
+  }
+
   return (
     <div className="relative overflow-hidden bg-gray-100 rounded-xl h-32 sm:h-40">
       <div
@@ -149,12 +163,12 @@ const AdvertisementGallery = () => {
       >
         {duplicatedAdvertisements.map((ad, index) => (
           <div
-            key={`${ad.id}-${index}`}
+            key={`${ad.advertisement_id}-${index}`}
             className="w-full h-full flex-shrink-0"
           >
             <img
-              src={ad.image}
-              alt="Advertisement Banner"
+              src={ad.image_display_url || "https://via.placeholder.com/800x400"}
+              alt={`Advertisement ${ad.advertisement_id}`}
               className="w-full h-full object-cover pointer-events-none"
               draggable={false}
             />

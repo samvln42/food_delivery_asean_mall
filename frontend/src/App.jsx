@@ -52,6 +52,7 @@ const AdminCategories = lazy(() => import('./pages/admin/AdminCategories'));
 const AdminRestaurantProducts = lazy(() => import('./pages/admin/AdminRestaurantProducts'));
 const AdminUsers = lazy(() => import('./pages/admin/AdminUsers'));
 const AdminSettings = lazy(() => import('./pages/admin/AdminSettings'));
+const AdminAdvertisements = lazy(() => import('./pages/admin/AdminAdvertisements'));
 
 // Layouts - โหลดทันทีเพราะใช้บ่อย
 import CustomerLayout from './layouts/CustomerLayout';
@@ -676,6 +677,15 @@ function App() {
                         </AdminLayout>
                       </ProtectedRoute>
                     } />
+
+                    <Route path="/admin/advertisements" element={
+                      <ProtectedRoute allowedRoles={['admin']}>
+                        <AdminLayout>
+                          <AdminAdvertisements />
+                        </AdminLayout>
+                      </ProtectedRoute>
+                    } />
+
 
                     
 

@@ -5,7 +5,8 @@ from .models import (
     Payment, Review, ProductReview, DeliveryStatusLog, Notification,
     SearchHistory, PopularSearch, UserFavorite, AnalyticsDaily,
     RestaurantAnalytics, ProductAnalytics, AppSettings, Language, Translation,
-    CategoryTranslation, ProductTranslation, GuestOrder, GuestOrderDetail, GuestDeliveryStatusLog
+    CategoryTranslation, ProductTranslation, GuestOrder, GuestOrderDetail, GuestDeliveryStatusLog,
+    Advertisement
 )
 
 
@@ -1075,4 +1076,21 @@ class GuestOrderTrackingSerializer(serializers.ModelSerializer):
     
     def get_is_multi_restaurant(self, obj):
         """ตรวจสอบว่าเป็น multi-restaurant order หรือไม่"""
-        return self.get_restaurant_count(obj) > 1 
+        return self.get_restaurant_count(obj) > 1
+
+
+class AdvertisementSerializer(serializers.ModelSerializer):
+    image_display_url = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = Advertisement
+        fields = [
+            'advertisement_id', 'image', 'image_display_url',
+            'sort_order', 'is_active', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['advertisement_id', 'created_at', 'updated_at']
+    
+    def get_image_display_url(self, obj):
+        """Get the advertisement image URL"""
+        image_url = obj.get_image_url()
+        return get_absolute_image_url(image_url, self.context.get('request'))
