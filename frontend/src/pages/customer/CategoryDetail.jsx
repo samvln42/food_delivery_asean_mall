@@ -6,13 +6,34 @@ import { useGuestCart } from '../../contexts/GuestCartContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { formatPrice } from '../../utils/formatPrice';
+
+// Helper function to get translated name
+const getTranslatedName = (item, currentLanguage, defaultName) => {
+  if (!item.translations || !Array.isArray(item.translations)) {
+    return defaultName;
+  }
+  
+  const translation = item.translations.find(t => t.language_code === currentLanguage);
+  return translation?.translated_name || defaultName;
+};
+
+// Helper function to get translated description
+const getTranslatedDescription = (item, currentLanguage, defaultDescription) => {
+  if (!item.translations || !Array.isArray(item.translations)) {
+    return defaultDescription;
+  }
+  
+  const translation = item.translations.find(t => t.language_code === currentLanguage);
+  return translation?.translated_description || defaultDescription;
+};
+
 import {
   HomeIcon,
   ShoppingCartIcon,
 } from "@heroicons/react/24/outline";
 
 const CategoryDetail = () => {
-  const { translate } = useLanguage();
+  const { translate, currentLanguage } = useLanguage();
   const { id } = useParams();
   const { isAuthenticated } = useAuth();
   
@@ -189,11 +210,11 @@ const CategoryDetail = () => {
             <div className="absolute inset-0 bg-black bg-opacity-30"></div>
             <div className="absolute bottom-6 left-6 right-6">
               <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white drop-shadow-lg mb-2">
-                {category.category_name}
+                {getTranslatedName(category, currentLanguage, category.category_name)}
               </h1>
-              {category.description && (
+              {(category.description || getTranslatedDescription(category, currentLanguage, category.description)) && (
                 <p className="text-white text-base sm:text-lg drop-shadow-lg">
-                  {category.description}
+                  {getTranslatedDescription(category, currentLanguage, category.description) || category.description}
                 </p>
               )}
             </div>
@@ -245,7 +266,7 @@ const CategoryDetail = () => {
                 <div className="flex justify-between items-center mb-2 sm:mb-2">
                   <div className="flex-1">
                     <h3 className="font-semibold text-secondary-800 text-sm sm:text-base leading-tight">
-                      {product.product_name}
+                      {getTranslatedName(product, currentLanguage, product.product_name)}
                     </h3>
                     <span className="text-primary-500 font-bold text-sm sm:text-lg">
                       {formatPrice(product.price)}
@@ -275,7 +296,7 @@ const CategoryDetail = () => {
                   </div>
                 </div>
                 <p className="hidden sm:block text-secondary-600 text-xs sm:text-sm mb-2 sm:mb-3 line-clamp-2">
-                  {product.description}
+                  {getTranslatedDescription(product, currentLanguage, product.description) || product.description}
                 </p>
                 <div className="hidden sm:flex items-center justify-between mb-2 sm:mb-2">
                   <span className="text-xs text-secondary-500">

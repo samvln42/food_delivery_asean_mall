@@ -3,8 +3,28 @@ import { Link } from 'react-router-dom';
 import api from '../../services/api'; 
 import { useLanguage } from '../../contexts/LanguageContext';
 
+// Helper function to get translated name
+const getTranslatedName = (item, currentLanguage, defaultName) => {
+  if (!item.translations || !Array.isArray(item.translations)) {
+    return defaultName;
+  }
+  
+  const translation = item.translations.find(t => t.language_code === currentLanguage);
+  return translation?.translated_name || defaultName;
+};
+
+// Helper function to get translated description
+const getTranslatedDescription = (item, currentLanguage, defaultDescription) => {
+  if (!item.translations || !Array.isArray(item.translations)) {
+    return defaultDescription;
+  }
+  
+  const translation = item.translations.find(t => t.language_code === currentLanguage);
+  return translation?.translated_description || defaultDescription;
+};
+
 const Categories = () => {
-  const { translate } = useLanguage();
+  const { translate, currentLanguage } = useLanguage();
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -107,13 +127,13 @@ const Categories = () => {
               )}
               <div className="absolute top-2 left-2 sm:bottom-auto bg-white backdrop-blur-sm rounded-lg p-1.5">
                 <h3 className="text-sm sm:text-xl font-bold text-black">
-                  {category.category_name}
+                  {getTranslatedName(category, currentLanguage, category.category_name)}
                 </h3>
               </div>
             </div>
             <div className="p-2 sm:p-4">
               <p className="text-secondary-600 text-xs sm:text-sm hidden sm:block">
-                {category.description || translate('common.explore_food_in_this_category')}
+                {getTranslatedDescription(category, currentLanguage, category.description) || translate('common.explore_food_in_this_category')}
               </p>
               <div className="mt-1 sm:mt-2 flex items-center justify-between">
                 <span className="text-primary-500 font-semibold group-hover:text-primary-600 text-xs sm:text-sm">

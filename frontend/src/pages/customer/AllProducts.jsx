@@ -8,6 +8,26 @@ import { useLanguage } from "../../contexts/LanguageContext";
 import { formatPrice } from "../../utils/formatPrice";
 import { HomeIcon, ShoppingCartIcon } from "@heroicons/react/24/outline";
 
+// Helper function to get translated name
+const getTranslatedName = (item, currentLanguage, defaultName) => {
+  if (!item.translations || !Array.isArray(item.translations)) {
+    return defaultName;
+  }
+  
+  const translation = item.translations.find(t => t.language_code === currentLanguage);
+  return translation?.translated_name || defaultName;
+};
+
+// Helper function to get translated description
+const getTranslatedDescription = (item, currentLanguage, defaultDescription) => {
+  if (!item.translations || !Array.isArray(item.translations)) {
+    return defaultDescription;
+  }
+  
+  const translation = item.translations.find(t => t.language_code === currentLanguage);
+  return translation?.translated_description || defaultDescription;
+};
+
 const AllProducts = () => {
   const { addItem: addToCart } = useCart();
   const { addItem: addToGuestCart } = useGuestCart();
@@ -19,7 +39,7 @@ const AllProducts = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalProducts, setTotalProducts] = useState(0);
-  const { translate } = useLanguage();
+  const { translate, currentLanguage } = useLanguage();
 
   // เลือกฟังก์ชัน addItem ตามสถานะการล็อกอิน
   const addItem = isAuthenticated ? addToCart : addToGuestCart;
@@ -225,7 +245,7 @@ const AllProducts = () => {
                   <div className="flex justify-between items-center mb-2 sm:mb-2">
                     <div className="flex-1">
                       <h3 className="font-semibold text-secondary-800 text-sm sm:text-base leading-tight hover:text-primary-600 transition-colors">
-                        {product.product_name}
+                        {getTranslatedName(product, currentLanguage, product.product_name)}
                       </h3>
 
                       <span className="text-primary-500 font-bold text-sm sm:text-lg">
@@ -296,7 +316,7 @@ const AllProducts = () => {
 
                               alert(
                                 translate("common.added_to_cart", {
-                                  product: product.product_name,
+                                  product: getTranslatedName(product, currentLanguage, product.product_name),
                                 })
                               );
                             }}
@@ -317,7 +337,7 @@ const AllProducts = () => {
                   </div>
 
                   <p className="hidden sm:block text-secondary-600 text-sm mb-3 line-clamp-2">
-                    {product.description || translate("common.no_description")}
+                    {getTranslatedDescription(product, currentLanguage, product.description) || product.description || translate("common.no_description")}
                   </p>
 
                   <div className="hidden sm:flex items-center justify-between mb-2">
@@ -332,7 +352,7 @@ const AllProducts = () => {
                   {product.category && (
                     <div className="hidden sm:block mb-3">
                       <span className="px-2 py-1 bg-secondary-100 text-secondary-700 text-xs rounded-full">
-                        {product.category.category_name}
+                        {getTranslatedName(product.category, currentLanguage, product.category.category_name)}
                       </span>
                     </div>
                   )}
@@ -403,7 +423,7 @@ const AllProducts = () => {
 
                               alert(
                                 translate("common.added_to_cart", {
-                                  product: product.product_name,
+                                  product: getTranslatedName(product, currentLanguage, product.product_name),
                                 })
                               );
                             }}

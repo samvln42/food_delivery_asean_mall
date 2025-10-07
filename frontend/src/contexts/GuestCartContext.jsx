@@ -70,6 +70,7 @@ const guestCartReducer = (state, action) => {
           image_url: product.image_url,
           image_display_url: product.image_display_url,
           special_instructions: '',
+          translations: product.translations || [], // เพิ่มข้อมูล translations
         };
         
         console.log('Created new item:', newItem);

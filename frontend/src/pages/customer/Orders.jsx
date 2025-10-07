@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import api from "../../services/api";
 import { useAuth } from "../../contexts/AuthContext";
 import { useLanguage } from "../../contexts/LanguageContext";
+import { getTranslatedName, getTranslatedDescription } from "../../utils/translationUtils";
 import { formatPrice } from "../../utils/formatPrice";
 import websocketService from "../../services/websocket";
 
@@ -817,7 +818,7 @@ const Orders = () => {
                                       {item.image_display_url || item.image_url || item.product_image_url ? (
                                         <img
                                           src={item.image_display_url || item.image_url || item.product_image_url}
-                                          alt={item.product_name}
+                                          alt={getTranslatedName(item, currentLanguage, item.product_name)}
                                           className="w-full h-full object-cover rounded-lg"
                                           onError={(e) => {
                                             e.target.style.display = 'none';
@@ -831,7 +832,7 @@ const Orders = () => {
                                     </div>
                                     <div>
                                       <p className="font-medium text-secondary-800">
-                                        {item.product_name}
+                                        {getTranslatedName(item, currentLanguage, item.product_name)}
                                       </p>
                                       <p className="text-sm text-secondary-500">
                                         {formatPrice(

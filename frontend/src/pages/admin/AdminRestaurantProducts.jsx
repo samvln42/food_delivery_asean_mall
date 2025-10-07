@@ -4,6 +4,25 @@ import { restaurantService, productService, categoryService } from '../../servic
 import { formatPrice } from '../../utils/formatPrice';
 import { useLanguage } from '../../contexts/LanguageContext';
 
+// Helper functions สำหรับการแปล
+const getTranslatedName = (item, currentLanguage, fallbackName) => {
+  if (!item?.translations || !currentLanguage || currentLanguage === 'en') {
+    return fallbackName || '';
+  }
+  
+  const translation = item.translations.find(t => t.language_code === currentLanguage);
+  return translation?.translated_name || fallbackName || '';
+};
+
+const getTranslatedDescription = (item, currentLanguage, fallbackDescription) => {
+  if (!item?.translations || !currentLanguage || currentLanguage === 'en') {
+    return fallbackDescription || '';
+  }
+  
+  const translation = item.translations.find(t => t.language_code === currentLanguage);
+  return translation?.translated_description || fallbackDescription || '';
+};
+
 const AdminRestaurantProducts = () => {
   const { restaurantId } = useParams();
   const navigate = useNavigate();
@@ -139,6 +158,7 @@ const AdminRestaurantProducts = () => {
 
   const handleUpdateProduct = async (productId, formData) => {
     try {
+      console.log('🔄 Updating product:', productId, formData);
       await productService.update(productId, { ...formData, restaurant: restaurantId });
       fetchProducts(); // Refresh data
       alert(translate('admin.success.saved'));
@@ -375,7 +395,7 @@ const AdminRestaurantProducts = () => {
                           <img
                             className="h-12 w-12 rounded-lg object-cover"
                             src={product.image_display_url || product.image_url}
-                            alt={product.product_name}
+                            alt={getTranslatedName(product, currentLanguage, product.product_name)}
                             onError={(e) => {
                               e.target.style.display = 'none';
                             }}
@@ -384,17 +404,17 @@ const AdminRestaurantProducts = () => {
                       )}
                       <div className={(product.image_display_url || product.image_url) ? 'ml-4' : ''}>
                         <div className="text-sm font-medium text-secondary-900">
-                          {product.product_name}
+                          {getTranslatedName(product, currentLanguage, product.product_name)}
                         </div>
                         <div className="text-sm text-secondary-500 truncate max-w-xs">
-                          {product.description}
+                          {getTranslatedDescription(product, currentLanguage, product.description)}
                         </div>
                       </div>
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm text-secondary-900">
-                      {product.category_name}
+                      {getTranslatedName(product.category, currentLanguage, product.category_name)}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
@@ -557,20 +577,42 @@ const AdminRestaurantProducts = () => {
 
 // Product Modal Component
 const ProductModal = ({ product, type, categories, restaurant, onClose, onSave }) => {
-  const { translate, currentLanguage } = useLanguage();
+  const { translate, currentLanguage, availableLanguages } = useLanguage();
   const [formData, setFormData] = useState({
     product_name: product?.product_name || '',
     description: product?.description || '',
     price: product?.price || '',
     category: product?.category || '',
     image_url: product?.image_url || '',
-    is_available: product?.is_available !== undefined ? product.is_available : true
+    is_available: product?.is_available !== undefined ? product.is_available : true,
+    // เพิ่มการแปลสำหรับแต่ละภาษา
+    translations: {}
   });
   
   const [selectedFile, setSelectedFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [uploadLoading, setUploadLoading] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  // ตั้งค่าการแปลเริ่มต้นเมื่อโหลดข้อมูลสินค้า
+  useEffect(() => {
+    console.log('📦 Product data loaded:', product);
+    console.log('📦 Product translations:', product?.translations);
+    
+    if (product?.translations) {
+      const translations = {};
+      product.translations.forEach(trans => {
+        translations[trans.language_code] = {
+          name: trans.translated_name || '',
+          description: trans.translated_description || ''
+        };
+      });
+      console.log('📝 Parsed translations:', translations);
+      setFormData(prev => ({ ...prev, translations }));
+    } else {
+      console.log('❌ No translations found in product data');
+    }
+  }, [product]);
 
   // ตั้งค่า preview รูปภาพเมื่อเปิด modal
   React.useEffect(() => {
@@ -683,9 +725,23 @@ const ProductModal = ({ product, type, categories, restaurant, onClose, onSave }
 
     try {
       setLoading(true);
+      // กรอง translations ที่มีค่าเท่านั้น
+      const validTranslations = {};
+      Object.keys(formData.translations).forEach(langCode => {
+        const translation = formData.translations[langCode];
+        if (translation && translation.name && translation.name.trim()) {
+          validTranslations[langCode] = {
+            name: translation.name.trim(),
+            description: translation.description ? translation.description.trim() : ''
+          };
+        }
+      });
+      console.log('📝 Valid product translations to send:', validTranslations);
+
       const submitData = {
         ...formData,
-        price: parseFloat(formData.price)
+        price: parseFloat(formData.price),
+        translations: validTranslations
       };
       
       if (type === 'create') {
@@ -707,7 +763,7 @@ const ProductModal = ({ product, type, categories, restaurant, onClose, onSave }
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg max-w-2xl w-full max-h-screen overflow-y-auto">
+      <div className="bg-white rounded-lg max-w-5xl w-full max-h-screen overflow-y-auto">
         <div className="flex justify-between items-center p-6 border-b">
           <h2 className="text-xl font-semibold text-secondary-900">
             {modalTitle}
@@ -723,25 +779,105 @@ const ProductModal = ({ product, type, categories, restaurant, onClose, onSave }
         </div>
 
         <form onSubmit={handleSubmit} className="p-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-secondary-700 mb-2">
-                {translate('product.name')} *
-              </label>
-              <input
-                type="text"
-                value={formData.product_name}
-                onChange={(e) => setFormData({ ...formData, product_name: e.target.value })}
-                disabled={!isEditable}
-                placeholder={translate('product.name')}
-                className="w-full p-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent disabled:bg-secondary-50"
-                required
-              />
+          
+          {/* ชื่อสินค้า (ภาษาอังกฤษ) */}
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-secondary-700 mb-2">
+              {translate('admin.product_modal.product_name_english')} *
+            </label>
+            <input
+              type="text"
+              value={formData.product_name}
+              onChange={(e) => setFormData({ ...formData, product_name: e.target.value })}
+              disabled={!isEditable}
+              placeholder={translate('admin.product_modal.product_name_english')}
+              className="w-full p-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent disabled:bg-secondary-50"
+              required
+            />
+            <p className="text-xs text-secondary-500 mt-1">
+              {translate('admin.product_modal.primary_name_hint')}
+            </p>
+          </div>
+
+          {/* การแปลสำหรับแต่ละภาษา */}
+          <div className="mb-6">
+            <h3 className="text-lg font-medium text-secondary-800 mb-4">
+              {translate('admin.product_modal.translations_title')}
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {availableLanguages.filter(lang => lang.code !== 'en').map(lang => {
+                console.log(`🔍 Rendering translation for ${lang.code}:`, formData.translations[lang.code]);
+                return (
+                <div key={lang.code} className="p-4 border border-secondary-200 rounded-lg bg-secondary-50">
+                  <h4 className="text-sm font-medium text-secondary-700 mb-3 flex items-center">
+                    <span className="w-6 h-6 bg-primary-100 text-primary-600 rounded-full flex items-center justify-center text-xs font-bold mr-2">
+                      {lang.code.toUpperCase()}
+                    </span>
+                    {translate(`admin.language_${lang.code}`)}
+                  </h4>
+                  
+                  <div className="mb-3">
+                    <label className="block text-xs text-secondary-600 mb-1">
+                      {translate('admin.product_modal.product_name')}
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.translations[lang.code]?.name || ''}
+                      onChange={(e) => {
+                        console.log(`📝 Updating ${lang.code} name:`, e.target.value);
+                        setFormData({
+                          ...formData,
+                          translations: {
+                            ...formData.translations,
+                            [lang.code]: {
+                              ...formData.translations[lang.code],
+                              name: e.target.value
+                            }
+                          }
+                        });
+                      }}
+                      disabled={!isEditable}
+                      placeholder={`${translate('admin.product_modal.product_name')} ${translate(`admin.language_${lang.code}`)}`}
+                      className="w-full p-2 border border-secondary-300 rounded text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent disabled:bg-secondary-100"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs text-secondary-600 mb-1">
+                      {translate('admin.product_modal.description')}
+                    </label>
+                    <textarea
+                      value={formData.translations[lang.code]?.description || ''}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        translations: {
+                          ...formData.translations,
+                          [lang.code]: {
+                            ...formData.translations[lang.code],
+                            description: e.target.value
+                          }
+                        }
+                      })}
+                      disabled={!isEditable}
+                      placeholder={`${translate('admin.product_modal.description')} ${translate(`admin.language_${lang.code}`)}`}
+                      rows={2}
+                      className="w-full p-2 border border-secondary-300 rounded text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent disabled:bg-secondary-100"
+                    />
+                  </div>
+                </div>
+                );
+              })}
             </div>
+            <p className="text-xs text-secondary-500 mt-2">
+              {translate('admin.product_modal.translations_optional_hint')}
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
             <div>
               <label className="block text-sm font-medium text-secondary-700 mb-2">
-                {translate('product.price')} *
+                {translate('admin.product_modal.price')} *
               </label>
               <input
                 type="number"
@@ -758,7 +894,7 @@ const ProductModal = ({ product, type, categories, restaurant, onClose, onSave }
 
             <div>
               <label className="block text-sm font-medium text-secondary-700 mb-2">
-                {translate('product.category')} *
+                {translate('admin.product_modal.category')} *
               </label>
               <select
                 value={formData.category}
@@ -814,7 +950,7 @@ const ProductModal = ({ product, type, categories, restaurant, onClose, onSave }
 
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-secondary-700 mb-2">
-                {translate('product.description')}
+                {translate('admin.product_modal.description_english')}
               </label>
               <textarea
                 value={formData.description}
@@ -828,7 +964,7 @@ const ProductModal = ({ product, type, categories, restaurant, onClose, onSave }
 
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-secondary-700 mb-2">
-                {translate('product.image')}
+                {translate('admin.product_modal.image')}
               </label>
               
               {/* Image Preview */}
@@ -988,7 +1124,7 @@ const DeleteConfirmModal = ({ product, onConfirm, onCancel }) => {
             </div>
           </div>
           
-          <p className="text-secondary-700 mb-6">{translate('admin.confirm_delete_product', { name: product.product_name })}</p>
+          <p className="text-secondary-700 mb-6">{translate('admin.confirm_delete_product', { name: getTranslatedName(product, currentLanguage, product.product_name) })}</p>
 
           <div className="flex justify-end space-x-4">
             <button

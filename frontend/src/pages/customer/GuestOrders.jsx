@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import api from "../../services/api";
 import { useLanguage } from "../../contexts/LanguageContext";
+import { getTranslatedName, getTranslatedDescription } from "../../utils/translationUtils";
 import websocketService from "../../services/websocket";
 import { formatPrice } from "../../utils/formatPrice";
 import { API_ENDPOINTS } from '../../config/api';
@@ -307,7 +308,6 @@ const GuestOrders = () => {
     if (!id) return null;
     // ลบ :number ที่อาจติดท้ายมาจาก URL parsing error
     const cleaned = id.split(':')[0];
-    console.log('🧹 Sanitized temporary_id:', { original: id, cleaned });
     return cleaned;
   };
   
@@ -346,23 +346,12 @@ const GuestOrders = () => {
     }
   }, [searchParams, setSearchParams]);
   
-  // Debug temporary_id
-  // console.log('🔍 GuestOrders component - temporary_id from URL:', temporaryIdFromUrl);
-  // console.log('🔍 GuestOrders component - temporary_id from localStorage:', getTemporaryIdFromLocalStorage());
-  // console.log('🔍 GuestOrders component - final temporary_id:', temporaryId);
-  // console.log('🔍 GuestOrders component - searchParams:', Object.fromEntries(searchParams.entries()));
 
   // WebSocket connection และ polling สำหรับ guest orders
   useEffect(() => {
-    // console.log('🔍 WebSocket useEffect triggered with temporaryId:', temporaryId);
-    // console.log('🔍 WebSocket useEffect - searchParams:', Object.fromEntries(searchParams.entries()));
-    
     if (!temporaryId) {
-      // console.log('⚠️ No temporary_id provided, skipping WebSocket connection');
       return;
     }
-
-    // console.log(`🔗 Setting up WebSocket for temporary_id: ${temporaryId}`);
     
     // ทดสอบ WebSocket connection ก่อน
     const testWebSocketConnection = () => {
@@ -372,54 +361,34 @@ const GuestOrders = () => {
       setIsWebSocketConnecting(true);
       setWebSocketError(null);
 
-      // const baseUrl = import.meta.env.VITE_API_URL || 'https://matjyp.com/api/';
       const baseUrl = import.meta.env.VITE_API_URL;
       const wsUrl = baseUrl.replace('https://', 'wss://').replace('http://', 'ws://').replace(/\/api\/?$/, '/ws/guest-orders/');
-      
-      // console.log('🔍 WebSocket Connection Debug:', {
-      //   baseUrl,
-      //   wsUrl,
-      //   environmentApiUrl: import.meta.env.VITE_API_URL
-      // });
 
       const testWs = new WebSocket(wsUrl);
       
       // Timeout สำหรับ connection
       const connectionTimeout = setTimeout(() => {
         if (testWs.readyState === WebSocket.CONNECTING) {
-          console.log('⏰ WebSocket connection timeout');
           testWs.close();
           setIsWebSocketConnecting(false);
           setWebSocketError(new Error('WebSocket connection timeout'));
         }
-      }, 5000); // 5 วินาที
+      }, 5000);
 
       testWs.onopen = () => {
         clearTimeout(connectionTimeout);
-        console.log('✅ Test WebSocket connection successful:', wsUrl);
         setIsWebSocketConnecting(false);
         testWs.close();
       };
 
       testWs.onerror = (error) => {
         clearTimeout(connectionTimeout);
-        console.error('❌ Test WebSocket connection error:', {
-          url: wsUrl,
-          error: error,
-          errorType: error.type,
-          target: error.target
-        });
         setIsWebSocketConnecting(false);
         setWebSocketError(error);
       };
 
       testWs.onclose = (event) => {
         clearTimeout(connectionTimeout);
-        console.log('🔌 Test WebSocket connection closed:', {
-          code: event.code,
-          reason: event.reason,
-          wasClean: event.wasClean
-        });
         setIsWebSocketConnecting(false);
       };
         
@@ -432,17 +401,8 @@ const GuestOrders = () => {
     const currentTemporaryId = websocketService.guestTemporaryId;
     const isConnected = websocketService.isGuestConnected();
     
-    // console.log('🔍 Current WebSocket state:', {
-    //   currentTemporaryId,
-    //   newTemporaryId: temporaryId,
-    //   isConnected,
-    //   readyState: websocketService.guestWs?.readyState
-    // });
-    
     // ถ้า temporary_id เปลี่ยน หรือ WebSocket ไม่เชื่อมต่อ ให้เชื่อมต่อใหม่
     if (currentTemporaryId !== temporaryId || !isConnected) {
-      console.log('🔄 Temporary ID changed or WebSocket not connected, reconnecting...');
-      
       // ปิด connection เก่า (ถ้ามี)
       websocketService.disconnectGuest();
       
@@ -451,8 +411,6 @@ const GuestOrders = () => {
       
       // เชื่อมต่อใหม่ (setGuestTemporaryId จะจัดการการเชื่อมต่อและ subscribe อัตโนมัติ)
       websocketService.connectGuest();
-    } else {
-      console.log('✅ WebSocket already connected with correct temporary_id, skipping reconnection');
     }
 
     // Initial fetch
@@ -460,7 +418,6 @@ const GuestOrders = () => {
 
     // Cleanup
     return () => {
-      console.log('🔌 Cleaning up WebSocket connection for temporary_id:', temporaryId);
       // ไม่ต้องปิด WebSocket ทุกครั้ง เพราะอาจมี temporary_id อื่นใช้อยู่
       // websocketService.disconnectGuest();
     };
@@ -469,9 +426,6 @@ const GuestOrders = () => {
   // เพิ่มการแสดงข้อผิดพลาดของ WebSocket
   useEffect(() => {
     if (webSocketError) {
-      // แสดง error message หรือ toast notification
-      console.error('WebSocket Connection Error:', webSocketError);
-      
       // แสดงการแจ้งเตือน
       setStatusUpdateNotification({
         orderId: temporaryId,
@@ -490,22 +444,11 @@ const GuestOrders = () => {
   useEffect(() => {
     // ถ้าไม่มี temporary_id ใน URL แต่มีใน localStorage ให้เชื่อมต่อ WebSocket
     if (!temporaryIdFromUrl && temporaryId) {
-      console.log('🔗 No temporary_id in URL but found in localStorage, connecting WebSocket...');
-      
       const currentTemporaryId = websocketService.guestTemporaryId;
       const isConnected = websocketService.isGuestConnected();
       
-      console.log('🔍 WebSocket state for localStorage temporary_id:', {
-        currentTemporaryId,
-        localStorageTemporaryId: temporaryId,
-        isConnected,
-        readyState: websocketService.guestWs?.readyState
-      });
-      
       // ถ้า temporary_id เปลี่ยน หรือ WebSocket ไม่เชื่อมต่อ ให้เชื่อมต่อใหม่
       if (currentTemporaryId !== temporaryId || !isConnected) {
-        console.log('🔄 Connecting WebSocket for localStorage temporary_id...');
-        
         // ปิด connection เก่า (ถ้ามี)
         websocketService.disconnectGuest();
         
@@ -514,8 +457,6 @@ const GuestOrders = () => {
         
         // เชื่อมต่อใหม่
         websocketService.connectGuest();
-      } else {
-        console.log('✅ WebSocket already connected with localStorage temporary_id');
       }
     }
   }, [temporaryIdFromUrl, temporaryId]); // ขึ้นกับทั้ง temporary_id จาก URL และ localStorage
@@ -529,16 +470,8 @@ const GuestOrders = () => {
 
     // Check WebSocket connection status
     const isWebSocketConnected = websocketService.isGuestConnected();
-    // console.log('🔍 Polling useEffect - WebSocket status:', {
-    //   isWebSocketConnected,
-    //   readyState: websocketService.guestWs?.readyState,
-    //   temporaryId,
-    //   temporaryIdFromUrl,
-    //   hasLocalStorageTemporaryId: !!getTemporaryIdFromLocalStorage()
-    // });
     
     if (isWebSocketConnected) {
-      console.log('✅ WebSocket connected, disabling polling');
       setPollingActive(false);
       // ทำความสะอาด localStorage ก่อน fetch
       cleanupLocalStorage();
@@ -547,7 +480,6 @@ const GuestOrders = () => {
     }
 
     // Use polling as fallback when WebSocket is not available
-    console.log('⚠️ WebSocket not connected, enabling polling');
     setPollingActive(true);
 
     // ทำความสะอาด localStorage ก่อน fetch
@@ -560,19 +492,12 @@ const GuestOrders = () => {
     const pollingInterval = setInterval(() => {
       // Check again if WebSocket became available
       const isConnected = websocketService.isGuestConnected();
-      // console.log('🔄 Polling interval - checking WebSocket:', {
-      //   isConnected,
-      //   readyState: websocketService.guestWs?.readyState,
-      //   temporaryId
-      // });
       
       if (isConnected) {
-        console.log('✅ WebSocket became available, disabling polling');
         setPollingActive(false);
         clearInterval(pollingInterval);
         return;
       }
-      console.log("🔄 Polling for order updates...");
       fetchOrdersQuietly(); // Fetch without loading states
     }, 10000);
 
@@ -592,7 +517,6 @@ const GuestOrders = () => {
 
     // Listen for order status updates
     const handleOrderStatusUpdate = (data) => {
-      console.log("🔄 Handling order status update:", data);
 
       const newStatus = data.payload?.new_status || data.new_status;
       const temporaryId =
@@ -656,21 +580,13 @@ const GuestOrders = () => {
       if (temporaryId) {
         // Fetch specific guest order using track endpoint
         const trackUrl = API_ENDPOINTS.GUEST_ORDERS.TRACK(temporaryId);
-        console.log('🎯 Tracking specific order:', { temporaryId, trackUrl });
         
         try {
           response = await api.get(trackUrl);
           const trackedOrder = response.data;
-          console.log('🔍 Guest Order API Response:', trackedOrder);
           if (trackedOrder.order_details) {
-            console.log('📦 Order Details:', trackedOrder.order_details);
             trackedOrder.order_details.forEach((item, index) => {
-              console.log(`🛍️ Item ${index}:`, {
-                product_name: item.product_name,
-                image_display_url: item.image_display_url,
-                image_url: item.image_url,
-                product_image_url: item.product_image_url
-              });
+              // Process order details
             });
           }
 
@@ -688,11 +604,8 @@ const GuestOrders = () => {
             setOrders([trackedOrder]);
           }
         } catch (error) {
-          console.error(`Error tracking specific order ${temporaryId}:`, error);
-          
           // ถ้าเป็น 404 หรือ 410 แสดงว่าออเดอร์ไม่มีอยู่แล้ว หรือหมดอายุ
           if (error.response?.status === 404 || error.response?.status === 410) {
-            console.log(`🗑️ Order ${temporaryId} not found or expired, cleaning up`);
             // ลบออกจาก localStorage และ URL
             removeCompletedOrderFromLocalStorage(temporaryId);
             if (temporaryIdFromUrl && String(temporaryIdFromUrl) === String(temporaryId)) {
@@ -719,29 +632,10 @@ const GuestOrders = () => {
           for (const guestOrder of guestOrders) {
             try {
               const cleanTempId = sanitizeTemporaryId(guestOrder.temporary_id);
-              console.log(
-                `🔍 Fetching order data for:`, {
-                  original: guestOrder.temporary_id,
-                  cleaned: cleanTempId,
-                  url: `/guest-orders/track/?temporary_id=${cleanTempId}`
-                }
-              );
               const orderResponse = await api.get(
                 `/guest-orders/track/?temporary_id=${cleanTempId}`
               );
               const orderData = orderResponse.data;
-              console.log(`🔍 Guest Order ${cleanTempId} API Response:`, orderData);
-              if (orderData.order_details) {
-                console.log(`📦 Order ${cleanTempId} Details:`, orderData.order_details);
-                orderData.order_details.forEach((item, index) => {
-                  console.log(`🛍️ Order ${cleanTempId} Item ${index}:`, {
-                    product_name: item.product_name,
-                    image_display_url: item.image_display_url,
-                    image_url: item.image_url,
-                    product_image_url: item.product_image_url
-                  });
-                });
-              }
 
               // ตรวจสอบสถานะออเดอร์
               if (
@@ -750,40 +644,25 @@ const GuestOrders = () => {
               ) {
                 // ลบ temporary_id ออกจาก localStorage เมื่อออเดอร์เสร็จสิ้นหรือยกเลิก
                 removeCompletedOrderFromLocalStorage(guestOrder.temporary_id);
-                console.log(
-                  `Order ${guestOrder.temporary_id} is ${orderData.current_status}, removing from localStorage`
-                );
                 continue; // ข้ามไป ไม่เพิ่มในรายการ
               }
 
               detailedOrders.push(orderData);
               validTemporaryIds.push(guestOrder.temporary_id);
-              console.log(`✅ Order data fetched: ${guestOrder.temporary_id}`);
             } catch (error) {
-              console.error(
-                `Error fetching order ${guestOrder.temporary_id}:`,
-                error
-              );
               // ถ้า API ส่ง 404 หรือ 410 (expired) ให้ลบออกจาก localStorage
               if (
                 error.response?.status === 404 ||
                 error.response?.status === 410
               ) {
-                console.log(
-                  `🗑️ Order ${guestOrder.temporary_id} not found or expired, removing from localStorage`
-                );
                 // ลบออกจาก localStorage ทันที
                 removeCompletedOrderFromLocalStorage(guestOrder.temporary_id);
                 continue;
               }
               // สำหรับ error อื่นๆ ให้ข้ามไป ไม่ใช้ข้อมูลเก่าจาก localStorage
-              console.log(
-                `Skipping order ${guestOrder.temporary_id} due to API error`
-              );
               
               // ถ้าเป็น temporary_id ที่มี format ผิด ให้ทำความสะอาด localStorage
               if (guestOrder.temporary_id.includes(':')) {
-                console.warn('🧹 Found corrupted temporary_id in localStorage:', guestOrder.temporary_id);
                 removeCompletedOrderFromLocalStorage(guestOrder.temporary_id);
               }
             }
@@ -827,7 +706,6 @@ const GuestOrders = () => {
         }
       }
     } catch (error) {
-      console.error("Error fetching orders:", error);
       setError(error.response?.data?.message || "Failed to fetch orders");
     } finally {
       setLoading(false);
@@ -838,8 +716,6 @@ const GuestOrders = () => {
   const fetchOrdersQuietly = useCallback(async () => {
     try {
       if (temporaryId) {
-        console.log('🔄 Quiet fetch for:', { temporaryId });
-        
         let newOrder;
         try {
           const response = await api.get(
@@ -862,7 +738,6 @@ const GuestOrders = () => {
         } catch (error) {
           // ถ้าเป็น 404 หรือ 410 แสดงว่าออเดอร์ไม่มีอยู่แล้ว
           if (error.response?.status === 404 || error.response?.status === 410) {
-            console.log(`🗑️ Quiet fetch: Order ${temporaryId} not found, cleaning up`);
             removeCompletedOrderFromLocalStorage(temporaryId);
             if (temporaryIdFromUrl && String(temporaryIdFromUrl) === String(temporaryId)) {
               clearTemporaryIdFromUrl();
@@ -871,7 +746,6 @@ const GuestOrders = () => {
             return;
           }
           // สำหรับ error อื่นๆ ให้ skip quietly
-          console.warn(`Quiet fetch error for ${temporaryId}:`, error.message);
           return;
         }
 
@@ -932,33 +806,20 @@ const GuestOrders = () => {
               ) {
                 // ลบ temporary_id ออกจาก localStorage เมื่อออเดอร์เสร็จสิ้นหรือยกเลิก
                 removeCompletedOrderFromLocalStorage(guestOrder.temporary_id);
-                console.log(
-                  `Order ${guestOrder.temporary_id} is ${orderData.current_status}, removing from localStorage`
-                );
                 continue; // ข้ามไป ไม่เพิ่มในรายการ
               }
 
               detailedOrders.push(orderData);
               validTemporaryIds.push(guestOrder.temporary_id);
             } catch (error) {
-              console.error(
-                `Error fetching order ${guestOrder.temporary_id}:`,
-                error
-              );
               // ถ้า API ส่ง 404 หรือ 410 (expired) ให้ข้ามไป
               if (
                 error.response?.status === 404 ||
                 error.response?.status === 410
               ) {
-                console.log(
-                  `Order ${guestOrder.temporary_id} not found or expired, removing from localStorage`
-                );
                 continue;
               }
               // สำหรับ error อื่นๆ ให้ข้ามไป
-              console.log(
-                `Skipping order ${guestOrder.temporary_id} due to API error`
-              );
             }
           }
 
@@ -1022,7 +883,6 @@ const GuestOrders = () => {
         }
       }
     } catch (error) {
-      console.error("Error fetching orders quietly:", error);
       // Don't show error UI for polling failures
     }
   }, [temporaryId, clearTemporaryIdFromUrl, temporaryIdFromUrl]);
@@ -1053,9 +913,6 @@ const GuestOrders = () => {
         if (validOrders.length !== guestOrders.length) {
           const removedCount = guestOrders.length - validOrders.length;
           localStorage.setItem("guest_orders", JSON.stringify(validOrders));
-          console.log(
-            `Cleaned up ${removedCount} expired guest orders from localStorage`
-          );
 
           // แสดงการแจ้งเตือน
           setCleanupNotification({
@@ -1072,7 +929,7 @@ const GuestOrders = () => {
         }
       }
     } catch (error) {
-      console.error("Error cleaning up expired orders:", error);
+      // Handle error silently
     }
   }, []); // ลบ translate ออกจาก dependencies
 
@@ -1092,7 +949,7 @@ const GuestOrders = () => {
                          order.temporary_id.length > 10;
           
           if (!isValid) {
-            console.log(`🧹 Removing invalid temporary_id from localStorage: ${order.temporary_id}`);
+            // Remove invalid temporary_id
           }
           
           return isValid;
@@ -1101,11 +958,10 @@ const GuestOrders = () => {
         // อัปเดต localStorage ถ้ามีการเปลี่ยนแปลง
         if (cleanedOrders.length !== guestOrders.length) {
           localStorage.setItem("guest_orders", JSON.stringify(cleanedOrders));
-          console.log(`✅ Cleaned localStorage: removed ${guestOrders.length - cleanedOrders.length} invalid entries`);
         }
       }
     } catch (error) {
-      console.error("Error cleaning localStorage:", error);
+      // Handle error silently
     }
   }, []);
 
@@ -1123,9 +979,6 @@ const GuestOrders = () => {
 
         if (updatedOrders.length !== guestOrders.length) {
           localStorage.setItem("guest_orders", JSON.stringify(updatedOrders));
-          console.log(
-            `✅ Removed completed order from localStorage: ${temporaryId}`
-          );
 
           // แสดงการแจ้งเตือน
           setCleanupNotification({
@@ -1140,7 +993,7 @@ const GuestOrders = () => {
         }
       }
     } catch (error) {
-      console.error("Error removing completed order from localStorage:", error);
+      // Handle error silently
     }
   }, []); // ลบ translate ออกจาก dependencies
 
@@ -1170,11 +1023,8 @@ const GuestOrders = () => {
       }
 
       localStorage.setItem("guest_orders", JSON.stringify(guestOrders));
-      console.log(
-        `✅ Added/updated guest order in localStorage: ${orderData.temporary_id}`
-      );
     } catch (error) {
-      console.error("Error adding guest order to localStorage:", error);
+      // Handle error silently
     }
   };
 
@@ -1319,16 +1169,6 @@ const GuestOrders = () => {
               const readyStateText = websocketService.getReadyStateText?.(readyState) || 'UNKNOWN';
               const hasWebSocket = !!websocketService.guestWs;
               
-              // console.log('🔍 Status indicator check:', {
-              //   isWebSocketConnected,
-              //   readyState,
-              //   readyStateText,
-              //   hasWebSocket,
-              //   pollingActive,
-              //   temporaryId,
-              //   guestTemporaryId: websocketService.guestTemporaryId,
-              //   url: websocketService.guestWs?.url || 'N/A'
-              // });
               
               if (isWebSocketConnected) {
                 return (
@@ -1507,15 +1347,11 @@ const GuestOrders = () => {
                                       {item.image_display_url || item.image_url || item.product_image_url ? (
                                         <img
                                           src={item.image_display_url || item.image_url || item.product_image_url}
-                                          alt={item.product_name}
+                                  alt={getTranslatedName(item, currentLanguage, item.product_name)}
                                           className="w-full h-full object-cover rounded-lg"
                                           onError={(e) => {
-                                            console.log('❌ GuestOrders Image load error:', item.image_display_url || item.image_url || item.product_image_url);
                                             e.target.style.display = 'none';
                                             e.target.nextSibling.style.display = 'flex';
-                                          }}
-                                          onLoad={() => {
-                                            console.log('✅ GuestOrders Image loaded successfully:', item.image_display_url || item.image_url || item.product_image_url);
                                           }}
                                         />
                                       ) : null}
@@ -1524,9 +1360,9 @@ const GuestOrders = () => {
                                       </div>
                                     </div>
                                     <div>
-                                      <p className="font-medium text-secondary-800">
-                                        {item.product_name}
-                                      </p>
+                              <p className="font-medium text-secondary-800">
+                                {getTranslatedName(item, currentLanguage, item.product_name)}
+                              </p>
                                       <p className="text-sm text-secondary-500">
                                         {formatPrice(
                                           item.price_at_order
@@ -1558,15 +1394,11 @@ const GuestOrders = () => {
                               {item.image_display_url || item.image_url || item.product_image_url ? (
                                 <img
                                   src={item.image_display_url || item.image_url || item.product_image_url}
-                                  alt={item.product_name}
+                                  alt={getTranslatedName(item, currentLanguage, item.product_name)}
                                   className="w-full h-full object-cover rounded-lg"
                                   onError={(e) => {
-                                    console.log('❌ GuestOrders Single Restaurant Image load error:', item.image_display_url || item.image_url || item.product_image_url);
                                     e.target.style.display = 'none';
                                     e.target.nextSibling.style.display = 'flex';
-                                  }}
-                                  onLoad={() => {
-                                    console.log('✅ GuestOrders Single Restaurant Image loaded successfully:', item.image_display_url || item.image_url || item.product_image_url);
                                   }}
                                 />
                               ) : null}
@@ -1576,7 +1408,7 @@ const GuestOrders = () => {
                             </div>
                             <div>
                               <p className="font-medium text-secondary-800">
-                                {item.product_name}
+                                {getTranslatedName(item, currentLanguage, item.product_name)}
                               </p>
                               <div className="flex items-center space-x-2 text-sm text-secondary-500">
                                 <span>

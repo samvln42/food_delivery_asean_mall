@@ -6,11 +6,12 @@ import { API_CONFIG, API_ENDPOINTS } from "../../config/api";
 import { useNotificationContext } from "../../layouts/AdminLayout";
 import { formatPrice } from "../../utils/formatPrice";
 import { useLanguage } from "../../contexts/LanguageContext";
+import { getTranslatedName, getTranslatedDescription } from "../../utils/translationUtils";
 
 // Guest Order Details Modal Component
 const GuestOrderDetailsModal = ({ order, isOpen, onClose, orderStatuses, formatDateTime, onDelete }) => {
   if (!isOpen || !order) return null;
-  const { translate } = useLanguage();
+  const { translate, currentLanguage } = useLanguage();
 
   const orderDetails = Array.isArray(order.order_details) ? order.order_details : [];
   const orderDetailsByRestaurant = orderDetails.reduce((acc, detail) => {
@@ -117,7 +118,7 @@ const GuestOrderDetailsModal = ({ order, isOpen, onClose, orderStatuses, formatD
                         {(restaurantGroup.items || []).map((item, itemIndex) => (
                           <div key={item.guest_order_detail_id || itemIndex} className="flex justify-between text-sm">
                             <span>
-                              {item.product_name} × {item.quantity}
+                              {getTranslatedName(item, currentLanguage, item.product_name)} × {item.quantity}
                               {item.special_instructions && (
                                 <span className="text-gray-500 ml-2">({item.special_instructions})</span>
                               )}
@@ -134,7 +135,7 @@ const GuestOrderDetailsModal = ({ order, isOpen, onClose, orderStatuses, formatD
                   {orderDetails.map((detail, index) => (
                     <div key={detail.guest_order_detail_id || index} className="flex justify-between p-3 bg-gray-50 rounded-lg">
                       <span>
-                        {detail.product_name} × {detail.quantity}
+                        {getTranslatedName(detail, currentLanguage, detail.product_name)} × {detail.quantity}
                         {detail.special_instructions && (
                           <span className="text-gray-500 ml-2">({detail.special_instructions})</span>
                         )}

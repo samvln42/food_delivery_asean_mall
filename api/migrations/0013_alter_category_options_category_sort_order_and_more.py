@@ -3,6 +3,14 @@
 from django.db import migrations, models
 
 
+def update_sort_order(apps, schema_editor):
+    """อัปเดต sort_order ให้ไม่ซ้ำกัน"""
+    Category = apps.get_model('api', 'Category')
+    for idx, category in enumerate(Category.objects.all().order_by('category_id'), start=1):
+        category.sort_order = idx
+        category.save()
+
+
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -19,6 +27,8 @@ class Migration(migrations.Migration):
             name='sort_order',
             field=models.PositiveIntegerField(default=0, help_text='Order for sorting categories'),
         ),
+        # อัปเดตข้อมูลให้ sort_order ไม่ซ้ำกัน
+        migrations.RunPython(update_sort_order, migrations.RunPython.noop),
         migrations.AlterField(
             model_name='notification',
             name='type',

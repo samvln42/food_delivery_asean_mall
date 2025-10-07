@@ -5,7 +5,7 @@ from .models import (
     Review, ProductReview, DeliveryStatusLog, Notification,
     SearchHistory, PopularSearch, UserFavorite, AnalyticsDaily,
     RestaurantAnalytics, ProductAnalytics, AppSettings, Language, Translation,
-    GuestOrder, GuestOrderDetail, GuestDeliveryStatusLog
+    CategoryTranslation, ProductTranslation, GuestOrder, GuestOrderDetail, GuestDeliveryStatusLog
 )
 
 
@@ -160,6 +160,22 @@ class TranslationAdmin(admin.ModelAdmin):
     list_filter = ('language', 'group')
     search_fields = ('key', 'value')
     ordering = ('language', 'group', 'key')
+
+
+@admin.register(CategoryTranslation)
+class CategoryTranslationAdmin(admin.ModelAdmin):
+    list_display = ('category', 'language', 'translated_name', 'translated_description')
+    list_filter = ('language', 'category')
+    search_fields = ('translated_name', 'translated_description', 'category__category_name')
+    ordering = ('category', 'language')
+
+
+@admin.register(ProductTranslation)
+class ProductTranslationAdmin(admin.ModelAdmin):
+    list_display = ('product', 'language', 'translated_name', 'translated_description')
+    list_filter = ('language', 'product__restaurant', 'product__category')
+    search_fields = ('translated_name', 'translated_description', 'product__product_name')
+    ordering = ('product', 'language')
 
 
 @admin.register(GuestOrder)

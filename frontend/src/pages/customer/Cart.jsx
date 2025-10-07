@@ -7,9 +7,10 @@ import { ErrorHandler, handleError } from "../../utils/errorHandler";
 import { toast } from "../../hooks/useNotification";
 import { useLanguage } from "../../contexts/LanguageContext";
 import { formatCurrency } from "../../utils/formatPrice";
+import { getTranslatedName, getTranslatedDescription } from "../../utils/translationUtils";
 
 const Cart = () => {
-  const { translate } = useLanguage();
+  const { translate, currentLanguage } = useLanguage();
   const { user } = useAuth();
   const navigate = useNavigate();
   const {
@@ -415,7 +416,7 @@ const Cart = () => {
                               {item.image_display_url || item.image_url ? (
                                 <img
                                   src={item.image_display_url || item.image_url}
-                                  alt={item.product_name}
+                                  alt={getTranslatedName(item, currentLanguage, item.product_name)}
                                   className="w-full h-full object-cover rounded-lg"
                                   onError={(e) => {
                                     e.target.style.display = "none";
@@ -428,7 +429,7 @@ const Cart = () => {
 
                             <div className="flex-1 min-w-0">
                               <h3 className="font-semibold text-secondary-800 text-sm sm:text-base truncate">
-                                {item.product_name}
+                                {getTranslatedName(item, currentLanguage, item.product_name)}
                               </h3>
                               {item.special_instructions && (
                                 <p className="text-xs sm:text-sm text-secondary-500 italic truncate">

@@ -656,6 +656,49 @@ class Translation(models.Model):
     def __str__(self):
         return f"{self.language.code}: {self.key}"
 
+
+class CategoryTranslation(models.Model):
+    """ตารางสำหรับแปลชื่อหมวดหมู่"""
+    category = models.ForeignKey(Category, on_delete=models.CASCADE, related_name='translations')
+    language = models.ForeignKey(Language, on_delete=models.CASCADE, related_name='category_translations')
+    translated_name = models.CharField(max_length=100)
+    translated_description = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'category_translations'
+        unique_together = ['category', 'language']
+        indexes = [
+            models.Index(fields=['category']),
+            models.Index(fields=['language']),
+        ]
+
+    def __str__(self):
+        return f"{self.category.category_name} - {self.language.code}: {self.translated_name}"
+
+
+class ProductTranslation(models.Model):
+    """ตารางสำหรับแปลชื่อสินค้า"""
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='translations')
+    language = models.ForeignKey(Language, on_delete=models.CASCADE, related_name='product_translations')
+    translated_name = models.CharField(max_length=150)
+    translated_description = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'product_translations'
+        unique_together = ['product', 'language']
+        indexes = [
+            models.Index(fields=['product']),
+            models.Index(fields=['language']),
+        ]
+
+    def __str__(self):
+        return f"{self.product.product_name} - {self.language.code}: {self.translated_name}"
+
+
 # Guest Order
 class GuestOrder(models.Model):
     """

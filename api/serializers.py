@@ -5,7 +5,7 @@ from .models import (
     Payment, Review, ProductReview, DeliveryStatusLog, Notification,
     SearchHistory, PopularSearch, UserFavorite, AnalyticsDaily,
     RestaurantAnalytics, ProductAnalytics, AppSettings, Language, Translation,
-    GuestOrder, GuestOrderDetail, GuestDeliveryStatusLog
+    CategoryTranslation, ProductTranslation, GuestOrder, GuestOrderDetail, GuestDeliveryStatusLog
 )
 
 
@@ -28,18 +28,100 @@ def get_absolute_image_url(image_url, request=None):
 # User serializer moved to accounts app
 
 
+class CategoryTranslationSerializer(serializers.ModelSerializer):
+    language_code = serializers.CharField(source='language.code', read_only=True)
+    language_name = serializers.CharField(source='language.name', read_only=True)
+    
+    class Meta:
+        model = CategoryTranslation
+        fields = ['language_code', 'language_name', 'translated_name', 'translated_description']
+
+
 class CategorySerializer(serializers.ModelSerializer):
     products_count = serializers.IntegerField(source='products.count', read_only=True)
     image_display_url = serializers.SerializerMethodField()
+    translations = CategoryTranslationSerializer(source='translations.all', many=True, read_only=True)
     
     class Meta:
         model = Category
-        fields = ['category_id', 'category_name', 'description', 'image', 'image_display_url', 'is_special_only', 'sort_order', 'products_count']
+        fields = ['category_id', 'category_name', 'description', 'image', 'image_display_url', 'is_special_only', 'sort_order', 'products_count', 'translations']
     
     def get_image_display_url(self, obj):
         """Get the category image URL"""
         image_url = obj.get_image_url()
         return get_absolute_image_url(image_url, self.context.get('request'))
+
+    def create(self, validated_data):
+        """Custom create method to handle translations"""
+        translations_data = self.context.get('request').data.get('translations')
+        
+        # สร้างหมวดหมู่
+        category = Category.objects.create(**validated_data)
+        
+        # เพิ่มการแปล
+        if translations_data:
+            import json
+            translations = json.loads(translations_data)
+            for lang_code, translation_data in translations.items():
+                if translation_data.get('name'):
+                    try:
+                        language = Language.objects.get(code=lang_code)
+                        CategoryTranslation.objects.create(
+                            category=category,
+                            language=language,
+                            translated_name=translation_data['name'],
+                            translated_description=translation_data.get('description', '')
+                        )
+                    except Language.DoesNotExist:
+                        pass
+        
+        return category
+
+    def update(self, instance, validated_data):
+        """Custom update method to handle translations"""
+        translations_data = self.context.get('request').data.get('translations')
+        
+        # อัปเดตหมวดหมู่
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+        
+        # อัปเดตการแปล
+        if translations_data:
+            import json
+            translations = json.loads(translations_data)
+            
+            # อัปเดตหรือเพิ่มการแปลสำหรับแต่ละภาษา
+            for lang_code, translation_data in translations.items():
+                if translation_data.get('name'):
+                    try:
+                        language = Language.objects.get(code=lang_code)
+                        translation, created = CategoryTranslation.objects.get_or_create(
+                            category=instance,
+                            language=language,
+                            defaults={
+                                'translated_name': translation_data['name'],
+                                'translated_description': translation_data.get('description', '')
+                            }
+                        )
+                        if not created:
+                            # อัปเดตการแปลที่มีอยู่
+                            translation.translated_name = translation_data['name']
+                            translation.translated_description = translation_data.get('description', '')
+                            translation.save()
+                    except Language.DoesNotExist:
+                        pass
+        
+        return instance
+
+
+class ProductTranslationSerializer(serializers.ModelSerializer):
+    language_code = serializers.CharField(source='language.code', read_only=True)
+    language_name = serializers.CharField(source='language.name', read_only=True)
+    
+    class Meta:
+        model = ProductTranslation
+        fields = ['language_code', 'language_name', 'translated_name', 'translated_description']
 
 
 class ProductSerializer(serializers.ModelSerializer):
@@ -48,12 +130,13 @@ class ProductSerializer(serializers.ModelSerializer):
     restaurant_id = serializers.IntegerField(source='restaurant.restaurant_id', read_only=True)
     restaurant_status = serializers.CharField(source='restaurant.status', read_only=True)
     image_display_url = serializers.SerializerMethodField()
+    translations = ProductTranslationSerializer(source='translations.all', many=True, read_only=True)
     
     class Meta:
         model = Product
         fields = ['product_id', 'restaurant', 'restaurant_id', 'restaurant_name', 'restaurant_status', 'category', 
                  'category_name', 'product_name', 'description', 'price', 
-                 'image_url', 'image', 'image_display_url', 'is_available', 'created_at', 'updated_at']
+                 'image_url', 'image', 'image_display_url', 'is_available', 'created_at', 'updated_at', 'translations']
         read_only_fields = ['product_id', 'created_at', 'updated_at']
     
     def get_image_display_url(self, obj):
@@ -62,10 +145,80 @@ class ProductSerializer(serializers.ModelSerializer):
         return get_absolute_image_url(image_url, self.context.get('request'))
     
     def create(self, validated_data):
-        """Custom create method to handle image upload"""
-        # สร้างสินค้าตามปกติ
+        """Custom create method to handle image upload and translations"""
+        translations_data = validated_data.pop('translations', None)
+        
+        # สร้างสินค้า
         product = Product.objects.create(**validated_data)
+        
+        # เพิ่มการแปล
+        if translations_data:
+            for lang_code, translation_data in translations_data.items():
+                if translation_data.get('name'):
+                    try:
+                        language = Language.objects.get(code=lang_code)
+                        ProductTranslation.objects.create(
+                            product=product,
+                            language=language,
+                            translated_name=translation_data['name'],
+                            translated_description=translation_data.get('description', '')
+                        )
+                    except Language.DoesNotExist:
+                        pass
+        
         return product
+
+    def update(self, instance, validated_data):
+        """Custom update method to handle translations"""
+        # Get translations data from request (for FormData) or validated_data (for JSON)
+        translations_data = self.context.get('request').data.get('translations') if self.context.get('request') else validated_data.pop('translations', None)
+        
+        # Parse JSON string if needed
+        if isinstance(translations_data, str):
+            import json
+            translations_data = json.loads(translations_data)
+        
+        # Debug logs
+        print(f"🔄 ProductSerializer.update - Product ID: {instance.product_id}")
+        print(f"📝 translations_data: {translations_data}")
+        
+        # อัปเดตสินค้า
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+        
+        # อัปเดตการแปล
+        if translations_data is not None:
+            print(f"🔄 Processing {len(translations_data)} translations")
+            # อัปเดตหรือเพิ่มการแปลสำหรับแต่ละภาษา
+            for lang_code, translation_data in translations_data.items():
+                if translation_data.get('name'):
+                    try:
+                        language = Language.objects.get(code=lang_code)
+                        print(f"📝 Creating/updating translation for {lang_code}: {translation_data['name']}")
+                        translation, created = ProductTranslation.objects.get_or_create(
+                            product=instance,
+                            language=language,
+                            defaults={
+                                'translated_name': translation_data['name'],
+                                'translated_description': translation_data.get('description', '')
+                            }
+                        )
+                        if not created:
+                            # อัปเดตการแปลที่มีอยู่
+                            print(f"🔄 Updating existing translation for {lang_code}")
+                            translation.translated_name = translation_data['name']
+                            translation.translated_description = translation_data.get('description', '')
+                            translation.save()
+                        else:
+                            print(f"✅ Created new translation for {lang_code}")
+                    except Language.DoesNotExist:
+                        print(f"❌ Language {lang_code} does not exist")
+                        pass
+        else:
+            print("❌ No translations_data provided")
+        
+        return instance
 
 
 class RestaurantSerializer(serializers.ModelSerializer):
@@ -563,12 +716,13 @@ class GuestOrderDetailSerializer(serializers.ModelSerializer):
     image_url = serializers.SerializerMethodField()
     restaurant_id = serializers.IntegerField(source='restaurant.restaurant_id', read_only=True)
     restaurant_name = serializers.CharField(source='restaurant.restaurant_name', read_only=True)
+    translations = ProductTranslationSerializer(source='product.translations.all', many=True, read_only=True)
 
     class Meta:
         model = GuestOrderDetail
         fields = ['guest_order_detail_id', 'guest_order', 'product', 'product_name', 
                  'product_image_url', 'image_display_url', 'image_url', 'restaurant_id', 
-                 'restaurant_name', 'quantity', 'price_at_order', 'subtotal']
+                 'restaurant_name', 'quantity', 'price_at_order', 'subtotal', 'translations']
         read_only_fields = ['guest_order_detail_id', 'subtotal']
     
     def get_product_image_url(self, obj):

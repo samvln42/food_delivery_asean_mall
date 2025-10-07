@@ -5,6 +5,7 @@ import { useAuth } from "../../contexts/AuthContext";
 import { API_CONFIG, API_ENDPOINTS } from "../../config/api";
 import { useNotificationContext } from "../../layouts/AdminLayout";
 import { useLanguage } from "../../contexts/LanguageContext";
+import { getTranslatedName, getTranslatedDescription } from "../../utils/translationUtils";
 import { formatPrice } from "../../utils/formatPrice";
 import { FaRegEye } from "react-icons/fa";
 import { FaUserAlt } from "react-icons/fa";
@@ -17,7 +18,7 @@ import { FaRegCreditCard } from "react-icons/fa6";
 const OrderDetailsModal = ({ order, isOpen, onClose, orderStatuses, formatDateTime, onDelete }) => {
   if (!isOpen || !order) return null;
 
-  const { translate } = useLanguage();
+  const { translate, currentLanguage } = useLanguage();
 
   const orderDetails = Array.isArray(order.order_details) ? order.order_details : [];
   const orderDetailsByRestaurant = order.order_details_by_restaurant || [];
@@ -98,7 +99,7 @@ const OrderDetailsModal = ({ order, isOpen, onClose, orderStatuses, formatDateTi
                       <div className="space-y-2">
                         {(restaurantGroup.items || []).map((item, itemIndex) => (
                           <div key={item.order_detail_id || itemIndex} className="flex justify-between text-sm">
-                            <span>{item.product_name} × {item.quantity}</span>
+                            <span>{getTranslatedName(item, currentLanguage, item.product_name)} × {item.quantity}</span>
                             <span>{formatPrice(item.subtotal)}</span>
                           </div>
                         ))}
@@ -110,7 +111,7 @@ const OrderDetailsModal = ({ order, isOpen, onClose, orderStatuses, formatDateTi
                 <div className="space-y-2">
                   {orderDetails.map((detail, index) => (
                     <div key={detail.order_detail_id || index} className="flex justify-between p-3 bg-gray-50 rounded-lg">
-                      <span>{detail.product_name} × {detail.quantity}</span>
+                      <span>{getTranslatedName(detail, currentLanguage, detail.product_name)} × {detail.quantity}</span>
                       <span className="font-medium">{formatPrice(detail.subtotal)}</span>
                     </div>
                   ))}

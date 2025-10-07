@@ -3,10 +3,10 @@ const getBaseUrl = () => {
   const url = import.meta.env.VITE_API_URL;
   
   // แสดง debug info เฉพาะใน development mode
-  // if (import.meta.env.DEV) {
-  //   console.log('🔧 Environment VITE_API_URL:', url);
-  //   console.log('🔧 All env vars:', import.meta.env);
-  // }
+  if (import.meta.env.DEV) {
+    console.log('🔧 Environment VITE_API_URL:', url);
+    console.log('🔧 All env vars:', import.meta.env);
+  }
   
   if (!url) {
     console.error('❌ VITE_API_URL is not defined in .env file!');

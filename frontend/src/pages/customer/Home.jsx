@@ -11,7 +11,28 @@ import Loading from "../../components/common/Loading";
 import AdvertisementGallery from "./AdvertisementGallery";
 import { MagnifyingGlassIcon } from "@heroicons/react/24/outline";
 
+// Helper function to get translated name
+const getTranslatedName = (item, currentLanguage, defaultName) => {
+  if (!item.translations || !Array.isArray(item.translations)) {
+    return defaultName;
+  }
+  
+  const translation = item.translations.find(t => t.language_code === currentLanguage);
+  return translation?.translated_name || defaultName;
+};
+
+// Helper function to get translated description
+const getTranslatedDescription = (item, currentLanguage, defaultDescription) => {
+  if (!item.translations || !Array.isArray(item.translations)) {
+    return defaultDescription;
+  }
+  
+  const translation = item.translations.find(t => t.language_code === currentLanguage);
+  return translation?.translated_description || defaultDescription;
+};
+
 const Home = () => {
+  const { translate, currentLanguage } = useLanguage();
   const [restaurants, setRestaurants] = useState([]);
   const [specialRestaurants, setSpecialRestaurants] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -19,7 +40,6 @@ const Home = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const { translate } = useLanguage();
   // const { user } = useAuth();
   const navigate = useNavigate();
 
@@ -233,7 +253,7 @@ const Home = () => {
                   />
                 </div>
                 <h3 className="font-medium text-secondary-900 group-hover:text-primary-600 text-xs sm:text-sm">
-                  {category.category_name}
+                  {getTranslatedName(category, currentLanguage, category.category_name)}
                 </h3>
               </Link>
             ))}
@@ -357,74 +377,74 @@ const Home = () => {
 };
 
 // Restaurant Card Component
-// const RestaurantCard = ({ restaurant, isSpecial = false, translate }) => (
-//   <Link
-//     to={`/restaurants/${restaurant.restaurant_id}`}
-//     className="group bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow overflow-hidden"
-//   >
-//     <div className="relative">
-//       <img
-//         src={
-//           restaurant.image ||
-//           `https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=400&h=250&fit=crop`
-//         }
-//         alt={restaurant.restaurant_name}
-//         className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
-//       />
-//       {isSpecial && (
-//         <div className="absolute top-2 right-2 bg-yellow-400 text-yellow-900 px-2 py-1 rounded-full text-xs font-medium">
-//           ⭐ {translate('common.special')}
-//         </div>
-//       )}
-//       {restaurant.status === "closed" && (
-//         <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-//           <span className="text-white text-lg font-medium">{translate('common.closed')}</span>
-//         </div>
-//       )}
-//     </div>
+const RestaurantCard = ({ restaurant, isSpecial = false, translate }) => (
+  <Link
+    to={`/restaurants/${restaurant.restaurant_id}`}
+    className="group bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow overflow-hidden"
+  >
+    <div className="relative">
+      <img
+        src={
+          restaurant.image ||
+          `https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=400&h=250&fit=crop`
+        }
+        alt={restaurant.restaurant_name}
+        className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
+      />
+      {isSpecial && (
+        <div className="absolute top-2 right-2 bg-yellow-400 text-yellow-900 px-2 py-1 rounded-full text-xs font-medium">
+          ⭐ {translate('common.special')}
+        </div>
+      )}
+      {restaurant.status === "closed" && (
+        <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+          <span className="text-white text-lg font-medium">{translate('common.closed')}</span>
+        </div>
+      )}
+    </div>
 
-//     <div className="p-4">
-//       <h3 className="font-semibold text-lg text-secondary-900 mb-1 group-hover:text-primary-600">
-//         {restaurant.restaurant_name}
-//       </h3>
-//       <p className="text-secondary-600 text-sm mb-2 line-clamp-2">
-//         {restaurant.description}
-//       </p>
+    <div className="p-4">
+      <h3 className="font-semibold text-lg text-secondary-900 mb-1 group-hover:text-primary-600">
+        {restaurant.restaurant_name}
+      </h3>
+      <p className="text-secondary-600 text-sm mb-2 line-clamp-2">
+        {restaurant.description}
+      </p>
 
-//       <div className="flex items-center justify-between">
-//         <div className="flex items-center">
-//           <span className="text-yellow-400 mr-1">⭐</span>
-//           <span className="text-sm font-medium text-secondary-700">
-//             {restaurant.average_rating &&
-//             !isNaN(Number(restaurant.average_rating))
-//               ? Number(restaurant.average_rating).toFixed(1)
-//               : 'New'}
-//           </span>
-//           <span className="text-secondary-500 text-sm ml-1">
-//             ({restaurant.total_reviews || 0})
-//           </span>
-//         </div>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center">
+          <span className="text-yellow-400 mr-1">⭐</span>
+          <span className="text-sm font-medium text-secondary-700">
+            {restaurant.average_rating &&
+            !isNaN(Number(restaurant.average_rating))
+              ? Number(restaurant.average_rating).toFixed(1)
+              : 'New'}
+          </span>
+          <span className="text-secondary-500 text-sm ml-1">
+            ({restaurant.total_reviews || 0})
+          </span>
+        </div>
 
-//         <div className="text-right">
-//           <p className="text-sm text-secondary-500">{translate('common.delivery')}</p>
-//           <p className="text-sm font-medium text-secondary-700">1-2$</p>
-//         </div>
-//       </div>
+        <div className="text-right">
+          <p className="text-sm text-secondary-500">{translate('common.delivery')}</p>
+          <p className="text-sm font-medium text-secondary-700">1-2$</p>
+        </div>
+      </div>
 
-//       <div className="mt-2 flex items-center justify-between text-sm text-secondary-500">
-//         <span>{translate('common.delivery_time')}</span>
-//         <span
-//           className={`px-2 py-1 rounded-full text-xs ${
-//             restaurant.status === "open"
-//               ? "bg-green-100 text-green-800"
-//               : "bg-red-100 text-red-800"
-//           }`}
-//         >
-//           {restaurant.status === "open" ? translate('common.open') : translate('common.closed')}
-//         </span>
-//       </div>
-//     </div>
-//   </Link>
-// );
+      <div className="mt-2 flex items-center justify-between text-sm text-secondary-500">
+        <span>{translate('common.delivery_time')}</span>
+        <span
+          className={`px-2 py-1 rounded-full text-xs ${
+            restaurant.status === "open"
+              ? "bg-green-100 text-green-800"
+              : "bg-red-100 text-red-800"
+          }`}
+        >
+          {restaurant.status === "open" ? translate('common.open') : translate('common.closed')}
+        </span>
+      </div>
+    </div>
+  </Link>
+);
 
 export default Home;

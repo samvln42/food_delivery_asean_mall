@@ -162,7 +162,7 @@ class CategoryViewSet(viewsets.ModelViewSet):
         return [permission() for permission in permission_classes]
     
     def get_queryset(self):
-        queryset = Category.objects.all().order_by('sort_order', 'category_name')
+        queryset = Category.objects.prefetch_related('translations__language').order_by('sort_order', 'category_name')
         
         # กรองหมวดหมู่ตามประเภทร้าน
         restaurant_type = self.request.query_params.get('restaurant_type')
@@ -175,8 +175,14 @@ class CategoryViewSet(viewsets.ModelViewSet):
         
         return queryset
     
+    def get_serializer_context(self):
+        """ส่ง context ให้ serializer"""
+        context = super().get_serializer_context()
+        context['request'] = self.request
+        return context
+
     def perform_create(self, serializer):
-        """จัดการการสร้าง Category พร้อมรูปภาพ"""
+        """จัดการการสร้าง Category พร้อมรูปภาพและการแปล"""
         # ถ้ามีไฟล์รูปภาพใน request ให้เพิ่มเข้าไปใน serializer
         if 'image' in self.request.FILES:
             serializer.save(image=self.request.FILES['image'])
@@ -184,17 +190,11 @@ class CategoryViewSet(viewsets.ModelViewSet):
             serializer.save()
     
     def perform_update(self, serializer):
-        """จัดการการอัปเดต Category พร้อมรูปภาพ"""
-        # Debug: ดูว่า request มีข้อมูลอะไรบ้าง
-        # print(f"🔍 Update request data: {dict(self.request.data)}")
-        # print(f"🔍 Update request files: {dict(self.request.FILES)}")
-        
+        """จัดการการอัปเดต Category พร้อมรูปภาพและการแปล"""
         # ถ้ามีไฟล์รูปภาพใหม่ใน request ให้เพิ่มเข้าไปใน serializer
         if 'image' in self.request.FILES:
-            # print(f"✅ Found new image file: {self.request.FILES['image'].name}")
             serializer.save(image=self.request.FILES['image'])
         else:
-            # print("ℹ️  No new image file, saving without image update")
             serializer.save()
     
     @action(detail=True, methods=['get'], permission_classes=[AllowAny])
@@ -220,7 +220,7 @@ class ProductViewSet(viewsets.ModelViewSet):
         return [permission() for permission in permission_classes]
     
     def get_queryset(self):
-        queryset = Product.objects.all()
+        queryset = Product.objects.select_related('restaurant', 'category').prefetch_related('translations__language')
         
         # Filter by restaurant
         restaurant_id = self.request.query_params.get('restaurant_id')
@@ -239,6 +239,12 @@ class ProductViewSet(viewsets.ModelViewSet):
         
         return queryset
     
+    def get_serializer_context(self):
+        """ส่ง context ให้ serializer"""
+        context = super().get_serializer_context()
+        context['request'] = self.request
+        return context
+
     def perform_create(self, serializer):
         """ตรวจสอบว่าหมวดหมู่เข้ากันได้กับประเภทร้านก่อนสร้างสินค้า"""
         category = serializer.validated_data.get('category')
@@ -1815,11 +1821,13 @@ class GuestOrderViewSet(viewsets.ModelViewSet):
         if not temporary_id:
             return Response({'error': 'temporary_id is required'}, status=status.HTTP_400_BAD_REQUEST)
         try:
-            guest_order = GuestOrder.objects.get(temporary_id=temporary_id)
+            guest_order = GuestOrder.objects.select_related('restaurant').prefetch_related(
+                'order_details__product__translations__language'
+            ).get(temporary_id=temporary_id)
             from django.utils import timezone
             if guest_order.expires_at and guest_order.expires_at < timezone.now():
                 return Response({'error': 'Order has expired'}, status=status.HTTP_410_GONE)
-            serializer = GuestOrderTrackingSerializer(guest_order)
+            serializer = GuestOrderTrackingSerializer(guest_order, context={'request': request})
             return Response(serializer.data)
         except GuestOrder.DoesNotExist:
             return Response({'error': 'Order not found'}, status=status.HTTP_404_NOT_FOUND)

@@ -4,11 +4,12 @@ import api from "../../services/api";
 import { formatPrice } from "../../utils/formatPrice";
 import { useAuth } from "../../contexts/AuthContext";
 import { useLanguage } from "../../contexts/LanguageContext";
+import { getTranslatedName, getTranslatedDescription } from "../../utils/translationUtils";
 
 const CreatePhoneOrder = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { translate } = useLanguage();
+  const { translate, currentLanguage } = useLanguage();
 
   // Customer Information
   const [customerInfo, setCustomerInfo] = useState({
@@ -28,14 +29,12 @@ const CreatePhoneOrder = () => {
   const [searchTerm, setSearchTerm] = useState("");
 
   const fetchAllMenuItems = useCallback(async () => {
-    console.log("🍽️ fetchAllMenuItems called");
     try {
       setLoading(true);
       // First get all restaurants
       const restaurantsResponse = await api.get("/restaurants/");
       const restaurantsList =
         restaurantsResponse.data.results || restaurantsResponse.data;
-      console.log("🏪 Fetched restaurants:", restaurantsList.length);
       setRestaurants(restaurantsList);
 
       // Then get all menu items from all restaurants
@@ -56,17 +55,12 @@ const CreatePhoneOrder = () => {
 
           allItems.push(...itemsWithRestaurant);
         } catch (error) {
-          console.error(
-            `Error fetching menu for restaurant ${restaurant.restaurant_id}:`,
-            error
-          );
+          // Handle error silently
         }
       }
 
-      console.log("🍽️ Total menu items fetched:", allItems.length);
       setAllMenuItems(allItems);
     } catch (error) {
-      console.error("Error fetching menu items:", error);
       alert(translate("common.failed_to_load_products"));
     } finally {
       setLoading(false);
@@ -86,13 +80,10 @@ const CreatePhoneOrder = () => {
   };
 
   const addToCart = (product) => {
-    console.log("🛒 Adding to cart:", product); // Debug log
-
     // Find restaurant info from restaurants list
     const restaurantInfo = restaurants.find(
       (r) => r.restaurant_id === product.restaurant_id
     );
-    console.log("🏪 Restaurant info found:", restaurantInfo); // Debug log
 
     const existingItem = cart.find(
       (item) =>
@@ -121,8 +112,8 @@ const CreatePhoneOrder = () => {
           restaurantInfo?.name ||
           restaurantInfo?.restaurant_name ||
           "ไม่มีชื่อร้าน",
+        translations: product.translations, // เก็บข้อมูล translations ไว้สำหรับการแปล
       };
-      console.log("🛒 Cart item created:", cartItem); // Debug log
       setCart((prev) => [...prev, cartItem]);
     }
   };
@@ -168,12 +159,10 @@ const CreatePhoneOrder = () => {
     }
 
     const search = searchTerm.toLowerCase();
-    console.log("🔍 Searching for:", search);
-    console.log("📋 Total menu items:", allMenuItems.length);
 
     const filtered = allMenuItems.filter((item) => {
-      // Get menu name (try both fields)
-      const menuName = (item.product_name || item.name || "").toLowerCase();
+      // Get menu name (try both fields) with translation
+      const menuName = getTranslatedName(item, currentLanguage, item.product_name || item.name || "").toLowerCase();
 
       // Get restaurant name (try multiple sources)
       const restaurant = restaurants.find(
@@ -190,19 +179,11 @@ const CreatePhoneOrder = () => {
       const matchesMenu = menuName.includes(search);
       const matchesRestaurant = restaurantName.includes(search);
 
-      if (matchesMenu || matchesRestaurant) {
-        console.log("✅ Match found:", {
-          menuName: item.product_name || item.name,
-          restaurantName: restaurant?.name || item.restaurant_name,
-          matchesMenu,
-          matchesRestaurant,
-        });
-      }
+      // Match found
 
       return matchesMenu || matchesRestaurant;
     });
 
-    console.log("📊 Filtered results:", filtered.length);
     return filtered;
   }, [searchTerm, allMenuItems, restaurants]);
 
@@ -267,10 +248,6 @@ const CreatePhoneOrder = () => {
         })),
       };
 
-      console.log(
-        "Sending guest order data:",
-        JSON.stringify(orderData, null, 2)
-      );
 
       // Create FormData for guest orders multi endpoint
       const formData = new FormData();
@@ -297,9 +274,6 @@ const CreatePhoneOrder = () => {
         navigate("/admin/phone-orders");
       }
     } catch (error) {
-      console.error("Error creating phone order:", error);
-      console.error("Error response data:", error.response?.data);
-      console.error("Order data sent:", orderData);
 
       // Show detailed error message
       let errorMessage = translate("admin.error_creating_order") + ": ";
@@ -646,7 +620,7 @@ const CreatePhoneOrder = () => {
                               {item.image ? (
                                 <img
                                   src={item.image}
-                                  alt={item.name}
+                                  alt={getTranslatedName(item, currentLanguage, item.name)}
                                   className="w-20 h-20 object-cover rounded-xl shadow-md group-hover:scale-105 transition-transform duration-300"
                                   onError={(e) => {
                                     e.target.style.display = "none";
@@ -668,8 +642,7 @@ const CreatePhoneOrder = () => {
                               <div className="flex justify-between items-start mb-2">
                                 <div className="flex-1">
                                   <h3 className="font-bold text-gray-800 text-lg group-hover:text-orange-600 transition-colors duration-300">
-                                    {item.product_name ||
-                                      item.name ||
+                                    {getTranslatedName(item, currentLanguage, item.product_name || item.name) ||
                                       translate("common.not_specified")}
                                   </h3>
                                   <div className="flex items-center space-x-2 mt-1">
@@ -716,7 +689,7 @@ const CreatePhoneOrder = () => {
 
                               {item.description && (
                                 <p className="text-sm text-gray-600 mb-3 line-clamp-2">
-                                  {item.description}
+                                  {getTranslatedDescription(item, currentLanguage, item.description)}
                                 </p>
                               )}
 
@@ -820,7 +793,6 @@ const CreatePhoneOrder = () => {
                 {cart.length > 0 ? (
                   <div className="space-y-3 max-h-64 overflow-y-auto pr-2">
                     {cart.map((item, index) => {
-                      console.log("🛒 Rendering cart item:", item); // Debug log
                       return (
                         <div
                           key={`${item.product_id}-${item.restaurant_id}`}
@@ -829,7 +801,7 @@ const CreatePhoneOrder = () => {
                           <div className="flex items-center justify-between mb-2">
                             <div className="flex-1 min-w-0">
                               <h4 className="font-medium text-gray-800 text-sm truncate">
-                                {item.product_name ||
+                                {getTranslatedName(item, currentLanguage, item.product_name) ||
                                   translate("common.not_specified")}
                               </h4>
                               <div className="flex items-center space-x-1 mt-0.5">

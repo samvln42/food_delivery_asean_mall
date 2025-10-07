@@ -2,6 +2,25 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { categoryService } from '../../services/api';
 import { useLanguage } from '../../contexts/LanguageContext';
 
+// Helper functions สำหรับการแปล
+const getTranslatedName = (item, currentLanguage, fallbackName) => {
+  if (!item?.translations || !currentLanguage || currentLanguage === 'en') {
+    return fallbackName || '';
+  }
+  
+  const translation = item.translations.find(t => t.language_code === currentLanguage);
+  return translation?.translated_name || fallbackName || '';
+};
+
+const getTranslatedDescription = (item, currentLanguage, fallbackDescription) => {
+  if (!item?.translations || !currentLanguage || currentLanguage === 'en') {
+    return fallbackDescription || '';
+  }
+  
+  const translation = item.translations.find(t => t.language_code === currentLanguage);
+  return translation?.translated_description || fallbackDescription || '';
+};
+
 const AdminCategories = () => {
   const { translate, currentLanguage } = useLanguage();
   const [categories, setCategories] = useState([]);
@@ -110,6 +129,7 @@ const AdminCategories = () => {
 
   const handleUpdateCategory = async (categoryId, formData) => {
     try {
+      console.log('🔄 Updating category:', categoryId, formData);
       await categoryService.update(categoryId, formData);
       fetchCategories(); // Refresh data
       alert(translate('admin.category_updated_success'));
@@ -275,7 +295,7 @@ const AdminCategories = () => {
                       {category.image_display_url ? (
                         <img
                           src={category.image_display_url}
-                          alt={category.category_name}
+                          alt={getTranslatedName(category, currentLanguage, category.category_name)}
                           className="w-12 h-12 object-cover rounded-lg border border-secondary-300"
                         />
                       ) : (
@@ -288,11 +308,11 @@ const AdminCategories = () => {
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
                       <div className="text-sm font-medium text-secondary-900">
-                        {category.category_name}
+                        {getTranslatedName(category, currentLanguage, category.category_name)}
                       </div>
                       {category.description && (
                         <div className="text-xs text-secondary-500 ml-2 truncate">
-                          {category.description.substring(0, 30)}...
+                          {getTranslatedDescription(category, currentLanguage, category.description).substring(0, 30)}...
                         </div>
                       )}
                     </div>
@@ -398,17 +418,33 @@ const AdminCategories = () => {
 
 // Category Modal Component
 const CategoryModal = ({ category, type, onClose, onSave }) => {
-  const { translate } = useLanguage();
+  const { translate, availableLanguages } = useLanguage();
   const [formData, setFormData] = useState({
     category_name: category?.category_name || '',
     description: category?.description || '',
     is_special_only: category?.is_special_only || false,
-    sort_order: category?.sort_order || 0
+    sort_order: category?.sort_order || 0,
+    // เพิ่มการแปลสำหรับแต่ละภาษา
+    translations: {}
   });
   
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(category?.image_display_url || null);
   const [loading, setLoading] = useState(false);
+
+  // ตั้งค่าการแปลเริ่มต้นเมื่อโหลดข้อมูลหมวดหมู่
+  useEffect(() => {
+    if (category?.translations) {
+      const translations = {};
+      category.translations.forEach(trans => {
+        translations[trans.language_code] = {
+          name: trans.translated_name || '',
+          description: trans.translated_description || ''
+        };
+      });
+      setFormData(prev => ({ ...prev, translations }));
+    }
+  }, [category]);
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];
@@ -444,6 +480,20 @@ const CategoryModal = ({ category, type, onClose, onSave }) => {
       submitData.append('is_special_only', formData.is_special_only);
       submitData.append('sort_order', formData.sort_order);
       
+      // เพิ่มการแปล (เฉพาะที่มีค่า)
+      const validTranslations = {};
+      Object.keys(formData.translations).forEach(langCode => {
+        const translation = formData.translations[langCode];
+        if (translation && translation.name && translation.name.trim()) {
+          validTranslations[langCode] = {
+            name: translation.name.trim(),
+            description: translation.description ? translation.description.trim() : ''
+          };
+        }
+      });
+      console.log('📝 Valid translations to send:', validTranslations);
+      submitData.append('translations', JSON.stringify(validTranslations));
+      
       // เพิ่มรูปภาพถ้ามี
       if (imageFile) {
         submitData.append('image', imageFile);
@@ -467,7 +517,7 @@ const CategoryModal = ({ category, type, onClose, onSave }) => {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg max-w-lg w-full max-h-[90vh] flex flex-col">
+      <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] flex flex-col">
         <div className="flex justify-between items-center p-6 border-b flex-shrink-0">
           <h2 className="text-xl font-semibold text-secondary-900">
             {modalTitle}
@@ -485,57 +535,149 @@ const CategoryModal = ({ category, type, onClose, onSave }) => {
         {/* Scrollable Content Area */}
         <div className="flex-1 overflow-y-auto p-6">
           <form id="category-form" onSubmit={handleSubmit}>
-          <div className="mb-4">
+          
+          {/* ชื่อหมวดหมู่ (ภาษาอังกฤษ) */}
+          <div className="mb-6">
             <label className="block text-sm font-medium text-secondary-700 mb-2">
-              {translate('admin.category_modal.category_name')}
+              {translate('admin.category_modal.category_name_english')} *
             </label>
             <input
               type="text"
               value={formData.category_name}
               onChange={(e) => setFormData({ ...formData, category_name: e.target.value })}
               disabled={!isEditable}
-              placeholder={translate('admin.category_modal.enter_category_name')}
+              placeholder={translate('admin.category_modal.category_name_english')}
               className="w-full p-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent disabled:bg-secondary-50"
               required
             />
+            <p className="text-xs text-secondary-500 mt-1">
+              {translate('admin.category_modal.primary_name_hint')}
+            </p>
           </div>
 
-          <div className="mb-4">
+          {/* การแปลสำหรับแต่ละภาษา */}
+          <div className="mb-6">
+            <h3 className="text-lg font-medium text-secondary-800 mb-4">
+              {translate('admin.category_modal.translations_title')}
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {availableLanguages.filter(lang => lang.code !== 'en').map(lang => (
+                <div key={lang.code} className="p-4 border border-secondary-200 rounded-lg bg-secondary-50">
+                  <h4 className="text-sm font-medium text-secondary-700 mb-3 flex items-center">
+                    <span className="w-6 h-6 bg-primary-100 text-primary-600 rounded-full flex items-center justify-center text-xs font-bold mr-2">
+                      {lang.code.toUpperCase()}
+                    </span>
+                    {translate(`admin.language_${lang.code}`)}
+                  </h4>
+                  
+                  <div className="mb-3">
+                    <label className="block text-xs text-secondary-600 mb-1">
+                      {translate('admin.category_modal.category_name')}
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.translations[lang.code]?.name || ''}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        translations: {
+                          ...formData.translations,
+                          [lang.code]: {
+                            ...formData.translations[lang.code],
+                            name: e.target.value
+                          }
+                        }
+                      })}
+                      disabled={!isEditable}
+                      placeholder={`${translate('admin.category_modal.category_name')} ${translate(`admin.language_${lang.code}`)}`}
+                      className="w-full p-2 border border-secondary-300 rounded text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent disabled:bg-secondary-100"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs text-secondary-600 mb-1">
+                      {translate('admin.category_modal.description')}
+                    </label>
+                    <textarea
+                      value={formData.translations[lang.code]?.description || ''}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        translations: {
+                          ...formData.translations,
+                          [lang.code]: {
+                            ...formData.translations[lang.code],
+                            description: e.target.value
+                          }
+                        }
+                      })}
+                      disabled={!isEditable}
+                      placeholder={`${translate('admin.category_modal.description')} ${translate(`admin.language_${lang.code}`)}`}
+                      rows={2}
+                      className="w-full p-2 border border-secondary-300 rounded text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent disabled:bg-secondary-100"
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+            <p className="text-xs text-secondary-500 mt-2">
+              {translate('admin.category_modal.translations_optional_hint')}
+            </p>
+          </div>
+
+          {/* คำอธิบาย (ภาษาอังกฤษ) */}
+          <div className="mb-6">
             <label className="block text-sm font-medium text-secondary-700 mb-2">
-              {translate('admin.category_modal.description')}
+              {translate('admin.category_modal.description_english')}
             </label>
             <textarea
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               disabled={!isEditable}
-              placeholder={translate('admin.category_modal.description_placeholder')}
+              placeholder={translate('admin.category_modal.description_english')}
               rows={3}
               className="w-full p-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent disabled:bg-secondary-50"
             />
           </div>
 
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-secondary-700 mb-2">
-              {translate('admin.table.sort_order')}
-            </label>
-            <input
-              type="number"
-              min="0"
-              value={formData.sort_order}
-              onChange={(e) => setFormData({ ...formData, sort_order: parseInt(e.target.value) || 0 })}
-              disabled={!isEditable}
-              placeholder="0"
-              className="w-full p-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent disabled:bg-secondary-50"
-            />
-            <p className="text-xs text-secondary-500 mt-1">
-              {translate('admin.table.sort_order_hint')}
-            </p>
+          {/* การตั้งค่าอื่นๆ */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            <div>
+              <label className="block text-sm font-medium text-secondary-700 mb-2">
+                {translate('admin.category_modal.sort_order')}
+              </label>
+              <input
+                type="number"
+                min="0"
+                value={formData.sort_order}
+                onChange={(e) => setFormData({ ...formData, sort_order: parseInt(e.target.value) || 0 })}
+                disabled={!isEditable}
+                placeholder="0"
+                className="w-full p-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent disabled:bg-secondary-50"
+              />
+              <p className="text-xs text-secondary-500 mt-1">
+                {translate('admin.category_modal.sort_order_hint')}
+              </p>
+            </div>
+
+            <div className="flex items-center">
+              <label className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={formData.is_special_only}
+                  onChange={(e) => setFormData({ ...formData, is_special_only: e.target.checked })}
+                  disabled={!isEditable}
+                  className="w-4 h-4 text-primary-600 border-secondary-300 rounded focus:ring-primary-500"
+                />
+                <span className="ml-2 text-sm text-secondary-700">
+                  {translate('admin.category_modal.special_restaurant_only')}
+                </span>
+              </label>
+            </div>
           </div>
 
           {/* รูปภาพหมวดหมู่ */}
-          <div className="mb-4">
+          <div className="mb-6">
             <label className="block text-sm font-medium text-secondary-700 mb-2">
-              {translate('admin.category_modal.image')}
+              {translate('admin.category_modal.category_image')}
             </label>
             
             {/* แสดงรูปภาพปัจจุบัน */}
@@ -663,7 +805,7 @@ const CategoryModal = ({ category, type, onClose, onSave }) => {
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-secondary-700 bg-white border border-secondary-300 rounded-md hover:bg-secondary-50"
+              className="px-6 py-2 text-sm font-medium text-secondary-700 bg-white border border-secondary-300 rounded-md hover:bg-secondary-50"
             >
               {translate('common.cancel')}
             </button>
@@ -672,9 +814,12 @@ const CategoryModal = ({ category, type, onClose, onSave }) => {
                 type="submit"
                 form="category-form"
                 disabled={loading}
-                className="px-4 py-2 text-sm font-medium text-white bg-primary-600 border border-transparent rounded-md hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-6 py-2 text-sm font-medium text-white bg-primary-600 border border-transparent rounded-md hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
-                {loading ? translate('admin.saving') : translate('common.save')}
+                {loading && (
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                )}
+                {type === 'create' ? translate('admin.category_modal.create_category') : translate('admin.category_modal.save_changes')}
               </button>
             )}
           </div>
@@ -708,7 +853,7 @@ const DeleteConfirmModal = ({ category, onConfirm, onCancel }) => {
           </div>
           
           <p className="text-secondary-700 mb-6">
-            {translate('admin.confirm_delete_category', { name: category.category_name })}
+            {translate('admin.confirm_delete_category', { name: getTranslatedName(category, currentLanguage, category.category_name) })}
             {category.products_count > 0 && (
               <span className="block text-red-600 text-sm mt-2">
                 {translate('admin.category_has_products_warning', { count: category.products_count })}
@@ -727,7 +872,7 @@ const DeleteConfirmModal = ({ category, onConfirm, onCancel }) => {
               onClick={onConfirm}
               className="px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700"
             >
-              {translate('admin.delete_category')}
+              {translate('admin.action.delete')}
             </button>
           </div>
         </div>

@@ -6,6 +6,7 @@ import { useCart } from "../../contexts/CartContext";
 import { useGuestCart } from "../../contexts/GuestCartContext";
 import { useAuth } from "../../contexts/AuthContext";
 import { useLanguage } from "../../contexts/LanguageContext";
+import { getTranslatedName, getTranslatedDescription } from "../../utils/translationUtils";
 import { formatPrice } from "../../utils/formatPrice";
 
 const RestaurantDetail = () => {
@@ -24,7 +25,7 @@ const RestaurantDetail = () => {
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState("menu");
   const [appSettings, setAppSettings] = useState(null);
-  const { translate } = useLanguage();
+  const { translate, currentLanguage } = useLanguage();
 
   useEffect(() => {
     if (id) {
@@ -265,6 +266,7 @@ const RestaurantDetail = () => {
                     restaurant={restaurant}
                     onAddToCart={addItem}
                     translate={translate}
+                    currentLanguage={currentLanguage}
                   />
                 ))}
               </div>
@@ -302,7 +304,7 @@ const RestaurantDetail = () => {
 };
 
 // Product Card Component
-const ProductCard = ({ product, restaurant, onAddToCart, translate }) => {
+const ProductCard = ({ product, restaurant, onAddToCart, translate, currentLanguage }) => {
   const handleAddToCart = () => {
     // ตรวจสอบสถานะร้าน
     if (restaurant.status !== "open") {
@@ -335,7 +337,7 @@ const ProductCard = ({ product, restaurant, onAddToCart, translate }) => {
       }
 
       // แสดงข้อความยืนยัน
-      alert(translate('common.added_to_cart', { product: product.product_name }));
+      alert(translate('common.added_to_cart', { product: getTranslatedName(product, currentLanguage, product.product_name) }));
     } catch (error) {
       console.error("Error adding to cart:", error);
       alert(translate('common.error_adding_to_cart'));
@@ -348,7 +350,7 @@ const ProductCard = ({ product, restaurant, onAddToCart, translate }) => {
         {product.image_display_url || product.image_url ? (
           <img
             src={product.image_display_url || product.image_url}
-            alt={product.product_name}
+            alt={getTranslatedName(product, currentLanguage, product.product_name)}
             className="w-full h-full object-cover"
             onError={(e) => {
               e.target.style.display = "none";
@@ -367,7 +369,7 @@ const ProductCard = ({ product, restaurant, onAddToCart, translate }) => {
       </div>
       <div className="p-4">
         <h3 className="font-semibold text-secondary-800 mb-2">
-          {product.product_name}
+          {getTranslatedName(product, currentLanguage, product.product_name)}
         </h3>
         <p className="text-secondary-600 text-sm mb-3 line-clamp-2">
           {product.description}
