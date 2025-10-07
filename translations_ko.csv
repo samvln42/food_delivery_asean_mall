@@ -861,3 +861,29 @@ privacy.updates_text,저희는 수시로 이 정책을 업데이트할 수 있�
 notification.new_guest_order,새 게스트 주문,notification
 notification.from,발신,notification
 notification.view_order,주문 보기,notification 
+# Admin Advertisements,,
+admin.advertisements.title,광고/배너 관리,admin
+admin.advertisements.add_button,광고 추가,admin
+admin.advertisements.edit_title,광고 편집,admin
+admin.advertisements.add_title,광고 추가,admin
+admin.advertisements.image_label,광고 이미지,admin
+admin.advertisements.image_requirements,권장: 800x400px | 파일: JPG, PNG, GIF, WebP | 크기: 최대 5MB,admin
+admin.advertisements.sort_order_label,표시 순서,admin
+admin.advertisements.sort_order_help,낮은 숫자가 먼저 표시됩니다,admin
+admin.advertisements.is_active_label,활성화,admin
+admin.advertisements.order,순서,admin
+admin.advertisements.active,활성,admin
+admin.advertisements.inactive,비활성,admin
+admin.advertisements.no_advertisements,아직 광고가 없습니다,admin
+admin.advertisements.click_to_add,"광고 추가"를 클릭하여 시작하세요,admin
+admin.advertisements.load_error,광고를 불러올 수 없습니다,admin
+admin.advertisements.select_image_required,이미지를 선택해주세요,admin
+admin.advertisements.create_success,광고가 성공적으로 생성되었습니다,admin
+admin.advertisements.update_success,광고가 성공적으로 업데이트되었습니다,admin
+admin.advertisements.save_error,광고를 저장할 수 없습니다,admin
+admin.advertisements.delete_confirm,이 광고를 삭제하시겠습니까?,admin
+admin.advertisements.delete_success,광고가 성공적으로 삭제되었습니다,admin
+admin.advertisements.delete_error,광고를 삭제할 수 없습니다,admin
+admin.advertisements.file_size_error,파일 크기는 5MB를 초과할 수 없습니다,admin
+admin.advertisements.file_type_error,JPG, PNG, GIF, WebP 파일만 지원됩니다,admin
+admin.manage_advertisements,광고 관리,admin

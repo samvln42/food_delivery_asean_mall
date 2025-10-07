@@ -150,7 +150,7 @@ class CategoryViewSet(viewsets.ModelViewSet):
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
-    search_fields = ['category_name']
+    search_fields = ['category_name', 'translations__translated_name']
     ordering_fields = ['category_name', 'category_id', 'sort_order']
     ordering = ['sort_order', 'category_name']
     parser_classes = [JSONParser, MultiPartParser, FormParser]  # เพิ่มเพื่อรองรับ image upload
@@ -210,7 +210,7 @@ class ProductViewSet(viewsets.ModelViewSet):
     queryset = Product.objects.all()
     serializer_class = ProductSerializer
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
-    search_fields = ['product_name', 'description']
+    search_fields = ['product_name', 'description', 'translations__translated_name', 'translations__translated_description']
     ordering_fields = ['price', 'created_at', 'product_name']
     
     def get_permissions(self):
@@ -1116,18 +1116,37 @@ class SearchViewSet(viewsets.ViewSet):
         
         # Search products
         if search_type in ['all', 'product']:
+            # ค้นหาในชื่อสินค้าและคำอธิบายหลัก
             products = Product.objects.filter(
                 Q(product_name__icontains=query) |
                 Q(description__icontains=query)
-            ).filter(is_available=True)[:10]
-            results['products'] = ProductSerializer(products, many=True).data
+            ).filter(is_available=True)
+            
+            # ค้นหาในข้อมูลการแปลภาษา
+            translated_products = Product.objects.filter(
+                Q(translations__translated_name__icontains=query) |
+                Q(translations__translated_description__icontains=query)
+            ).filter(is_available=True).distinct()
+            
+            # รวมผลลัพธ์และเรียงลำดับ
+            all_products = (products | translated_products).distinct()[:10]
+            results['products'] = ProductSerializer(all_products, many=True).data
         
         # Search categories
         if search_type in ['all', 'category']:
+            # ค้นหาในชื่อหมวดหมู่หลัก
             categories = Category.objects.filter(
                 category_name__icontains=query
-            )[:10]
-            results['categories'] = CategorySerializer(categories, many=True).data
+            )
+            
+            # ค้นหาในข้อมูลการแปลภาษา
+            translated_categories = Category.objects.filter(
+                translations__translated_name__icontains=query
+            ).distinct()
+            
+            # รวมผลลัพธ์
+            all_categories = (categories | translated_categories).distinct()[:10]
+            results['categories'] = CategorySerializer(all_categories, many=True).data
         
         # Save search history for authenticated users
         if request.user.is_authenticated:

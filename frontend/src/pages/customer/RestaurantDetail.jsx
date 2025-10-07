@@ -25,30 +25,67 @@ const RestaurantDetail = () => {
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState("menu");
   const [appSettings, setAppSettings] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalProducts, setTotalProducts] = useState(0);
   const { translate, currentLanguage } = useLanguage();
 
   useEffect(() => {
     if (id) {
       fetchRestaurantData();
+      setCurrentPage(1); // Reset to page 1 when restaurant changes
     }
   }, [id]);
+
+  useEffect(() => {
+    if (id && currentPage) {
+      fetchRestaurantProducts(currentPage);
+    }
+  }, [id, currentPage]);
 
   const fetchRestaurantData = async () => {
     try {
       setLoading(true);
       setError(null);
-      const [restaurantRes, productsRes, reviewsRes, settingsRes] = await Promise.all([
+      const [restaurantRes, reviewsRes, settingsRes] = await Promise.all([
         api.get(`/restaurants/${id}/`),
-        api.get(`/products/?restaurant_id=${id}`),
         api.get(`/restaurants/${id}/reviews/`),
         appSettingsService.getPublic(),
       ]);
       setRestaurant(restaurantRes.data);
-      setProducts(productsRes.data.results || productsRes.data);
       setReviews(reviewsRes.data.results || reviewsRes.data);
       setAppSettings(settingsRes.data);
     } catch (error) {
       setError("Unable to load restaurant data");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchRestaurantProducts = async (page = 1) => {
+    try {
+      setLoading(true);
+      const response = await api.get(`/products/?restaurant_id=${id}&page=${page}&page_size=12`);
+      const data = response.data;
+      
+      if (data.results) {
+        // API with pagination support
+        setProducts(data.results);
+        setTotalProducts(data.count || 0);
+        setTotalPages(Math.ceil((data.count || 0) / 12));
+      } else {
+        // API without pagination - implement client-side pagination
+        const allProducts = data || [];
+        const startIndex = (page - 1) * 12;
+        const endIndex = startIndex + 12;
+        const limitedProducts = allProducts.slice(startIndex, endIndex);
+        setProducts(limitedProducts);
+        setTotalProducts(allProducts.length || 0);
+        setTotalPages(Math.ceil((allProducts.length || 0) / 12));
+      }
+    } catch (error) {
+      console.error('Error fetching restaurant products:', error);
+      setError('Unable to load products');
     } finally {
       setLoading(false);
     }
@@ -236,7 +273,7 @@ const RestaurantDetail = () => {
                   : "border-transparent text-secondary-500 hover:text-secondary-700"
               }`}
             >
-              {translate('restaurant.menu')} ({products.length})
+              {translate('restaurant.menu')} ({totalProducts})
             </button>
             <button
               onClick={() => setActiveTab("reviews")}
@@ -258,18 +295,68 @@ const RestaurantDetail = () => {
           <div>
             <h2 className="text-2xl font-bold text-secondary-900 mb-6">{translate('restaurant.menu')}</h2>
             {products.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {products.map((product) => (
-                  <ProductCard
-                    key={product.product_id}
-                    product={product}
-                    restaurant={restaurant}
-                    onAddToCart={addItem}
-                    translate={translate}
-                    currentLanguage={currentLanguage}
-                  />
-                ))}
-              </div>
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                  {products.map((product) => (
+                    <ProductCard
+                      key={product.product_id}
+                      product={product}
+                      restaurant={restaurant}
+                      onAddToCart={addItem}
+                      translate={translate}
+                      currentLanguage={currentLanguage}
+                    />
+                  ))}
+                </div>
+                
+                {/* Pagination */}
+                {totalPages > 1 && (
+                  <div className="mt-8 flex items-center justify-center">
+                    <div className="flex items-center space-x-2">
+                      {/* Previous Button */}
+                      <button
+                        onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                        disabled={currentPage === 1}
+                        className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                          currentPage === 1
+                            ? 'bg-secondary-100 text-secondary-400 cursor-not-allowed'
+                            : 'bg-white text-secondary-700 hover:bg-secondary-50 border border-secondary-300'
+                        }`}
+                      >
+                        {translate('common.previous') || 'Previous'}
+                      </button>
+
+                      {/* Page Numbers */}
+                      {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                        <button
+                          key={page}
+                          onClick={() => setCurrentPage(page)}
+                          className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                            currentPage === page
+                              ? 'bg-primary-500 text-white'
+                              : 'bg-white text-secondary-700 hover:bg-secondary-50 border border-secondary-300'
+                          }`}
+                        >
+                          {page}
+                        </button>
+                      ))}
+
+                      {/* Next Button */}
+                      <button
+                        onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                        disabled={currentPage === totalPages}
+                        className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                          currentPage === totalPages
+                            ? 'bg-secondary-100 text-secondary-400 cursor-not-allowed'
+                            : 'bg-white text-secondary-700 hover:bg-secondary-50 border border-secondary-300'
+                        }`}
+                      >
+                        {translate('common.next') || 'Next'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </>
             ) : (
               <div className="text-center py-12">
                 <div className="text-6xl mb-4 opacity-30">🍽️</div>

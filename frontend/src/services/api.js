@@ -469,10 +469,6 @@ export const advertisementService = {
     formData.append('sort_order', data.sort_order || 0);
     formData.append('is_active', data.is_active !== undefined ? data.is_active : true);
     
-    console.log('AdvertisementService update - FormData contents:');
-    for (let [key, value] of formData.entries()) {
-      console.log(`${key}:`, value);
-    }
     
     return api.patch(`/advertisements/${id}/`, formData, {
       headers: {

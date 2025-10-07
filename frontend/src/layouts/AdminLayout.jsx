@@ -366,7 +366,7 @@ const AdminLayout = ({ children }) => {
                   onClick={() => setSidebarOpen(false)}
                   className="flex items-center px-4 py-2 text-secondary-700 rounded-lg hover:bg-primary-50 hover:text-primary-600 transition-colors"
                 >
-                  <FaBullhorn className="h-6 w-6 mr-2" /> จัดการโฆษณา
+                  <FaBullhorn className="h-6 w-6 mr-2" /> {translate('admin.manage_advertisements')}
                 </Link>
                 
                 {/* <Link
@@ -374,7 +374,7 @@ const AdminLayout = ({ children }) => {
                   onClick={() => setSidebarOpen(false)}
                   className="flex items-center px-4 py-2 text-secondary-700 rounded-lg hover:bg-primary-50 hover:text-primary-600 transition-colors"
                 >
-                  📈 รายงานสถิติ
+                  📈 {translate('admin.reports_and_statistics')}
                 </Link> */}
                 <Link
                   to="/admin/settings"

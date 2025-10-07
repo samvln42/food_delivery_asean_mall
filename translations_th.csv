@@ -878,3 +878,29 @@ privacy.updates_text,เราอาจอัพเดทนโยบายน�
 notification.new_guest_order,ออเดอร์ใหม่ (Guest),notification
 notification.from,จาก,notification
 notification.view_order,ดูออเดอร์,notification 
+# Admin Advertisements,,
+admin.advertisements.title,จัดการโฆษณา/แบนเนอร์,admin
+admin.advertisements.add_button,เพิ่มโฆษณา,admin
+admin.advertisements.edit_title,แก้ไขโฆษณา,admin
+admin.advertisements.add_title,เพิ่มโฆษณา,admin
+admin.advertisements.image_label,รูปภาพโฆษณา,admin
+admin.advertisements.image_requirements,แนะนำ: 800x400px | ไฟล์: JPG, PNG, GIF, WebP | ขนาด: ไม่เกิน 5MB,admin
+admin.advertisements.sort_order_label,ลำดับการแสดง,admin
+admin.advertisements.sort_order_help,เลขน้อยจะแสดงก่อน,admin
+admin.advertisements.is_active_label,เปิดใช้งาน,admin
+admin.advertisements.order,ลำดับ,admin
+admin.advertisements.active,ใช้งาน,admin
+admin.advertisements.inactive,ปิดใช้งาน,admin
+admin.advertisements.no_advertisements,ยังไม่มีโฆษณา,admin
+admin.advertisements.click_to_add,คลิก "เพิ่มโฆษณา" เพื่อเริ่มต้น,admin
+admin.advertisements.load_error,ไม่สามารถโหลดข้อมูลโฆษณาได้,admin
+admin.advertisements.select_image_required,กรุณาเลือกรูปภาพ,admin
+admin.advertisements.create_success,เพิ่มโฆษณาสำเร็จ,admin
+admin.advertisements.update_success,อัปเดตโฆษณาสำเร็จ,admin
+admin.advertisements.save_error,ไม่สามารถบันทึกโฆษณาได้,admin
+admin.advertisements.delete_confirm,คุณต้องการลบโฆษณานี้หรือไม่?,admin
+admin.advertisements.delete_success,ลบโฆษณาสำเร็จ,admin
+admin.advertisements.delete_error,ไม่สามารถลบโฆษณาได้,admin
+admin.advertisements.file_size_error,ขนาดไฟล์ต้องไม่เกิน 5MB,admin
+admin.advertisements.file_type_error,รองรับเฉพาะไฟล์ JPG, PNG, GIF และ WebP,admin
+admin.manage_advertisements,จัดการโฆษณา,admin

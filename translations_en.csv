@@ -861,3 +861,29 @@ privacy.updates_text,We may update this policy from time to time. We will notify
 notification.new_guest_order,New Guest Order,notification
 notification.from,From,notification
 notification.view_order,View Order,notification 
+# Admin Advertisements,,
+admin.advertisements.title,Manage Advertisements/Banners,admin
+admin.advertisements.add_button,Add Advertisement,admin
+admin.advertisements.edit_title,Edit Advertisement,admin
+admin.advertisements.add_title,Add Advertisement,admin
+admin.advertisements.image_label,Advertisement Image,admin
+admin.advertisements.image_requirements,Recommended: 800x400px | Files: JPG, PNG, GIF, WebP | Size: Max 5MB,admin
+admin.advertisements.sort_order_label,Display Order,admin
+admin.advertisements.sort_order_help,Lower numbers display first,admin
+admin.advertisements.is_active_label,Active,admin
+admin.advertisements.order,Order,admin
+admin.advertisements.active,Active,admin
+admin.advertisements.inactive,Inactive,admin
+admin.advertisements.no_advertisements,No advertisements yet,admin
+admin.advertisements.click_to_add,Click "Add Advertisement" to get started,admin
+admin.advertisements.load_error,Unable to load advertisements,admin
+admin.advertisements.select_image_required,Please select an image,admin
+admin.advertisements.create_success,Advertisement created successfully,admin
+admin.advertisements.update_success,Advertisement updated successfully,admin
+admin.advertisements.save_error,Unable to save advertisement,admin
+admin.advertisements.delete_confirm,Are you sure you want to delete this advertisement?,admin
+admin.advertisements.delete_success,Advertisement deleted successfully,admin
+admin.advertisements.delete_error,Unable to delete advertisement,admin
+admin.advertisements.file_size_error,File size must not exceed 5MB,admin
+admin.advertisements.file_type_error,Only JPG, PNG, GIF and WebP files are supported,admin
+admin.manage_advertisements,Manage Advertisements,admin

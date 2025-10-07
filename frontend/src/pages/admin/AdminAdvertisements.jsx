@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { advertisementService } from '../../services/api';
 import { toast } from '../../hooks/useNotification';
+import { useLanguage } from '../../contexts/LanguageContext';
 
 const AdminAdvertisements = () => {
+  const { translate } = useLanguage();
   const [advertisements, setAdvertisements] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
@@ -39,7 +41,7 @@ const AdminAdvertisements = () => {
       setAdvertisements(data);
     } catch (error) {
       console.error('Error fetching advertisements:', error);
-      toast.error('ไม่สามารถโหลดข้อมูลโฆษณาได้');
+      toast.error(translate('admin.advertisements.load_error'));
       // Set empty array on error to prevent map error
       setAdvertisements([]);
     } finally {
@@ -60,14 +62,14 @@ const AdminAdvertisements = () => {
     if (file) {
       // ตรวจสอบขนาดไฟล์ (5MB)
       if (file.size > 5 * 1024 * 1024) {
-        toast.error('ขนาดไฟล์ต้องไม่เกิน 5MB');
+        toast.error(translate('admin.advertisements.file_size_error'));
         return;
       }
 
       // ตรวจสอบประเภทไฟล์
       const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
       if (!allowedTypes.includes(file.type)) {
-        toast.error('รองรับเฉพาะไฟล์ JPG, PNG, GIF และ WebP');
+        toast.error(translate('admin.advertisements.file_type_error'));
         return;
       }
 
@@ -86,7 +88,7 @@ const AdminAdvertisements = () => {
     e.preventDefault();
 
     if (!imageFile && !editingAd) {
-      toast.error('กรุณาเลือกรูปภาพ');
+      toast.error(translate('admin.advertisements.select_image_required'));
       return;
     }
 
@@ -99,29 +101,17 @@ const AdminAdvertisements = () => {
         image: imageFile,
       };
 
-      console.log('Saving advertisement data:', {
-        editingAd: editingAd ? editingAd.advertisement_id : null,
-        data: data,
-        imageFile: imageFile,
-        formData: formData
-      });
-
       if (editingAd) {
-        console.log('Updating advertisement ID:', editingAd.advertisement_id);
         await advertisementService.update(editingAd.advertisement_id, data);
       } else {
-        console.log('Creating new advertisement');
         await advertisementService.create(data);
       }
 
-      toast.success(editingAd ? 'อัปเดตโฆษณาสำเร็จ' : 'เพิ่มโฆษณาสำเร็จ');
+      toast.success(editingAd ? translate('admin.advertisements.update_success') : translate('admin.advertisements.create_success'));
       fetchAdvertisements();
       closeModal();
     } catch (error) {
       console.error('Error saving advertisement:', error);
-      console.error('Error response:', error.response?.data);
-      console.error('Error status:', error.response?.status);
-      console.error('Error config:', error.config);
       
       // Show more detailed error message
       const errorMessage = error.response?.data?.detail || 
@@ -129,7 +119,7 @@ const AdminAdvertisements = () => {
                           error.response?.data?.error || 
                           error.message || 
                           'เกิดข้อผิดพลาด';
-      toast.error(`ไม่สามารถบันทึกโฆษณาได้: ${errorMessage}`);
+      toast.error(`${translate('admin.advertisements.save_error')}: ${errorMessage}`);
     } finally {
       setLoading(false);
     }
@@ -147,16 +137,16 @@ const AdminAdvertisements = () => {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('คุณต้องการลบโฆษณานี้หรือไม่?')) return;
+    if (!window.confirm(translate('admin.advertisements.delete_confirm'))) return;
 
     setLoading(true);
     try {
       await advertisementService.delete(id);
-      toast.success('ลบโฆษณาสำเร็จ');
+      toast.success(translate('admin.advertisements.delete_success'));
       fetchAdvertisements();
     } catch (error) {
       console.error('Error deleting advertisement:', error);
-      toast.error('ไม่สามารถลบโฆษณาได้');
+      toast.error(translate('admin.advertisements.delete_error'));
     } finally {
       setLoading(false);
     }
@@ -176,19 +166,19 @@ const AdminAdvertisements = () => {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">จัดการโฆษณา/แบนเนอร์</h1>
+        <h1 className="text-3xl font-bold">{translate('admin.advertisements.title')}</h1>
         <button
           onClick={() => setShowModal(true)}
           className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg transition-colors"
         >
-          + เพิ่มโฆษณา
+          + {translate('admin.advertisements.add_button')}
         </button>
       </div>
 
       {loading && (!Array.isArray(advertisements) || advertisements.length === 0) ? (
         <div className="text-center py-12">
           <div className="spinner-border text-primary"></div>
-          <p className="mt-4 text-gray-600">กำลังโหลด...</p>
+          <p className="mt-4 text-gray-600">{translate('common.loading')}</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -201,7 +191,7 @@ const AdminAdvertisements = () => {
               />
               <div className="p-4">
                 <div className="flex justify-between items-center mb-2">
-                  <span className="text-sm text-gray-600">ลำดับ: {ad.sort_order}</span>
+                  <span className="text-sm text-gray-600">{translate('admin.advertisements.order')}: {ad.sort_order}</span>
                   <span
                     className={`px-2 py-1 text-xs font-semibold rounded-full ${
                       ad.is_active
@@ -209,7 +199,7 @@ const AdminAdvertisements = () => {
                         : 'bg-red-100 text-red-800'
                     }`}
                   >
-                    {ad.is_active ? 'ใช้งาน' : 'ปิดใช้งาน'}
+                    {ad.is_active ? translate('admin.advertisements.active') : translate('admin.advertisements.inactive')}
                   </span>
                 </div>
                 <div className="flex space-x-2">
@@ -217,13 +207,13 @@ const AdminAdvertisements = () => {
                     onClick={() => handleEdit(ad)}
                     className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded transition-colors"
                   >
-                    แก้ไข
+                    {translate('common.edit')}
                   </button>
                   <button
                     onClick={() => handleDelete(ad.advertisement_id)}
                     className="flex-1 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded transition-colors"
                   >
-                    ลบ
+                    {translate('common.delete')}
                   </button>
                 </div>
               </div>
@@ -234,8 +224,8 @@ const AdminAdvertisements = () => {
 
       {Array.isArray(advertisements) && advertisements.length === 0 && !loading && (
         <div className="text-center py-12 bg-white rounded-lg shadow">
-          <p className="text-gray-500 text-lg">ยังไม่มีโฆษณา</p>
-          <p className="text-gray-400 text-sm mt-2">คลิก "เพิ่มโฆษณา" เพื่อเริ่มต้น</p>
+          <p className="text-gray-500 text-lg">{translate('admin.advertisements.no_advertisements')}</p>
+          <p className="text-gray-400 text-sm mt-2">{translate('admin.advertisements.click_to_add')}</p>
         </div>
       )}
 
@@ -245,13 +235,13 @@ const AdminAdvertisements = () => {
           <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <h2 className="text-2xl font-bold mb-4">
-                {editingAd ? 'แก้ไขโฆษณา' : 'เพิ่มโฆษณา'}
+                {editingAd ? translate('admin.advertisements.edit_title') : translate('admin.advertisements.add_title')}
               </h2>
 
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    รูปภาพโฆษณา {!editingAd && '*'}
+                    {translate('admin.advertisements.image_label')} {!editingAd && '*'}
                   </label>
                   <input
                     type="file"
@@ -260,7 +250,7 @@ const AdminAdvertisements = () => {
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                   />
                   <p className="text-xs text-gray-500 mt-1">
-                    แนะนำ: 800x400px | ไฟล์: JPG, PNG, GIF, WebP | ขนาด: ไม่เกิน 5MB
+                    {translate('admin.advertisements.image_requirements')}
                   </p>
                   {imagePreview && (
                     <img
@@ -273,7 +263,7 @@ const AdminAdvertisements = () => {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    ลำดับการแสดง
+                    {translate('admin.advertisements.sort_order_label')}
                   </label>
                   <input
                     type="number"
@@ -284,7 +274,7 @@ const AdminAdvertisements = () => {
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                   />
                   <p className="text-xs text-gray-500 mt-1">
-                    เลขน้อยจะแสดงก่อน
+                    {translate('admin.advertisements.sort_order_help')}
                   </p>
                 </div>
 
@@ -298,7 +288,7 @@ const AdminAdvertisements = () => {
                     className="w-5 h-5 text-blue-600"
                   />
                   <label htmlFor="is_active" className="text-sm font-medium text-gray-700 cursor-pointer">
-                    เปิดใช้งาน
+                    {translate('admin.advertisements.is_active_label')}
                   </label>
                 </div>
 
@@ -308,14 +298,14 @@ const AdminAdvertisements = () => {
                     onClick={closeModal}
                     className="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
                   >
-                    ยกเลิก
+                    {translate('common.cancel')}
                   </button>
                   <button
                     type="submit"
                     disabled={loading}
                     className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50"
                   >
-                    {loading ? 'กำลังบันทึก...' : editingAd ? 'อัปเดต' : 'เพิ่ม'}
+                    {loading ? translate('common.saving') : editingAd ? translate('admin.advertisements.edit_title') : translate('admin.advertisements.add_button')}
                   </button>
                 </div>
               </form>
