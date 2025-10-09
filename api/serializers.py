@@ -41,7 +41,7 @@ class CategoryTranslationSerializer(serializers.ModelSerializer):
 class CategorySerializer(serializers.ModelSerializer):
     products_count = serializers.IntegerField(source='products.count', read_only=True)
     image_display_url = serializers.SerializerMethodField()
-    translations = CategoryTranslationSerializer(source='translations.all', many=True, read_only=True)
+    translations = serializers.SerializerMethodField()
     
     class Meta:
         model = Category
@@ -51,6 +51,23 @@ class CategorySerializer(serializers.ModelSerializer):
         """Get the category image URL"""
         image_url = obj.get_image_url()
         return get_absolute_image_url(image_url, self.context.get('request'))
+    
+    def get_translations(self, obj):
+        """
+        Get translations, optionally filtered by language from query parameter
+        ถ้ามี ?lang=th จะส่งแค่ translation ภาษาไทย
+        ถ้าไม่มี จะส่งทุกภาษา (backward compatible)
+        """
+        request = self.context.get('request')
+        if request:
+            lang_code = request.query_params.get('lang', None)
+            if lang_code:
+                # ส่งแค่ภาษาที่ต้องการ (optimize performance)
+                filtered_translations = obj.translations.filter(language__code=lang_code)
+                return CategoryTranslationSerializer(filtered_translations, many=True).data
+        
+        # ส่งทุกภาษา (default behavior - backward compatible)
+        return CategoryTranslationSerializer(obj.translations.all(), many=True).data
 
     def create(self, validated_data):
         """Custom create method to handle translations"""
@@ -131,7 +148,7 @@ class ProductSerializer(serializers.ModelSerializer):
     restaurant_id = serializers.IntegerField(source='restaurant.restaurant_id', read_only=True)
     restaurant_status = serializers.CharField(source='restaurant.status', read_only=True)
     image_display_url = serializers.SerializerMethodField()
-    translations = ProductTranslationSerializer(source='translations.all', many=True, read_only=True)
+    translations = serializers.SerializerMethodField()
     
     class Meta:
         model = Product
@@ -144,6 +161,23 @@ class ProductSerializer(serializers.ModelSerializer):
         """Get the best available image URL"""
         image_url = obj.get_image_url()
         return get_absolute_image_url(image_url, self.context.get('request'))
+    
+    def get_translations(self, obj):
+        """
+        Get translations, optionally filtered by language from query parameter
+        ถ้ามี ?lang=th จะส่งแค่ translation ภาษาไทย
+        ถ้าไม่มี จะส่งทุกภาษา (backward compatible)
+        """
+        request = self.context.get('request')
+        if request:
+            lang_code = request.query_params.get('lang', None)
+            if lang_code:
+                # ส่งแค่ภาษาที่ต้องการ (optimize performance)
+                filtered_translations = obj.translations.filter(language__code=lang_code)
+                return ProductTranslationSerializer(filtered_translations, many=True).data
+        
+        # ส่งทุกภาษา (default behavior - backward compatible)
+        return ProductTranslationSerializer(obj.translations.all(), many=True).data
     
     def create(self, validated_data):
         """Custom create method to handle image upload and translations"""

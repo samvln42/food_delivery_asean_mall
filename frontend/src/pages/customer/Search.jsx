@@ -6,13 +6,14 @@ import { useGuestCart } from "../../contexts/GuestCartContext";
 import { useAuth } from "../../contexts/AuthContext";
 import { useLanguage } from "../../contexts/LanguageContext";
 import { formatPrice } from "../../utils/formatPrice";
+import { getTranslatedName, getTranslatedDescription } from "../../utils/translationUtils";
 
 const Search = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { addItem: addToCart } = useCart();
   const { addItem: addToGuestCart } = useGuestCart();
   const { isAuthenticated } = useAuth();
-  const { translate } = useLanguage();
+  const { translate, currentLanguage } = useLanguage();
   
   // เลือกฟังก์ชัน addItem ตามสถานะการล็อกอิน
   const addItem = isAuthenticated ? addToCart : addToGuestCart;
@@ -310,10 +311,10 @@ const Search = () => {
                     </div>
                     <div className="p-4">
                       <h4 className="font-semibold text-secondary-800 mb-2">
-                        {product.product_name}
+                        {getTranslatedName(product, currentLanguage, product.product_name)}
                       </h4>
                       <p className="text-secondary-600 text-sm mb-3 line-clamp-2">
-                        {product.description}
+                        {getTranslatedDescription(product, currentLanguage, product.description)}
                       </p>
                       <div className="flex items-center justify-between mb-3">
                         <span className="text-primary-500 font-bold text-lg">

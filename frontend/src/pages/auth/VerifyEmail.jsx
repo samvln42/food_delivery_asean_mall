@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { useLanguage } from '../../contexts/LanguageContext';
 import Loading from '../../components/common/Loading';
 
 const VerifyEmail = () => {
   const { verifyEmail, resendVerification } = useAuth();
+  const { translate } = useLanguage();
   const location = useLocation();
   const [searchParams] = useSearchParams();
   
@@ -38,27 +40,27 @@ const VerifyEmail = () => {
 
   const handleVerification = async (verificationToken) => {
     if (!verificationToken || !verificationToken.trim()) {
-      setMessage('Please enter the verification code');
+      setMessage(translate('verify_email.enter_code_error'));
       return;
     }
 
     try {
       setIsVerifying(true);
       setVerificationStatus('verifying');
-      setMessage('Verifying email...');
+      setMessage(translate('verify_email.verifying'));
       
       const result = await verifyEmail(verificationToken.trim());
       
       if (result.success) {
         setVerificationStatus('success');
-        setMessage('Email verified! You can now login');
+        setMessage(translate('verify_email.success_message'));
       } else {
         setVerificationStatus('error');
-        setMessage(result.error || 'Failed to verify email');
+        setMessage(result.error || translate('verify_email.failed_to_verify'));
       }
     } catch (error) {
       setVerificationStatus('error');
-      setMessage('Error verifying email');
+      setMessage(translate('verify_email.failed_to_verify'));
     } finally {
       setIsVerifying(false);
     }
@@ -71,7 +73,7 @@ const VerifyEmail = () => {
 
   const handleResendVerification = async () => {
     if (!email) {
-      setMessage('Email not found');
+      setMessage(translate('verify_email.email_not_found'));
       return;
     }
 
@@ -80,14 +82,14 @@ const VerifyEmail = () => {
       const result = await resendVerification(email);
       
       if (result.success) {
-        setMessage(`Resent verification email to ${email}`);
+        setMessage(translate('verify_email.resend_success', { email }));
         setCanResend(false);
         setCountdown(60); // 60 วินาทีก่อนส่งใหม่ได้
       } else {
-        setMessage(result.error || 'Failed to resend verification email');
+        setMessage(result.error || translate('verify_email.resend_failed'));
       }
     } catch (error) {
-      setMessage('Error resending verification email');
+      setMessage(translate('verify_email.resend_error'));
     } finally {
       setIsResending(false);
     }
@@ -103,7 +105,7 @@ const VerifyEmail = () => {
               <Loading size="small" text="" />
             </div>
             <h2 className="mt-6 text-center text-3xl font-extrabold text-secondary-900">
-              Verifying email...
+              {translate('verify_email.verifying')}
             </h2>
             <p className="mt-2 text-center text-sm text-secondary-600">
               {message}
@@ -124,7 +126,7 @@ const VerifyEmail = () => {
               <span className="text-2xl">✅</span>
             </div>
             <h2 className="mt-6 text-center text-3xl font-extrabold text-secondary-900">
-              Email verified!
+              {translate('verify_email.success_title')}
             </h2>
             <p className="mt-2 text-center text-sm text-secondary-600">
               {message}
@@ -134,7 +136,7 @@ const VerifyEmail = () => {
                 to="/login"
                 className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
               >
-                Login
+                {translate('common.login')}
               </Link>
             </div>
           </div>
@@ -156,12 +158,12 @@ const VerifyEmail = () => {
             </span>
           </div>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-secondary-900">
-            {verificationStatus === 'error' ? 'Error' : 'Verify your email'}
+            {verificationStatus === 'error' ? translate('verify_email.error_title') : translate('verify_email.pending_title')}
           </h2>
           <p className="mt-2 text-center text-sm text-secondary-600">
             {message || (email 
-              ? `We have sent a verification code to ${email}. Please check your email and enter the verification code below`
-              : 'Please check your email and enter the verification code below'
+              ? translate('verify_email.sent_to_email', { email })
+              : translate('verify_email.check_email')
             )}
           </p>
           
@@ -169,7 +171,7 @@ const VerifyEmail = () => {
           <form onSubmit={handleFormSubmit} className="mt-6 space-y-4">
             <div>
               <label htmlFor="token" className="block text-sm font-medium text-secondary-700 mb-2">
-                Verification Code
+                {translate('verify_email.verification_code')}
               </label>
               <input
                 id="token"
@@ -177,14 +179,14 @@ const VerifyEmail = () => {
                 type="text"
                 value={tokenInput}
                 onChange={(e) => setTokenInput(e.target.value.toUpperCase())}
-                placeholder="Enter verification code from email"
+                placeholder={translate('verify_email.enter_code')}
                 className="w-full p-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-center text-lg font-mono tracking-widest"
                 maxLength={36}
                 disabled={isVerifying}
                 required
               />
               <p className="mt-1 text-xs text-secondary-500">
-                Verification code will be like: XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX
+                {translate('verify_email.code_format')}
               </p>
             </div>
             
@@ -200,10 +202,10 @@ const VerifyEmail = () => {
               {isVerifying ? (
                 <>
                   <Loading size="small" text="" />
-                  <span className="ml-2">Verifying...</span>
+                  <span className="ml-2">{translate('verify_email.verifying_button')}</span>
                 </>
               ) : (
-                'Verify email'
+                translate('verify_email.verify_button')
               )}
             </button>
           </form>
@@ -211,7 +213,7 @@ const VerifyEmail = () => {
           {verificationStatus === 'error' && (
             <div className="mt-4 bg-red-50 border border-red-200 rounded-lg p-4">
               <p className="text-sm text-red-600">
-                If you have problems verifying your email, please try resending the verification code or contact support
+                {translate('verify_email.error_help')}
               </p>
             </div>
           )}
@@ -230,12 +232,12 @@ const VerifyEmail = () => {
                 {isResending ? (
                   <>
                     <Loading size="small" text="" />
-                    <span className="ml-2">Resending...</span>
+                    <span className="ml-2">{translate('verify_email.resending_button')}</span>
                   </>
                 ) : !canResend ? (
-                  `Can resend in ${countdown} seconds`
+                  translate('verify_email.resend_countdown', { seconds: countdown })
                 ) : (
-                  'Resend verification code'
+                  translate('verify_email.resend_button')
                 )}
               </button>
             )}
@@ -245,20 +247,20 @@ const VerifyEmail = () => {
                 to="/login"
                 className="flex-1 flex justify-center py-3 px-4 border border-secondary-300 rounded-lg shadow-sm text-sm font-medium text-secondary-700 bg-white hover:bg-secondary-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
               >
-                Login
+                {translate('common.login')}
               </Link>
               <Link
                 to="/register"
                 className="flex-1 flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
               >
-                Register
+                {translate('common.register')}
               </Link>
             </div>
           </div>
           
           <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
             <p className="text-sm text-blue-800">
-              <strong>💡 Tip:</strong> Check your Spam or Junk Mail folder if you don't see the verification code in your inbox. The code will be a combination of letters and numbers.
+              {translate('verify_email.tip_spam')}
             </p>
           </div>
         </div>

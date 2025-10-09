@@ -19,6 +19,7 @@ const LoadingSpinner = () => (
 const Login = lazy(() => import('./pages/auth/Login'));
 const Register = lazy(() => import('./pages/auth/Register'));
 const VerifyEmail = lazy(() => import('./pages/auth/VerifyEmail'));
+const ForgotPassword = lazy(() => import('./pages/auth/ForgotPassword'));
 
 // Customer Pages - โหลดเฉพาะเมื่อต้องการ
 const Home = lazy(() => import('./pages/customer/Home'));
@@ -101,6 +102,11 @@ function App() {
                     <Route path="/verify-email" element={
                       <ProtectedRoute requireAuth={false}>
                         <VerifyEmail />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="/forgot-password" element={
+                      <ProtectedRoute requireAuth={false}>
+                        <ForgotPassword />
                       </ProtectedRoute>
                     } />
 

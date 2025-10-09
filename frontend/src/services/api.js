@@ -8,12 +8,35 @@ const api = axios.create({
   headers: API_CONFIG.HEADERS,
 });
 
-// Request interceptor to add auth token
+// Request interceptor to add auth token and language parameter
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
     if (token) {
       config.headers.Authorization = `Token ${token}`;
+    }
+    
+    // เพิ่ม lang parameter สำหรับ API ที่ต้องการ translations
+    // เพื่อลดขนาดข้อมูลและเพิ่มความเร็ว
+    const currentLanguage = localStorage.getItem('language');
+    if (currentLanguage && config.method === 'get') {
+      // เพิ่ม lang parameter สำหรับ endpoints ที่มี translations
+      const needsLanguage = [
+        '/products',
+        '/categories',
+        '/restaurants'
+      ].some(endpoint => config.url.includes(endpoint));
+      
+      if (needsLanguage) {
+        // ตรวจสอบว่ามี params อยู่แล้วหรือไม่
+        if (!config.params) {
+          config.params = {};
+        }
+        // เพิ่ม lang parameter ถ้ายังไม่มี
+        if (!config.params.lang) {
+          config.params.lang = currentLanguage;
+        }
+      }
     }
     
     // Debug logging for specific API calls
