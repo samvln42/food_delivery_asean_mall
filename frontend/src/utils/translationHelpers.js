@@ -12,22 +12,34 @@
  * @returns {string} Translated name or default name
  */
 export const getTranslatedName = (item, currentLanguage, defaultName) => {
-  // ถ้าไม่มี item หรือไม่มี translations ให้ return default
-  if (!item || !item.translations) {
+  // ถ้าไม่มี item ให้ return default
+  if (!item) {
     return defaultName || '';
   }
   
-  // กรณีใหม่: API ส่งแค่ translation เดียว (optimized)
-  if (Array.isArray(item.translations) && item.translations.length === 1) {
-    return item.translations[0]?.translated_name || defaultName || '';
+  // ถ้าไม่มี translations หรือเป็น array ว่าง ให้ return default
+  if (!item.translations || !Array.isArray(item.translations) || item.translations.length === 0) {
+    return defaultName || '';
   }
   
-  // กรณีเก่า: API ส่งทุก translation (backward compatible)
-  if (Array.isArray(item.translations) && item.translations.length > 0) {
-    const translation = item.translations.find(t => t.language_code === currentLanguage);
-    return translation?.translated_name || defaultName || '';
+  // กรณีใหม่: API ส่ง filtered แค่ภาษาเดียว (optimized - มี lang parameter)
+  // translations: [{ language_code: "th", translated_name: "ผัดไทย" }]
+  if (item.translations.length === 1) {
+    const trans = item.translations[0];
+    // ถ้า translation มีข้อมูลและตรงกับภาษาที่ต้องการ หรือมีแค่ภาษาเดียว
+    if (trans && trans.translated_name) {
+      return trans.translated_name;
+    }
   }
   
+  // กรณีเก่า: API ส่งทุก translation (backward compatible - ไม่มี lang parameter)
+  // translations: [{ language_code: "th", ... }, { language_code: "en", ... }]
+  const translation = item.translations.find(t => t.language_code === currentLanguage);
+  if (translation && translation.translated_name) {
+    return translation.translated_name;
+  }
+  
+  // ถ้าไม่เจอเลย ให้ return default
   return defaultName || '';
 };
 
@@ -39,22 +51,31 @@ export const getTranslatedName = (item, currentLanguage, defaultName) => {
  * @returns {string} Translated description or default description
  */
 export const getTranslatedDescription = (item, currentLanguage, defaultDescription) => {
-  // ถ้าไม่มี item หรือไม่มี translations ให้ return default
-  if (!item || !item.translations) {
+  // ถ้าไม่มี item ให้ return default
+  if (!item) {
     return defaultDescription || '';
   }
   
-  // กรณีใหม่: API ส่งแค่ translation เดียว (optimized)
-  if (Array.isArray(item.translations) && item.translations.length === 1) {
-    return item.translations[0]?.translated_description || defaultDescription || '';
+  // ถ้าไม่มี translations หรือเป็น array ว่าง ให้ return default
+  if (!item.translations || !Array.isArray(item.translations) || item.translations.length === 0) {
+    return defaultDescription || '';
   }
   
-  // กรณีเก่า: API ส่งทุก translation (backward compatible)
-  if (Array.isArray(item.translations) && item.translations.length > 0) {
-    const translation = item.translations.find(t => t.language_code === currentLanguage);
-    return translation?.translated_description || defaultDescription || '';
+  // กรณีใหม่: API ส่ง filtered แค่ภาษาเดียว (optimized - มี lang parameter)
+  if (item.translations.length === 1) {
+    const trans = item.translations[0];
+    if (trans && trans.translated_description) {
+      return trans.translated_description;
+    }
   }
   
+  // กรณีเก่า: API ส่งทุก translation (backward compatible - ไม่มี lang parameter)
+  const translation = item.translations.find(t => t.language_code === currentLanguage);
+  if (translation && translation.translated_description) {
+    return translation.translated_description;
+  }
+  
+  // ถ้าไม่เจอเลย ให้ return default
   return defaultDescription || '';
 };
 

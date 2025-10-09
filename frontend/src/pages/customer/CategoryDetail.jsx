@@ -6,27 +6,7 @@ import { useGuestCart } from '../../contexts/GuestCartContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { formatPrice } from '../../utils/formatPrice';
-
-// Helper function to get translated name
-const getTranslatedName = (item, currentLanguage, defaultName) => {
-  if (!item.translations || !Array.isArray(item.translations)) {
-    return defaultName;
-  }
-  
-  const translation = item.translations.find(t => t.language_code === currentLanguage);
-  return translation?.translated_name || defaultName;
-};
-
-// Helper function to get translated description
-const getTranslatedDescription = (item, currentLanguage, defaultDescription) => {
-  if (!item.translations || !Array.isArray(item.translations)) {
-    return defaultDescription;
-  }
-  
-  const translation = item.translations.find(t => t.language_code === currentLanguage);
-  return translation?.translated_description || defaultDescription;
-};
-
+import { getTranslatedName, getTranslatedDescription } from '../../utils/translationHelpers';
 import {
   HomeIcon,
   ShoppingCartIcon,
@@ -51,17 +31,17 @@ const CategoryDetail = () => {
 
   useEffect(() => {
     if (id) {
-      setCurrentPage(1); // Reset to page 1 when category changes
+      setCurrentPage(1);
       fetchCategoryDetail();
       fetchCategoryProducts(1);
     }
   }, [id]);
 
   useEffect(() => {
-    if (id) {
+    if (id && currentPage > 0) {
       fetchCategoryProducts(currentPage);
     }
-  }, [currentPage, id]);
+  }, [currentPage, id, currentLanguage]);
 
   const fetchCategoryDetail = async () => {
     try {
@@ -75,7 +55,10 @@ const CategoryDetail = () => {
 
   const fetchCategoryProducts = async (page = 1) => {
     try {
-      setLoading(true);
+      // ใช้ loading เฉพาะเมื่อยังไม่มีข้อมูล หรือเปลี่ยนหน้า/category
+      if (products.length === 0 || currentPage !== page) {
+        setLoading(true);
+      }
       const response = await api.get(`/products/?category_id=${id}&page=${page}&page_size=12`);
       const data = response.data;
       

@@ -2,26 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../../services/api'; 
 import { useLanguage } from '../../contexts/LanguageContext';
-
-// Helper function to get translated name
-const getTranslatedName = (item, currentLanguage, defaultName) => {
-  if (!item.translations || !Array.isArray(item.translations)) {
-    return defaultName;
-  }
-  
-  const translation = item.translations.find(t => t.language_code === currentLanguage);
-  return translation?.translated_name || defaultName;
-};
-
-// Helper function to get translated description
-const getTranslatedDescription = (item, currentLanguage, defaultDescription) => {
-  if (!item.translations || !Array.isArray(item.translations)) {
-    return defaultDescription;
-  }
-  
-  const translation = item.translations.find(t => t.language_code === currentLanguage);
-  return translation?.translated_description || defaultDescription;
-};
+import { getTranslatedName, getTranslatedDescription } from '../../utils/translationHelpers';
 
 const Categories = () => {
   const { translate, currentLanguage } = useLanguage();
@@ -32,17 +13,17 @@ const Categories = () => {
   const [totalPages, setTotalPages] = useState(1);
   const [totalCategories, setTotalCategories] = useState(0);
 
-  useEffect(() => {
-    fetchCategories();
-  }, []);
-
+  // Fetch categories when page or language changes
   useEffect(() => {
     fetchCategories(currentPage);
-  }, [currentPage]);
+  }, [currentPage, currentLanguage]);
 
   const fetchCategories = async (page = 1) => {
     try {
-      setLoading(true);
+      // ใช้ loading เฉพาะเมื่อยังไม่มีข้อมูล หรือเปลี่ยนหน้า
+      if (categories.length === 0 || currentPage !== page) {
+        setLoading(true);
+      }
       // โหลดหมวดหมู่แบบ pagination
       const response = await api.get(`/categories/?page=${page}&page_size=20&ordering=sort_order,category_name`);
       const data = response.data;

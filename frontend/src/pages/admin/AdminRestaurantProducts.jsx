@@ -3,25 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { restaurantService, productService, categoryService } from '../../services/api';
 import { formatPrice } from '../../utils/formatPrice';
 import { useLanguage } from '../../contexts/LanguageContext';
-
-// Helper functions สำหรับการแปล
-const getTranslatedName = (item, currentLanguage, fallbackName) => {
-  if (!item?.translations || !currentLanguage || currentLanguage === 'en') {
-    return fallbackName || '';
-  }
-  
-  const translation = item.translations.find(t => t.language_code === currentLanguage);
-  return translation?.translated_name || fallbackName || '';
-};
-
-const getTranslatedDescription = (item, currentLanguage, fallbackDescription) => {
-  if (!item?.translations || !currentLanguage || currentLanguage === 'en') {
-    return fallbackDescription || '';
-  }
-  
-  const translation = item.translations.find(t => t.language_code === currentLanguage);
-  return translation?.translated_description || fallbackDescription || '';
-};
+import { getTranslatedName, getTranslatedDescription } from '../../utils/translationHelpers';
 
 const AdminRestaurantProducts = () => {
   const { restaurantId } = useParams();
@@ -52,14 +34,14 @@ const AdminRestaurantProducts = () => {
       fetchRestaurantInfo();
       fetchProducts();
     }
-  }, [restaurantId, currentPage, searchTerm, categoryFilter, availabilityFilter]);
+  }, [restaurantId, currentPage, searchTerm, categoryFilter, availabilityFilter, currentLanguage]); // เพิ่ม currentLanguage
 
   // แยก useEffect สำหรับ fetchCategories เพื่อรอให้ restaurant โหลดเสร็จก่อน
   useEffect(() => {
     if (restaurant) {
       fetchCategories();
     }
-  }, [restaurant]);
+  }, [restaurant, currentLanguage]); // เพิ่ม currentLanguage
 
   const fetchRestaurantInfo = async () => {
     try {
@@ -90,7 +72,10 @@ const AdminRestaurantProducts = () => {
 
   const fetchProducts = async () => {
     try {
-      setLoading(true);
+      // Smart loading: แสดง loading เฉพาะเมื่อยังไม่มีข้อมูล
+      if (products.length === 0) {
+        setLoading(true);
+      }
       
       const params = {
         page: currentPage,
@@ -191,8 +176,19 @@ const AdminRestaurantProducts = () => {
     }
   };
 
-  const openModal = (product, type) => {
-    setSelectedProduct(product);
+  const openModal = async (product, type) => {
+    // ถ้าเป็น edit หรือ view ต้องดึงข้อมูลทุกภาษา
+    if (type === 'edit' || type === 'view') {
+      try {
+        const response = await productService.getById(product.product_id, { allLanguages: true });
+        setSelectedProduct(response.data);
+      } catch (err) {
+        console.error('Error fetching product details:', err);
+        setSelectedProduct(product); // fallback ใช้ของเดิม
+      }
+    } else {
+      setSelectedProduct(product);
+    }
     setModalType(type);
     setShowModal(true);
   };

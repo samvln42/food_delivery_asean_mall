@@ -6,27 +6,8 @@ import { useAuth } from "../../contexts/AuthContext";
 import api from "../../services/api";
 import { useLanguage } from "../../contexts/LanguageContext";
 import { formatPrice } from "../../utils/formatPrice";
+import { getTranslatedName, getTranslatedDescription } from "../../utils/translationHelpers";
 import { HomeIcon, ShoppingCartIcon } from "@heroicons/react/24/outline";
-
-// Helper function to get translated name
-const getTranslatedName = (item, currentLanguage, defaultName) => {
-  if (!item.translations || !Array.isArray(item.translations)) {
-    return defaultName;
-  }
-  
-  const translation = item.translations.find(t => t.language_code === currentLanguage);
-  return translation?.translated_name || defaultName;
-};
-
-// Helper function to get translated description
-const getTranslatedDescription = (item, currentLanguage, defaultDescription) => {
-  if (!item.translations || !Array.isArray(item.translations)) {
-    return defaultDescription;
-  }
-  
-  const translation = item.translations.find(t => t.language_code === currentLanguage);
-  return translation?.translated_description || defaultDescription;
-};
 
 const AllProducts = () => {
   const { addItem: addToCart } = useCart();
@@ -44,13 +25,17 @@ const AllProducts = () => {
   // เลือกฟังก์ชัน addItem ตามสถานะการล็อกอิน
   const addItem = isAuthenticated ? addToCart : addToGuestCart;
 
+  // Fetch initial data
   useEffect(() => {
     fetchData();
   }, []);
 
+  // Fetch products when page or language changes
   useEffect(() => {
-    fetchProducts(currentPage);
-  }, [currentPage]);
+    if (restaurants.length > 0) {
+      fetchProducts(currentPage);
+    }
+  }, [currentPage, currentLanguage]);
 
   const fetchData = async () => {
     try {
@@ -65,7 +50,10 @@ const AllProducts = () => {
 
   const fetchProducts = async (page = 1) => {
     try {
-      setLoading(true);
+      // ใช้ loading เฉพาะเมื่อยังไม่มีข้อมูล หรือเปลี่ยนหน้า
+      if (products.length === 0 || currentPage !== page) {
+        setLoading(true);
+      }
       let url = "/products/";
       const params = new URLSearchParams();
 

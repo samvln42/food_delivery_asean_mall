@@ -18,8 +18,9 @@ api.interceptors.request.use(
     
     // เพิ่ม lang parameter สำหรับ API ที่ต้องการ translations
     // เพื่อลดขนาดข้อมูลและเพิ่มความเร็ว
+    // ยกเว้นหน้าที่ต้องการทุกภาษา (เช่น หน้าแก้ไข) โดยส่ง skipLangFilter: true
     const currentLanguage = localStorage.getItem('language');
-    if (currentLanguage && config.method === 'get') {
+    if (currentLanguage && config.method === 'get' && !config.skipLangFilter) {
       // เพิ่ม lang parameter สำหรับ endpoints ที่มี translations
       const needsLanguage = [
         '/products',
@@ -32,7 +33,7 @@ api.interceptors.request.use(
         if (!config.params) {
           config.params = {};
         }
-        // เพิ่ม lang parameter ถ้ายังไม่มี
+        // เพิ่ม lang parameter ถ้ายังไม่มี และไม่ได้บอกให้ข้าม
         if (!config.params.lang) {
           config.params.lang = currentLanguage;
         }
@@ -227,7 +228,11 @@ export const restaurantService = {
 // Product services
 export const productService = {
   getAll: (params = {}) => api.get('/products/', { params }),
-  getById: (id) => api.get(`/products/${id}/`),
+  getById: (id, options = {}) => {
+    // options.allLanguages = true จะดึงทุกภาษา (สำหรับหน้าแก้ไข)
+    const config = options.allLanguages ? { skipLangFilter: true } : {};
+    return api.get(`/products/${id}/`, config);
+  },
   getReviews: (id, params = {}) => api.get(`/products/${id}/reviews/`, { params }),
   create: (data) => {
     // Use FormData for file uploads
@@ -275,7 +280,11 @@ export const productService = {
 // Category services
 export const categoryService = {
   getAll: (params = {}) => api.get('/categories/', { params }),
-  getById: (id) => api.get(`/categories/${id}/`),
+  getById: (id, options = {}) => {
+    // options.allLanguages = true จะดึงทุกภาษา (สำหรับหน้าแก้ไข)
+    const config = options.allLanguages ? { skipLangFilter: true } : {};
+    return api.get(`/categories/${id}/`, config);
+  },
   create: (data) => {
     // Use FormData for file uploads
     if (data instanceof FormData) {

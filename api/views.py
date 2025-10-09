@@ -1745,7 +1745,26 @@ class TranslationViewSet(viewsets.ModelViewSet):
             return Response(grouped_translations)
         
         serializer = self.get_serializer(translations, many=True)
-        return Response(serializer.data)
+        
+        # เพิ่ม metadata สำหรับ cache management
+        # ส่ง last_updated timestamp เพื่อให้ frontend ตรวจสอบว่าควร refresh cache หรือไม่
+        last_updated = translations.order_by('-updated_at').first()
+        response_data = serializer.data
+        
+        # ถ้ามี only_check_version parameter ให้ส่งแค่ metadata
+        if request.query_params.get('only_check_version') == 'true':
+            return Response({
+                'last_updated': last_updated.updated_at.isoformat() if last_updated and last_updated.updated_at else None,
+                'count': translations.count()
+            })
+        
+        # เพิ่ม header สำหรับ version checking
+        response = Response(response_data)
+        if last_updated and last_updated.updated_at:
+            response['X-Translations-Last-Updated'] = last_updated.updated_at.isoformat()
+            response['X-Translations-Count'] = str(translations.count())
+        
+        return response
 
 
 class GuestOrderViewSet(viewsets.ModelViewSet):

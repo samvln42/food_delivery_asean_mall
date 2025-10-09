@@ -33,7 +33,7 @@ const RestaurantDetail = () => {
   useEffect(() => {
     if (id) {
       fetchRestaurantData();
-      setCurrentPage(1); // Reset to page 1 when restaurant changes
+      setCurrentPage(1);
     }
   }, [id]);
 
@@ -41,7 +41,7 @@ const RestaurantDetail = () => {
     if (id && currentPage) {
       fetchRestaurantProducts(currentPage);
     }
-  }, [id, currentPage]);
+  }, [id, currentPage, currentLanguage]);
 
   const fetchRestaurantData = async () => {
     try {
@@ -64,7 +64,10 @@ const RestaurantDetail = () => {
 
   const fetchRestaurantProducts = async (page = 1) => {
     try {
-      setLoading(true);
+      // ใช้ loading เฉพาะเมื่อยังไม่มีข้อมูล หรือเปลี่ยนหน้า/restaurant
+      if (products.length === 0 || currentPage !== page) {
+        setLoading(true);
+      }
       const response = await api.get(`/products/?restaurant_id=${id}&page=${page}&page_size=12`);
       const data = response.data;
       

@@ -6,7 +6,7 @@ import { useGuestCart } from "../../contexts/GuestCartContext";
 import { useAuth } from "../../contexts/AuthContext";
 import { useLanguage } from "../../contexts/LanguageContext";
 import { formatPrice } from "../../utils/formatPrice";
-import { getTranslatedName, getTranslatedDescription } from "../../utils/translationUtils";
+import { getTranslatedName, getTranslatedDescription } from "../../utils/translationHelpers";
 
 const Search = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -32,13 +32,17 @@ const Search = () => {
       setSearchQuery(query);
       performSearch(query);
     }
-  }, [searchParams]);
+  }, [searchParams, currentLanguage]); // เพิ่ม currentLanguage เพื่อ re-search เมื่อเปลี่ยนภาษา
 
   const performSearch = async (query) => {
     if (!query.trim()) return;
 
     try {
-      setLoading(true);
+      // Smart loading: แสดง loading เฉพาะเมื่อยังไม่มีผลลัพธ์
+      const hasResults = results.restaurants.length > 0 || results.products.length > 0;
+      if (!hasResults) {
+        setLoading(true);
+      }
       setError(null);
 
       const searchPromises = [];

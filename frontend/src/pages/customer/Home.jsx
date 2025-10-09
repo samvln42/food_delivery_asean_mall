@@ -10,26 +10,7 @@ import {
 import Loading from "../../components/common/Loading";
 import AdvertisementGallery from "./AdvertisementGallery";
 import { MagnifyingGlassIcon } from "@heroicons/react/24/outline";
-
-// Helper function to get translated name
-const getTranslatedName = (item, currentLanguage, defaultName) => {
-  if (!item.translations || !Array.isArray(item.translations)) {
-    return defaultName;
-  }
-  
-  const translation = item.translations.find(t => t.language_code === currentLanguage);
-  return translation?.translated_name || defaultName;
-};
-
-// Helper function to get translated description
-const getTranslatedDescription = (item, currentLanguage, defaultDescription) => {
-  if (!item.translations || !Array.isArray(item.translations)) {
-    return defaultDescription;
-  }
-  
-  const translation = item.translations.find(t => t.language_code === currentLanguage);
-  return translation?.translated_description || defaultDescription;
-};
+import { getTranslatedName, getTranslatedDescription } from "../../utils/translationHelpers";
 
 const Home = () => {
   const { translate, currentLanguage } = useLanguage();
@@ -43,9 +24,10 @@ const Home = () => {
   // const { user } = useAuth();
   const navigate = useNavigate();
 
+  // Fetch data when component mounts or language changes
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [currentLanguage]);
 
   // Auto-refresh data when user comes back after being away for a while
   useEffect(() => {
@@ -72,7 +54,10 @@ const Home = () => {
 
   const fetchData = async () => {
     try {
-      setLoading(true);
+      // ใช้ loading เฉพาะเมื่อยังไม่มีข้อมูล
+      if (categories.length === 0) {
+        setLoading(true);
+      }
 
       // Try to fetch from API first
       try {

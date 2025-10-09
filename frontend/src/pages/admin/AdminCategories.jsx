@@ -1,25 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { categoryService } from '../../services/api';
 import { useLanguage } from '../../contexts/LanguageContext';
-
-// Helper functions สำหรับการแปล
-const getTranslatedName = (item, currentLanguage, fallbackName) => {
-  if (!item?.translations || !currentLanguage || currentLanguage === 'en') {
-    return fallbackName || '';
-  }
-  
-  const translation = item.translations.find(t => t.language_code === currentLanguage);
-  return translation?.translated_name || fallbackName || '';
-};
-
-const getTranslatedDescription = (item, currentLanguage, fallbackDescription) => {
-  if (!item?.translations || !currentLanguage || currentLanguage === 'en') {
-    return fallbackDescription || '';
-  }
-  
-  const translation = item.translations.find(t => t.language_code === currentLanguage);
-  return translation?.translated_description || fallbackDescription || '';
-};
+import { getTranslatedName, getTranslatedDescription } from '../../utils/translationHelpers';
 
 const AdminCategories = () => {
   const { translate, currentLanguage } = useLanguage();
@@ -55,16 +37,19 @@ const AdminCategories = () => {
     }, debounceTime);
 
     return () => clearTimeout(timeoutId);
-  }, [currentPage, searchTerm]);
+  }, [currentPage, searchTerm, currentLanguage]); // เพิ่ม currentLanguage
 
   const fetchCategories = async () => {
     try {
       const isSearching = searchTerm.trim();
       
-      if (isSearching) {
-        setSearching(true);
-      } else {
-        setLoading(true);
+      // Smart loading: แสดง loading เฉพาะเมื่อยังไม่มีข้อมูล หรือกำลังค้นหา
+      if (categories.length === 0 || isSearching) {
+        if (isSearching) {
+          setSearching(true);
+        } else {
+          setLoading(true);
+        }
       }
       
       console.log('🔍 Fetching categories with search:', searchTerm);
@@ -156,8 +141,19 @@ const AdminCategories = () => {
     }
   };
 
-  const openModal = (category, type) => {
-    setSelectedCategory(category);
+  const openModal = async (category, type) => {
+    // ถ้าเป็น edit หรือ view ต้องดึงข้อมูลทุกภาษา
+    if (category && (type === 'edit' || type === 'view')) {
+      try {
+        const response = await categoryService.getById(category.category_id, { allLanguages: true });
+        setSelectedCategory(response.data);
+      } catch (err) {
+        console.error('Error fetching category details:', err);
+        setSelectedCategory(category); // fallback ใช้ของเดิม
+      }
+    } else {
+      setSelectedCategory(category);
+    }
     setModalType(type);
     setShowModal(true);
   };
