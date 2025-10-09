@@ -63,81 +63,106 @@ export const LanguageProvider = ({ children }) => {
   // Fetch translations when language changes
   useEffect(() => {
     const fetchTranslations = async () => {
-      // ตรวจสอบว่ามีใน cache หรือไม่
+      const localStorageKey = `translations_${currentLanguage}`;
+
+      // 1. ตรวจสอบ memory cache ก่อน
       if (translationsCache.current[currentLanguage]) {
-        console.log(`✅ Using cached translations for ${currentLanguage}`);
+        console.log(`✅ Using memory cache for ${currentLanguage}`);
         setTranslations(translationsCache.current[currentLanguage]);
-        return;
+        return; // มี memory cache = ใช้เลย ไม่ต้องเรียก API
       }
 
-      // ตรวจสอบ localStorage ก่อน
-      const localStorageKey = `translations_${currentLanguage}`;
+      // 2. ถ้าไม่มีใน memory, เช็ค localStorage
       const cachedData = localStorage.getItem(localStorageKey);
-      
       if (cachedData) {
         try {
           const parsed = JSON.parse(cachedData);
-          
-          // ตรวจสอบวันหมดอายุ
           const cacheDate = parsed.timestamp ? new Date(parsed.timestamp) : new Date(0);
-          const now = new Date();
-          const daysDiff = (now - cacheDate) / (1000 * 60 * 60 * 24);
-          const isNotExpired = daysDiff < CACHE_EXPIRY_DAYS;
+          const daysDiff = (new Date() - cacheDate) / (1000 * 60 * 60 * 24);
           
-          if (isNotExpired && parsed.translations && parsed.lastUpdated) {
-            // ใช้ cache ชั่วคราวและตรวจสอบ version ใน background
-            console.log(`✅ Using localStorage translations for ${currentLanguage} (${Math.floor(daysDiff)} days old)`);
+          if (daysDiff < CACHE_EXPIRY_DAYS && parsed.translations) {
+            console.log(`✅ Using localStorage cache for ${currentLanguage}`);
             translationsCache.current[currentLanguage] = parsed.translations;
             setTranslations(parsed.translations);
             
-            // ตรวจสอบ version ใน background (ไม่ block UI)
-            checkAndUpdateCache(currentLanguage, parsed.lastUpdated, localStorageKey);
+            // ดึงข้อมูลใหม่ใน background เพื่ออัพเดท cache (ไม่บล็อก UI)
+            setTimeout(async () => {
+              try {
+                console.log(`🔄 Background refresh for ${currentLanguage}...`);
+                const response = await languageService.getTranslations(currentLanguage);
+                
+                if (response?.data && Array.isArray(response.data)) {
+                  const formattedTranslations = {};
+                  response.data.forEach(translation => {
+                    formattedTranslations[translation.key] = translation.value;
+                  });
+                  
+                  // อัพเดท cache
+                  const lastUpdated = response.headers?.['x-translations-last-updated'] || 
+                                     response.data[0]?.updated_at ||
+                                     new Date().toISOString();
+                  
+                  const cacheData = {
+                    timestamp: new Date().toISOString(),
+                    lastUpdated: lastUpdated,
+                    translations: formattedTranslations
+                  };
+                  localStorage.setItem(localStorageKey, JSON.stringify(cacheData));
+                  translationsCache.current[currentLanguage] = formattedTranslations;
+                  
+                  // เช็คว่ามีการเปลี่ยนแปลงหรือไม่
+                  const hasChanges = JSON.stringify(parsed.translations) !== JSON.stringify(formattedTranslations);
+                  if (hasChanges) {
+                    console.log(`✨ Cache updated with new translations for ${currentLanguage}`);
+                    // อัพเดท UI แบบ smooth (เฉพาะถ้ายังอยู่ที่ภาษานี้)
+                    if (currentLanguage === localStorage.getItem('language')) {
+                      setTranslations(formattedTranslations);
+                    }
+                  }
+                }
+              } catch (error) {
+                console.error('Background fetch error:', error);
+              }
+            }, 500);
+            
             return;
           } else {
-            console.log(`🔄 Cache expired for ${currentLanguage}. Days: ${Math.floor(daysDiff)}`);
             localStorage.removeItem(localStorageKey);
           }
         } catch (error) {
-          console.error('Error parsing cached translations:', error);
+          console.error('Error parsing cache:', error);
           localStorage.removeItem(localStorageKey);
         }
       }
 
-      // ถ้าไม่มีใน cache ให้โหลดจาก API
+      // 3. ไม่มี cache - โหลดจาก API (แสดง loading)
       setIsLoadingTranslations(true);
       try {
         console.log(`🔄 Fetching translations from API for ${currentLanguage}...`);
         const response = await languageService.getTranslations(currentLanguage);
         
-        // API ส่งกลับข้อมูลเป็น array โดยตรง
         if (response?.data && Array.isArray(response.data)) {
           const formattedTranslations = {};
           response.data.forEach(translation => {
             formattedTranslations[translation.key] = translation.value;
           });
           
-          // เก็บใน memory cache
+          // เก็บใน cache
+          const lastUpdated = response.headers?.['x-translations-last-updated'] || 
+                             response.data[0]?.updated_at ||
+                             new Date().toISOString();
+          
+          const cacheData = {
+            timestamp: new Date().toISOString(),
+            lastUpdated: lastUpdated,
+            translations: formattedTranslations
+          };
+          localStorage.setItem(localStorageKey, JSON.stringify(cacheData));
           translationsCache.current[currentLanguage] = formattedTranslations;
           
-          // เก็บใน localStorage พร้อม lastUpdated timestamp จาก server
-          try {
-            // ดึง lastUpdated จาก response header หรือจาก data
-            const lastUpdated = response.headers?.['x-translations-last-updated'] || 
-                               response.data[0]?.updated_at ||
-                               new Date().toISOString();
-            
-            const cacheData = {
-              timestamp: new Date().toISOString(),
-              lastUpdated: lastUpdated,
-              translations: formattedTranslations
-            };
-            localStorage.setItem(localStorageKey, JSON.stringify(cacheData));
-            console.log(`✅ Cached ${response.data.length} translations for ${currentLanguage} (last updated: ${lastUpdated})`);
-          } catch (storageError) {
-            console.warn('Failed to cache translations in localStorage:', storageError);
-          }
-          
+          // แสดงผล
           setTranslations(formattedTranslations);
+          console.log(`✅ Fetched ${response.data.length} translations for ${currentLanguage}`);
         }
       } catch (error) {
         console.error('Error fetching translations:', error);
@@ -149,72 +174,23 @@ export const LanguageProvider = ({ children }) => {
     fetchTranslations();
   }, [currentLanguage]);
 
-  // ฟังก์ชันตรวจสอบและอัพเดท cache ใน background
-  const checkAndUpdateCache = async (langCode, cachedLastUpdated, storageKey) => {
-    try {
-      // เรียก API เพื่อเช็ค version เท่านั้น (ไม่ดึง translations ทั้งหมด)
-      const response = await languageService.getTranslations(langCode, { only_check_version: true });
-      
-      if (response?.data?.last_updated) {
-        const serverLastUpdated = response.data.last_updated;
-        
-        // ถ้า server มี version ใหม่กว่า cache
-        if (serverLastUpdated !== cachedLastUpdated) {
-          console.log(`🔄 New translations available for ${langCode}. Updating cache...`);
-          
-          // โหลด translations ใหม่
-          const fullResponse = await languageService.getTranslations(langCode);
-          
-          if (fullResponse?.data && Array.isArray(fullResponse.data)) {
-            const formattedTranslations = {};
-            fullResponse.data.forEach(translation => {
-              formattedTranslations[translation.key] = translation.value;
-            });
-            
-            // อัพเดท cache
-            const cacheData = {
-              timestamp: new Date().toISOString(),
-              lastUpdated: serverLastUpdated,
-              translations: formattedTranslations
-            };
-            
-            localStorage.setItem(storageKey, JSON.stringify(cacheData));
-            translationsCache.current[langCode] = formattedTranslations;
-            
-            // อัพเดท UI ถ้าเป็นภาษาปัจจุบัน
-            if (langCode === currentLanguage) {
-              setTranslations(formattedTranslations);
-              console.log(`✅ Translations updated for ${langCode} (background refresh)`);
-            }
-          }
-        } else {
-          console.log(`✅ Cache is up-to-date for ${langCode}`);
-        }
-      }
-    } catch (error) {
-      console.error('Error checking translation version:', error);
-      // ไม่ต้องทำอะไร ใช้ cache เดิมต่อ
-    }
-  };
 
-  const changeLanguage = (langCode) => {
+  const changeLanguage = useCallback((langCode) => {
     setCurrentLanguage(langCode);
     localStorage.setItem('language', langCode);
-  };
+  }, []);
 
-  // ใช้ useMemo เพื่อลด re-renders
-  const translate = useMemo(() => {
-    return (key, variables = {}) => {
-      let text = translations[key] || key;
-      
-      Object.keys(variables).forEach(varKey => {
-        const placeholder = `{${varKey}}`;
-        const replacement = variables[varKey];
-        text = text.replace(new RegExp(`\\{${varKey}\\}`, 'g'), replacement);
-      });
-      
-      return text;
-    };
+  // ใช้ useCallback เพื่อลด re-renders (stable function reference)
+  const translate = useCallback((key, variables = {}) => {
+    let text = translations[key] || key;
+    
+    Object.keys(variables).forEach(varKey => {
+      const placeholder = `{${varKey}}`;
+      const replacement = variables[varKey];
+      text = text.replace(new RegExp(`\\{${varKey}\\}`, 'g'), replacement);
+    });
+    
+    return text;
   }, [translations]);
 
   // ฟังก์ชันสำหรับล้าง cache (สำหรับ admin ที่อัพเดทแปลภาษา หรือ user ที่เจอปัญหา)
@@ -260,6 +236,7 @@ export const LanguageProvider = ({ children }) => {
     return info;
   }, []);
 
+  // Memoize context value เพื่อลด re-renders ของ child components
   const value = useMemo(() => ({
     currentLanguage,
     availableLanguages,
@@ -268,7 +245,7 @@ export const LanguageProvider = ({ children }) => {
     isLoadingTranslations,
     clearCache,
     getCacheInfo
-  }), [currentLanguage, availableLanguages, translate, isLoadingTranslations, clearCache, getCacheInfo]);
+  }), [currentLanguage, availableLanguages, changeLanguage, translate, isLoadingTranslations, clearCache, getCacheInfo]);
 
   return (
     <LanguageContext.Provider value={value}>

@@ -33,6 +33,24 @@
   }
 }
 
+/* Smooth text transitions for language changes */
+* {
+  transition: color 0.2s ease-in-out, background-color 0.2s ease-in-out;
+}
+
+/* Smooth opacity transition for content changes */
+body {
+  animation: none;
+}
+
+/* Prevent layout shifts during translation updates */
+h1, h2, h3, h4, h5, h6, p, span, a, button, label, div {
+  will-change: auto;
+  backface-visibility: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
 .loading-spinner {
   @apply animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600;
 }
@@ -496,4 +514,20 @@ img[loading="lazy"] {
     transform: translateX(0) scale(1);
     opacity: 1;
   }
+}
+
+/* Translation Update Notification Animation */
+@keyframes slideUp {
+  from {
+    transform: translateY(100px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-up {
+  animation: slideUp 0.3s ease-out;
 }

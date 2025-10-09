@@ -4,6 +4,7 @@ import { toast } from "../../hooks/useNotification";
 import { useCart } from "../../contexts/CartContext";
 import { formatPrice } from "../../utils/formatPrice";
 import { useLanguage } from "../../contexts/LanguageContext";
+import CacheManager from "../../components/common/CacheManager";
 
 // ค่าเริ่มต้นสำหรับ App Settings
 const DEFAULT_SETTINGS = {
@@ -582,6 +583,9 @@ const AdminSettings = () => {
             {translate('admin.settings.application_info_hint')}
           </p>
         </div>
+
+        {/* Cache Management */}
+        <CacheManager />
 
         {/* Basic Information */}
         <div className="bg-white p-6 rounded-lg border border-secondary-200">
