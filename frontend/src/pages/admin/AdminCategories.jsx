@@ -131,13 +131,42 @@ const AdminCategories = () => {
 
   const handleDeleteCategory = async (categoryId) => {
     try {
+      // เช็คว่ามีสินค้าในหมวดหมู่นี้หรือไม่
+      const category = categories.find(c => c.category_id === categoryId);
+      const productsCount = category?.products_count || 0;
+      
+      if (productsCount > 0) {
+        const confirmDelete = window.confirm(
+          translate('admin.confirm_delete_category_with_products')
+          || `หมวดหมู่นี้มี ${productsCount} สินค้า หากลบหมวดหมู่ สินค้าทั้งหมดจะถูกลบด้วย! ต้องการดำเนินการต่อหรือไม่?`
+        );
+        
+        if (!confirmDelete) {
+          setDeleteConfirm(null);
+          return;
+        }
+      }
+      
       await categoryService.delete(categoryId);
       fetchCategories(); // Refresh data
-      alert(translate('admin.category_deleted_success'));
+      alert(translate('admin.category_deleted_success') || 'ลบหมวดหมู่สำเร็จ');
       setDeleteConfirm(null);
     } catch (err) {
       console.error('Error deleting category:', err);
-      alert(translate('admin.delete_category_failed'));
+      
+      // แสดง error message ที่ชัดเจนขึ้น
+      let errorMessage = translate('admin.delete_category_failed') || 'ไม่สามารถลบหมวดหมู่ได้';
+      
+      if (err.response?.data?.detail) {
+        errorMessage = err.response.data.detail;
+      } else if (err.response?.data?.error) {
+        errorMessage = err.response.data.error;
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+      
+      alert(errorMessage);
+      setDeleteConfirm(null);
     }
   };
 

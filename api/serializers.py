@@ -71,16 +71,26 @@ class CategorySerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         """Custom create method to handle translations"""
-        translations_data = self.context.get('request').data.get('translations')
+        translations_data = self.context.get('request').data.get('translations') if self.context.get('request') else validated_data.pop('translations', None)
+        
+        # Parse JSON string if needed (เมื่อส่งมาเป็น FormData)
+        if isinstance(translations_data, str):
+            import json
+            try:
+                translations_data = json.loads(translations_data)
+                print(f"📝 Parsed category translations from JSON string: {translations_data}")
+            except json.JSONDecodeError:
+                print(f"❌ Failed to parse category translations JSON: {translations_data}")
+                translations_data = None
         
         # สร้างหมวดหมู่
         category = Category.objects.create(**validated_data)
+        print(f"✅ Created category: {category.category_id} - {category.category_name}")
         
         # เพิ่มการแปล
         if translations_data:
-            import json
-            translations = json.loads(translations_data)
-            for lang_code, translation_data in translations.items():
+            print(f"📝 Adding translations for category {category.category_id}")
+            for lang_code, translation_data in translations_data.items():
                 if translation_data.get('name'):
                     try:
                         language = Language.objects.get(code=lang_code)
@@ -90,14 +100,26 @@ class CategorySerializer(serializers.ModelSerializer):
                             translated_name=translation_data['name'],
                             translated_description=translation_data.get('description', '')
                         )
+                        print(f"✅ Added {lang_code} translation: {translation_data['name']}")
                     except Language.DoesNotExist:
+                        print(f"❌ Language {lang_code} not found")
                         pass
+        else:
+            print(f"⚠️ No translations provided for category {category.category_id}")
         
         return category
 
     def update(self, instance, validated_data):
         """Custom update method to handle translations"""
-        translations_data = self.context.get('request').data.get('translations')
+        translations_data = self.context.get('request').data.get('translations') if self.context.get('request') else validated_data.pop('translations', None)
+        
+        # Parse JSON string if needed (เมื่อส่งมาเป็น FormData)
+        if isinstance(translations_data, str):
+            import json
+            try:
+                translations_data = json.loads(translations_data)
+            except json.JSONDecodeError:
+                translations_data = None
         
         # อัปเดตหมวดหมู่
         for attr, value in validated_data.items():
@@ -106,11 +128,8 @@ class CategorySerializer(serializers.ModelSerializer):
         
         # อัปเดตการแปล
         if translations_data:
-            import json
-            translations = json.loads(translations_data)
-            
             # อัปเดตหรือเพิ่มการแปลสำหรับแต่ละภาษา
-            for lang_code, translation_data in translations.items():
+            for lang_code, translation_data in translations_data.items():
                 if translation_data.get('name'):
                     try:
                         language = Language.objects.get(code=lang_code)
@@ -181,13 +200,26 @@ class ProductSerializer(serializers.ModelSerializer):
     
     def create(self, validated_data):
         """Custom create method to handle image upload and translations"""
-        translations_data = validated_data.pop('translations', None)
+        # Get translations data from request (for FormData) or validated_data (for JSON)
+        translations_data = self.context.get('request').data.get('translations') if self.context.get('request') else validated_data.pop('translations', None)
+        
+        # Parse JSON string if needed (เมื่อส่งมาเป็น FormData)
+        if isinstance(translations_data, str):
+            import json
+            try:
+                translations_data = json.loads(translations_data)
+                print(f"📝 Parsed translations from JSON string: {translations_data}")
+            except json.JSONDecodeError:
+                print(f"❌ Failed to parse translations JSON: {translations_data}")
+                translations_data = None
         
         # สร้างสินค้า
         product = Product.objects.create(**validated_data)
+        print(f"✅ Created product: {product.product_id} - {product.product_name}")
         
         # เพิ่มการแปล
         if translations_data:
+            print(f"📝 Adding translations for product {product.product_id}")
             for lang_code, translation_data in translations_data.items():
                 if translation_data.get('name'):
                     try:
@@ -198,8 +230,12 @@ class ProductSerializer(serializers.ModelSerializer):
                             translated_name=translation_data['name'],
                             translated_description=translation_data.get('description', '')
                         )
+                        print(f"✅ Added {lang_code} translation: {translation_data['name']}")
                     except Language.DoesNotExist:
+                        print(f"❌ Language {lang_code} not found")
                         pass
+        else:
+            print(f"⚠️ No translations provided for product {product.product_id}")
         
         return product
 

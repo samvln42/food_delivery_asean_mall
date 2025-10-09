@@ -123,13 +123,19 @@ const AdminRestaurantProducts = () => {
         formDataWithFile.append('restaurant', restaurantId);
         formDataWithFile.append('is_available', formData.is_available);
         formDataWithFile.append('image', imageFile);
-        // ไม่ส่ง image_url ถ้ามีไฟล์ เพราะไฟล์มีความสำคัญกว่า
+        
+        // ✅ เพิ่ม translations (ต้องแปลงเป็น JSON string สำหรับ FormData)
+        if (formData.translations && Object.keys(formData.translations).length > 0) {
+          formDataWithFile.append('translations', JSON.stringify(formData.translations));
+          console.log('📝 Sending translations with image:', formData.translations);
+        }
         
         // ใช้ productService.create() แทน fetch()
         await productService.create(formDataWithFile);
       } else {
         // ไม่มีไฟล์รูปภาพ ใช้วิธีเดิม (อาจมี image_url)
         await productService.create({ ...formData, restaurant: restaurantId });
+        console.log('📝 Sending product data:', { ...formData, restaurant: restaurantId });
       }
       
       fetchProducts(); // Refresh data

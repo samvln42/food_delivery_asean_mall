@@ -585,7 +585,7 @@ const AdminSettings = () => {
         </div>
 
         {/* Cache Management */}
-        <CacheManager />
+        {/* <CacheManager /> */}
 
         {/* Basic Information */}
         <div className="bg-white p-6 rounded-lg border border-secondary-200">
