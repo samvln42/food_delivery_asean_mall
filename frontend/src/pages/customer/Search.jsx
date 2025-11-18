@@ -301,11 +301,15 @@ const Search = () => {
                     className="bg-white rounded-xl shadow-md hover:shadow-lg transition-all duration-300 overflow-hidden"
                   >
                     <div className="relative h-48 bg-gray-200">
-                      {product.image ? (
+                      {product.image_display_url || product.image_url || product.image ? (
                         <img
-                          src={product.image}
-                          alt={product.product_name}
+                          src={product.image_display_url || product.image_url || product.image}
+                          alt={getTranslatedName(product, currentLanguage, product.product_name)}
                           className="w-full h-full object-cover"
+                          onError={(e) => {
+                            e.target.onerror = null;
+                            e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iI2YzZjRmNiIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LXNpemU9IjQ4IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkeT0iLjNlbSI+8J+NvcOv4Li4PC90ZXh0Pjwvc3ZnPg==';
+                          }}
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center">
