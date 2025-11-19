@@ -122,6 +122,32 @@ def update_product_analytics(product_id, date=None):
     return analytics
 
 
+import math
+
+def calculate_distance_km(lat1, lon1, lat2, lon2):
+    """
+    คำนวณระยะทางระหว่าง 2 จุด (เป็นกิโลเมตร)
+    ใช้ Haversine formula
+    """
+    # แปลงเป็น radians
+    lat1_rad = math.radians(float(lat1))
+    lon1_rad = math.radians(float(lon1))
+    lat2_rad = math.radians(float(lat2))
+    lon2_rad = math.radians(float(lon2))
+    
+    # Haversine formula
+    dlat = lat2_rad - lat1_rad
+    dlon = lon2_rad - lon1_rad
+    
+    a = math.sin(dlat/2)**2 + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(dlon/2)**2
+    c = 2 * math.asin(math.sqrt(a))
+    
+    # รัศมีโลก (กิโลเมตร)
+    R = 6371
+    
+    return R * c
+
+
 def calculate_delivery_fee(distance_km, settings=None):
     """Calculate delivery fee based on distance and settings"""
     if not settings:
@@ -133,8 +159,9 @@ def calculate_delivery_fee(distance_km, settings=None):
         base_fee = 20.00
         per_km_fee = 5.00
     else:
-        base_fee = float(settings.base_delivery_fee)
-        per_km_fee = float(settings.per_km_fee)
+        # Use settings values, fallback to defaults if None
+        base_fee = float(settings.base_delivery_fee) if settings.base_delivery_fee is not None else 20.00
+        per_km_fee = float(settings.per_km_fee) if settings.per_km_fee is not None else 5.00
     
     if distance_km <= 2:
         return base_fee
@@ -142,26 +169,28 @@ def calculate_delivery_fee(distance_km, settings=None):
         return base_fee + ((distance_km - 2) * per_km_fee)
 
 
-def calculate_multi_restaurant_delivery_fee(restaurant_count, settings=None):
-    """Calculate delivery fee for multi-restaurant orders"""
-    if not settings:
-        from .models import AppSettings
-        settings = AppSettings.get_settings()
+def calculate_delivery_fee_by_distance(
+    restaurant_lat, restaurant_lon, 
+    delivery_lat, delivery_lon, 
+    settings=None
+):
+    """
+    คำนวณค่าจัดส่งตามระยะทางจากร้านไปยังที่อยู่จัดส่ง
+    """
+    if not all([restaurant_lat, restaurant_lon, delivery_lat, delivery_lon]):
+        return 0.0
     
-    if not settings:
-        # Fallback values if no settings found
-        base_fee = 2.00
-        additional_fee = 1.00
-    else:
-        base_fee = float(settings.multi_restaurant_base_fee)
-        additional_fee = float(settings.multi_restaurant_additional_fee)
+    # คำนวณระยะทาง
+    distance_km = calculate_distance_km(
+        restaurant_lat, restaurant_lon,
+        delivery_lat, delivery_lon
+    )
     
-    if restaurant_count == 0:
-        return 0
-    elif restaurant_count == 1:
-        return base_fee
-    else:
-        return base_fee + ((restaurant_count - 1) * additional_fee)
+    # คำนวณค่าจัดส่ง
+    return calculate_delivery_fee(distance_km, settings)
+
+
+# ไม่ใช้ค่าจัดส่งแบบหลายร้านแล้ว ใช้เฉพาะค่าจัดส่งตามระยะทาง
 
 
 def estimate_delivery_time(restaurant_id, current_orders_count=None):

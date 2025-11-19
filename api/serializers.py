@@ -300,7 +300,7 @@ class RestaurantSerializer(serializers.ModelSerializer):
     class Meta:
         model = Restaurant
         fields = ['restaurant_id', 'user', 'user_username', 'restaurant_name', 
-                 'description', 'address', 'phone_number', 'is_special', 
+                 'description', 'address', 'latitude', 'longitude', 'phone_number', 'is_special', 
                  'opening_hours', 'status', 'image', 'image_url', 'image_display_url', 'qr_code_image_url', 
                  'bank_account_number', 'bank_name', 'account_name', 
                  'average_rating', 'total_reviews', 'products_count', 
@@ -476,12 +476,51 @@ class MultiRestaurantOrderSerializer(serializers.Serializer):
     ระบบจะสร้าง Order เดียวที่มี OrderDetail จากหลายร้าน
     """
     user = serializers.IntegerField()
-    delivery_address = serializers.CharField(max_length=255)
-    delivery_latitude = serializers.DecimalField(max_digits=10, decimal_places=8, required=False, allow_null=True)
-    delivery_longitude = serializers.DecimalField(max_digits=11, decimal_places=8, required=False, allow_null=True)
-    total_delivery_fee = serializers.DecimalField(max_digits=10, decimal_places=2)
+    delivery_address = serializers.CharField(max_length=500)
+    delivery_latitude = serializers.DecimalField(max_digits=20, decimal_places=12, required=False, allow_null=True)
+    delivery_longitude = serializers.DecimalField(max_digits=20, decimal_places=12, required=False, allow_null=True)
+    total_delivery_fee = serializers.DecimalField(max_digits=20, decimal_places=5)
     notes = serializers.CharField(max_length=500, required=False, allow_blank=True)
     restaurants = serializers.JSONField(write_only=True)  # เปลี่ยนเป็น JSONField เพื่อรองรับ complex structure
+    
+    def validate_delivery_latitude(self, value):
+        """ตรวจสอบและปรับค่า latitude"""
+        if value is None:
+            return value
+        
+        # ตรวจสอบขอบเขต latitude (-90 ถึง 90)
+        if value < -90 or value > 90:
+            raise serializers.ValidationError("Latitude must be between -90 and 90")
+        
+        # ปรับให้มีทศนิยมไม่เกิน 12 หลัก (ไม่จำกัดจำนวนหลักรวม)
+        from decimal import Decimal, ROUND_HALF_UP
+        return value.quantize(Decimal('0.000000000001'), rounding=ROUND_HALF_UP)
+    
+    def validate_delivery_longitude(self, value):
+        """ตรวจสอบและปรับค่า longitude"""
+        if value is None:
+            return value
+        
+        # ตรวจสอบขอบเขต longitude (-180 ถึง 180)
+        if value < -180 or value > 180:
+            raise serializers.ValidationError("Longitude must be between -180 and 180")
+        
+        # ปรับให้มีทศนิยมไม่เกิน 12 หลัก (ไม่จำกัดจำนวนหลักรวม)
+        from decimal import Decimal, ROUND_HALF_UP
+        return value.quantize(Decimal('0.000000000001'), rounding=ROUND_HALF_UP)
+    
+    def validate_total_delivery_fee(self, value):
+        """ตรวจสอบและปรับค่า delivery fee"""
+        if value is None:
+            return value
+        
+        # ตรวจสอบว่าไม่เป็นค่าลบ
+        if value < 0:
+            raise serializers.ValidationError("Delivery fee cannot be negative")
+        
+        # ปรับให้มีทศนิยมไม่เกิน 5 หลัก (ไม่จำกัดจำนวนหลัก)
+        from decimal import Decimal, ROUND_HALF_UP
+        return value.quantize(Decimal('0.00001'), rounding=ROUND_HALF_UP)
     
     def validate_restaurants(self, value):
         """ตรวจสอบข้อมูลร้านและสินค้า"""
@@ -733,7 +772,8 @@ class AppSettingsSerializer(serializers.ModelSerializer):
             'timezone', 'currency',
             'bank_name', 'bank_account_number', 'bank_account_name', 'qr_code_image', 'qr_code_url',
             'base_delivery_fee', 'free_delivery_minimum', 'max_delivery_distance', 'per_km_fee',
-            'multi_restaurant_base_fee', 'multi_restaurant_additional_fee', 'delivery_time_slots',
+            'multi_restaurant_base_fee', 'multi_restaurant_additional_fee',
+            'delivery_time_slots',
             'enable_scheduled_delivery', 'rush_hour_multiplier', 'weekend_multiplier',
             'created_at', 'updated_at', 'updated_by'
         ]
@@ -904,16 +944,55 @@ class GuestMultiRestaurantOrderSerializer(serializers.Serializer):
     Serializer สำหรับการสั่งซื้อจากหลายร้านในครั้งเดียว (Guest Order)
     ระบบจะสร้าง GuestOrder เดียวที่มี GuestOrderDetail จากหลายร้าน
     """
-    delivery_address = serializers.CharField(max_length=255)
-    delivery_latitude = serializers.DecimalField(max_digits=10, decimal_places=8, required=False, allow_null=True)
-    delivery_longitude = serializers.DecimalField(max_digits=11, decimal_places=8, required=False, allow_null=True)
-    total_delivery_fee = serializers.DecimalField(max_digits=10, decimal_places=2)
+    delivery_address = serializers.CharField(max_length=500)
+    delivery_latitude = serializers.DecimalField(max_digits=20, decimal_places=12, required=False, allow_null=True)
+    delivery_longitude = serializers.DecimalField(max_digits=20, decimal_places=12, required=False, allow_null=True)
+    total_delivery_fee = serializers.DecimalField(max_digits=20, decimal_places=5)
     customer_name = serializers.CharField(max_length=100)
     customer_phone = serializers.CharField(max_length=20)
     customer_email = serializers.EmailField(required=False, allow_blank=True)
     special_instructions = serializers.CharField(max_length=500, required=False, allow_blank=True)
     payment_method = serializers.CharField(max_length=20, default='bank_transfer')
     restaurants = serializers.JSONField(write_only=True)
+    
+    def validate_delivery_latitude(self, value):
+        """ตรวจสอบและปรับค่า latitude"""
+        if value is None:
+            return value
+        
+        # ตรวจสอบขอบเขต latitude (-90 ถึง 90)
+        if value < -90 or value > 90:
+            raise serializers.ValidationError("Latitude must be between -90 and 90")
+        
+        # ปรับให้มีทศนิยมไม่เกิน 12 หลัก (ไม่จำกัดจำนวนหลักรวม)
+        from decimal import Decimal, ROUND_HALF_UP
+        return value.quantize(Decimal('0.000000000001'), rounding=ROUND_HALF_UP)
+    
+    def validate_delivery_longitude(self, value):
+        """ตรวจสอบและปรับค่า longitude"""
+        if value is None:
+            return value
+        
+        # ตรวจสอบขอบเขต longitude (-180 ถึง 180)
+        if value < -180 or value > 180:
+            raise serializers.ValidationError("Longitude must be between -180 and 180")
+        
+        # ปรับให้มีทศนิยมไม่เกิน 12 หลัก (ไม่จำกัดจำนวนหลักรวม)
+        from decimal import Decimal, ROUND_HALF_UP
+        return value.quantize(Decimal('0.000000000001'), rounding=ROUND_HALF_UP)
+    
+    def validate_total_delivery_fee(self, value):
+        """ตรวจสอบและปรับค่า delivery fee"""
+        if value is None:
+            return value
+        
+        # ตรวจสอบว่าไม่เป็นค่าลบ
+        if value < 0:
+            raise serializers.ValidationError("Delivery fee cannot be negative")
+        
+        # ปรับให้มีทศนิยมไม่เกิน 5 หลัก (ไม่จำกัดจำนวนหลัก)
+        from decimal import Decimal, ROUND_HALF_UP
+        return value.quantize(Decimal('0.00001'), rounding=ROUND_HALF_UP)
     
     def validate_restaurants(self, value):
         """ตรวจสอบข้อมูลร้านและสินค้า"""

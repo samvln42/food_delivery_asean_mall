@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
 import { useCart } from "../../contexts/CartContext";
@@ -8,38 +8,50 @@ import { toast } from "../../hooks/useNotification";
 import { useLanguage } from "../../contexts/LanguageContext";
 import { formatCurrency } from "../../utils/formatPrice";
 import { getTranslatedName, getTranslatedDescription } from "../../utils/translationUtils";
+import AddressPickerLeaflet from "../../components/maps/AddressPickerLeaflet";
+import MapPickerLeaflet from "../../components/maps/MapPickerLeaflet";
+import { LuMapPin } from "react-icons/lu";
 
 const Cart = () => {
   const { translate, currentLanguage } = useLanguage();
   const { user } = useAuth();
   const navigate = useNavigate();
   const {
-    items: cartItems,
+    items: rawCartItems,
     total,
     subtotal,
     itemCount,
     deliveryFee,
+    deliveryLocation,
     updateQuantity,
     removeItem,
     clearCart,
     getItemsByRestaurant,
     getRestaurantCount,
+    setDeliveryLocation,
   } = useCart();
+
+  const cartItems = useMemo(
+    () => (Array.isArray(rawCartItems) ? rawCartItems : []),
+    [rawCartItems]
+  );
 
   const [loading, setLoading] = useState(false);
   const [deliveryAddress, setDeliveryAddress] = useState("");
+  const [deliveryAddressDetail, setDeliveryAddressDetail] = useState("");
+  const [showMapPicker, setShowMapPicker] = useState(false);
   const [specialInstructions, setSpecialInstructions] = useState("");
   const [restaurantStatuses, setRestaurantStatuses] = useState({});
   const [paymentInfo, setPaymentInfo] = useState(null);
   const [proofOfPayment, setProofOfPayment] = useState(null);
   const [paymentMethod, setPaymentMethod] = useState("bank_transfer");
 
-  // โหลดที่อยู่เริ่มต้นจาก profile ถ้ามี
+  // โหลดที่อยู่เริ่มต้นจาก profile หรือ deliveryLocation ถ้ามี
   useEffect(() => {
-    if (user) {
-      setDeliveryAddress(user.address || "");
+   if (deliveryLocation && deliveryLocation.address) {
+      setDeliveryAddress(deliveryLocation.address);
     }
-  }, [user]);
+  }, [deliveryLocation]);
 
   // โหลดข้อมูลการชำระเงิน
   useEffect(() => {
@@ -62,17 +74,23 @@ const Cart = () => {
     fetchPaymentInfo();
   }, []);
 
+  // Memoize restaurant IDs เพื่อป้องกัน infinite loop
+  const restaurantIds = useMemo(() => {
+    if (cartItems.length === 0) return [];
+    return [...new Set(cartItems.map((item) => item.restaurant_id))];
+  }, [cartItems]);
+
   // ตรวจสอบสถานะร้านในตะกร้า
   useEffect(() => {
+    let isSubscribed = true;
+
     const checkRestaurantStatuses = async () => {
-      if (cartItems.length === 0) {
-        setRestaurantStatuses({});
+      if (restaurantIds.length === 0) {
+        setRestaurantStatuses((prev) =>
+          Object.keys(prev).length === 0 ? prev : {}
+        );
         return;
       }
-
-      const restaurantIds = [
-        ...new Set(cartItems.map((item) => item.restaurant_id)),
-      ];
       const statuses = {};
 
       try {
@@ -84,18 +102,47 @@ const Cart = () => {
             status: restaurant.status,
           };
         }
-        setRestaurantStatuses(statuses);
+
+        if (!isSubscribed) {
+          return;
+        }
+
+        setRestaurantStatuses((prevStatuses) => {
+          const prevKeys = Object.keys(prevStatuses);
+          const currentKeys = Object.keys(statuses);
+
+          const isSameLength = prevKeys.length === currentKeys.length;
+          const hasSameEntries =
+            isSameLength &&
+            currentKeys.every(
+              (key) =>
+                prevStatuses[key]?.name === statuses[key]?.name &&
+                prevStatuses[key]?.status === statuses[key]?.status
+            );
+
+          return hasSameEntries ? prevStatuses : statuses;
+        });
       } catch (error) {
         console.error("Error checking restaurant statuses:", error);
       }
     };
 
     checkRestaurantStatuses();
-  }, [cartItems]);
+
+    return () => {
+      isSubscribed = false;
+    };
+  }, [restaurantIds]);
 
   // จัดกลุ่มสินค้าตามร้าน
-  const itemsByRestaurant = getItemsByRestaurant();
-  const restaurantCount = getRestaurantCount();
+  const itemsByRestaurant =
+    typeof getItemsByRestaurant === "function"
+      ? getItemsByRestaurant()
+      : {};
+  const restaurantCount =
+    typeof getRestaurantCount === "function"
+      ? getRestaurantCount()
+      : 0;
 
   // จัดการการอัปโหลดหลักฐานการโอน
   const handleProofOfPaymentChange = (e) => {
@@ -155,10 +202,17 @@ const Cart = () => {
       // สร้าง FormData สำหรับส่งข้อมูลรวมไฟล์
       const formData = new FormData();
 
+      // รวมที่อยู่หลักและรายละเอียดเพิ่มเติม
+      const fullDeliveryAddress = deliveryAddressDetail.trim()
+        ? `${deliveryAddress.trim()}\n${deliveryAddressDetail.trim()}`
+        : deliveryAddress.trim();
+
       // ข้อมูลคำสั่งซื้อ
       const orderData = {
         user: userId,
-        delivery_address: deliveryAddress.trim(),
+        delivery_address: fullDeliveryAddress,
+        delivery_latitude: deliveryLocation?.lat ? parseFloat(deliveryLocation.lat.toFixed(12)) : null,
+        delivery_longitude: deliveryLocation?.lng ? parseFloat(deliveryLocation.lng.toFixed(12)) : null,
         notes: specialInstructions.trim() || "",
         restaurants: Object.keys(itemsByRestaurant).map((restaurantId) => ({
           restaurant_id: parseInt(restaurantId),
@@ -167,7 +221,7 @@ const Cart = () => {
             quantity: item.quantity,
           })),
         })),
-        total_delivery_fee: deliveryFee,
+        total_delivery_fee: parseFloat(deliveryFee.toFixed(5)),
       };
 
       // ข้อมูลการชำระเงิน
@@ -245,6 +299,11 @@ const Cart = () => {
     // สร้าง FormData สำหรับส่งข้อมูลรวมไฟล์
     const formData = new FormData();
 
+    // รวมที่อยู่หลักและรายละเอียดเพิ่มเติม
+    const fullDeliveryAddress = deliveryAddressDetail.trim()
+      ? `${deliveryAddress.trim()}\n${deliveryAddressDetail.trim()}`
+      : deliveryAddress.trim();
+
     const orderData = {
       restaurant: restaurantId,
       user: userId,
@@ -252,7 +311,9 @@ const Cart = () => {
         product_id: item.product_id,
         quantity: item.quantity,
       })),
-      delivery_address: deliveryAddress.trim(),
+      delivery_address: fullDeliveryAddress,
+      delivery_latitude: deliveryLocation?.lat ? parseFloat(deliveryLocation.lat.toFixed(12)) : null,
+      delivery_longitude: deliveryLocation?.lng ? parseFloat(deliveryLocation.lng.toFixed(12)) : null,
       notes: specialInstructions.trim() || "",
     };
 
@@ -495,16 +556,65 @@ const Cart = () => {
               <h3 className="text-lg font-semibold text-secondary-700 mb-4">
                 {translate("cart.delivery_address")}
               </h3>
-              <textarea
-                value={deliveryAddress}
-                onChange={(e) => setDeliveryAddress(e.target.value)}
-                className="w-full p-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                placeholder={translate(
-                  "cart.enter_the_delivery_address_in_detail"
-                )}
-                rows="3"
+              
+              {/* Address Picker with Google Maps Autocomplete */}
+              <div className="mb-4 flex flex-col gap-2 md:flex-row md:items-stretch">
+                <AddressPickerLeaflet
+                  className="w-full md:w-72 lg:w-80"
+                  value={deliveryAddress}
+                  onChange={(address) => {
+                    setDeliveryAddress(address);
+                  }}
+                  onLocationSelect={(location) => {
+                    setDeliveryLocation(location);
+                    setDeliveryAddress(location.address);
+                  }}
                 required
-              />
+                readOnly
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowMapPicker(!showMapPicker)}
+                  className="px-4 py-2 bg-secondary-200 text-secondary-700 rounded-lg hover:bg-secondary-300 transition-colors flex items-center justify-center gap-2 md:w-auto"
+                >
+                  <LuMapPin className="w-4 h-4" />{" "}
+                  {showMapPicker
+                    ? translate("cart.hide_map_picker")
+                    : translate("cart.show_map_picker")}
+                </button>
+              </div>
+
+              {/* Map Picker */}
+              {showMapPicker && (
+                <div className="mb-4">
+                  <MapPickerLeaflet
+                    initialCenter={deliveryLocation ? { lat: deliveryLocation.lat, lng: deliveryLocation.lng } : { lat: 13.7563, lng: 100.5018 }}
+                    onLocationSelect={(location) => {
+                      setDeliveryLocation(location);
+                      setDeliveryAddress(location.address);
+                    }}
+                    height="300px"
+                  />
+                </div>
+              )}
+
+              {/* Additional Address Details */}
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-secondary-700 mb-2">
+                  {translate("cart.delivery_address_detail")}
+                </label>
+                <textarea
+                  value={deliveryAddressDetail}
+                  onChange={(e) => setDeliveryAddressDetail(e.target.value)}
+                  className="w-full p-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  placeholder={translate("cart.delivery_address_detail_placeholder")}
+                  rows="3"
+                />
+                <p className="text-xs text-secondary-500 mt-1">
+                  {translate("cart.delivery_address_detail_hint")}
+                </p>
+              </div>
+
             </div>
 
             {/* Special Instructions */}
@@ -705,17 +815,34 @@ const Cart = () => {
                       {formatCurrency(deliveryFee)}
                     </span>
                   </div>
-                  {/* {restaurantCount > 1 && (
-                    <div className="text-xs text-secondary-500 pl-2">
-                      • {translate("cart.first_restaurant")}:{" "}
-                      {formatCurrency(2)}
-                      <br />• {translate("cart.additional_restaurant")}:{" "}
-                      {formatCurrency(1 * (restaurantCount - 1))} (
-                      {restaurantCount - 1} {translate("common.restaurants")} ×{" "}
-                      {formatCurrency(1)})
-                      <br />• {translate("cart.delivery_fee_calculated_by_admin")}
-                    </div>
-                  )} */}
+                  {restaurantCount > 1 && (() => {
+                    try {
+                      const breakdownData = localStorage.getItem('delivery_fee_breakdown');
+                      if (breakdownData) {
+                        const breakdown = JSON.parse(breakdownData);
+                        const feeBreakdown = breakdown.breakdown;
+                        const maxFee = breakdown.actual_max_fee_from_distance || feeBreakdown.base_amount;
+                        const additionalCount = breakdown.additional_restaurants || 0;
+                        const perRestaurant = breakdown.additional_fee_per_restaurant || 0;
+                        
+                        return (
+                          <div className="text-xs text-secondary-500 pl-2">
+                            • {translate('cart.base_delivery_fee_label', { max_fee: formatCurrency(maxFee) })} {formatCurrency(feeBreakdown.base_amount)}
+                            <br />• {translate('cart.additional_restaurant_fee_label', { count: additionalCount })} {formatCurrency(feeBreakdown.additional_amount)}
+                            <br />• <span className="text-blue-600">{translate('cart.delivery_fee_explanation', {
+                              base_fee: formatCurrency(feeBreakdown.base_amount),
+                              count: additionalCount,
+                              per_restaurant: formatCurrency(perRestaurant),
+                              total: formatCurrency(feeBreakdown.total_amount)
+                            })}</span>
+                          </div>
+                        );
+                      }
+                    } catch (e) {
+                      console.warn('Failed to parse delivery fee breakdown:', e);
+                    }
+                    return null;
+                  })()}
                 </div>
 
                 <div className="border-t pt-3">

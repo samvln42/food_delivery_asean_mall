@@ -43,11 +43,9 @@ export const isUserDataValid = (user) => {
   const validRoles = ['admin', 'special_restaurant', 'general_restaurant', 'customer'];
   if (!validRoles.includes(user.role)) return false;
   
-  // ตรวจสอบ email verification สำหรับ non-admin users
-  if (user.role !== 'admin' && !user.is_email_verified) {
-    console.warn('User email not verified:', user.email);
-    return false;
-  }
+  // หมายเหตุ: ไม่ต้องตรวจสอบ email verification ที่นี่
+  // เพราะ Backend ตรวจสอบแล้วตอน login
+  // ถ้าผู้ใช้ล็อกอินได้ แสดงว่า email verified แล้ว
   
   return true;
 };

@@ -139,6 +139,13 @@ const AdminSettings = () => {
       }
 
       if (fetchedAppSettings) {
+        // 🔍 Debug: ตรวจสอบข้อมูลที่ได้จาก backend
+        console.log('🔍 fetchSettings - Raw data from backend:', {
+          multi_restaurant_base_fee: fetchedAppSettings.multi_restaurant_base_fee,
+          multi_restaurant_additional_fee: fetchedAppSettings.multi_restaurant_additional_fee,
+          full_data: fetchedAppSettings
+        });
+        
         // Set appSettings state directly (used for appSettings.id and file uploads)
         setAppSettings(fetchedAppSettings);
 
@@ -483,27 +490,83 @@ const AdminSettings = () => {
     try {
       // บันทึก delivery settings
       if (appSettings?.id && activeTab === "delivery") {
-        const deliveryData = {
-          base_delivery_fee:
-            parseFloat(settings.delivery.base_delivery_fee) || 0,
-          free_delivery_minimum:
-            parseFloat(settings.delivery.free_delivery_minimum) || 0,
-          max_delivery_distance:
-            parseFloat(settings.delivery.max_delivery_distance) || 0,
-          per_km_fee: parseFloat(settings.delivery.per_km_fee) || 0,
-          multi_restaurant_base_fee:
-            parseFloat(settings.delivery.multi_restaurant_base_fee) || 0,
-          multi_restaurant_additional_fee:
-            parseFloat(settings.delivery.multi_restaurant_additional_fee) || 0,
-          delivery_time_slots: settings.delivery.delivery_time_slots,
-          enable_scheduled_delivery:
-            settings.delivery.enable_scheduled_delivery,
-          rush_hour_multiplier:
-            parseFloat(settings.delivery.rush_hour_multiplier) || 0,
-          weekend_multiplier:
-            parseFloat(settings.delivery.weekend_multiplier) || 0,
+        // Helper function to parse integer values (no decimal places)
+        // Ensures no more than 6 digits
+        const parseDecimal = (value, maxDigits = 10) => {
+          if (value === null || value === undefined || value === '') {
+            return null;
+          }
+          const parsed = parseFloat(value);
+          if (isNaN(parsed)) {
+            return null;
+          }
+          // Convert to integer (no decimal places)
+          const integerValue = Math.round(parsed);
+          
+          // Ensure no more than 6 digits
+          const integerDigits = Math.abs(integerValue).toString().length;
+          
+          // 🔍 Debug สำหรับ 10000
+          if (value == 10000 || integerValue == 10000) {
+            console.log('🔍 Handling 10000:', {
+              original_value: value,
+              parsed_float: parsed,
+              integer_value: integerValue,
+              integer_digits: integerDigits,
+              will_return: integerValue
+            });
+          }
+          
+          // ไม่จำกัดจำนวนหลักแล้ว - ให้ backend จัดการ
+          return integerValue;
         };
 
+        const deliveryData = {};
+        
+        // Only include fields that have values (not empty/null)
+        if (settings.delivery.base_delivery_fee !== null && settings.delivery.base_delivery_fee !== undefined && settings.delivery.base_delivery_fee !== '') {
+          deliveryData.base_delivery_fee = parseDecimal(settings.delivery.base_delivery_fee);
+        }
+        if (settings.delivery.free_delivery_minimum !== null && settings.delivery.free_delivery_minimum !== undefined && settings.delivery.free_delivery_minimum !== '') {
+          deliveryData.free_delivery_minimum = parseDecimal(settings.delivery.free_delivery_minimum);
+        }
+        if (settings.delivery.max_delivery_distance !== null && settings.delivery.max_delivery_distance !== undefined && settings.delivery.max_delivery_distance !== '') {
+          // max_delivery_distance has max_digits=6, decimal_places=0 (max value: 999999)
+          deliveryData.max_delivery_distance = parseDecimal(settings.delivery.max_delivery_distance, 6);
+        }
+        if (settings.delivery.per_km_fee !== null && settings.delivery.per_km_fee !== undefined && settings.delivery.per_km_fee !== '') {
+          // per_km_fee has max_digits=6, decimal_places=0 (max value: 999999)
+          deliveryData.per_km_fee = parseDecimal(settings.delivery.per_km_fee, 6);
+        }
+        // เพิ่มกลับมา: ส่งค่า multi_restaurant_additional_fee สำหรับการตั้งค่าค่าเพิ่มต่อร้าน
+        if (settings.delivery.multi_restaurant_additional_fee !== undefined && settings.delivery.multi_restaurant_additional_fee !== null && settings.delivery.multi_restaurant_additional_fee !== '') {
+          const feeValue = parseDecimal(settings.delivery.multi_restaurant_additional_fee, 10);
+          deliveryData.multi_restaurant_additional_fee = feeValue;
+          
+          // 🔍 Debug: ตรวจสอบค่าที่ส่งไป backend
+          console.log('🔍 Sending multi_restaurant_additional_fee to backend:', {
+            original: settings.delivery.multi_restaurant_additional_fee,
+            parsed: feeValue,
+            type: typeof feeValue
+          });
+        }
+        if (settings.delivery.delivery_time_slots) {
+          deliveryData.delivery_time_slots = settings.delivery.delivery_time_slots;
+        }
+        if (settings.delivery.enable_scheduled_delivery !== undefined) {
+          deliveryData.enable_scheduled_delivery = Boolean(settings.delivery.enable_scheduled_delivery);
+        }
+        if (settings.delivery.rush_hour_multiplier !== null && settings.delivery.rush_hour_multiplier !== undefined && settings.delivery.rush_hour_multiplier !== '') {
+          // rush_hour_multiplier has max_digits=3, decimal_places=2 (max value: 9.99)
+          deliveryData.rush_hour_multiplier = parseDecimal(settings.delivery.rush_hour_multiplier, 3);
+        }
+        if (settings.delivery.weekend_multiplier !== null && settings.delivery.weekend_multiplier !== undefined && settings.delivery.weekend_multiplier !== '') {
+          // weekend_multiplier has max_digits=3, decimal_places=2 (max value: 9.99)
+          deliveryData.weekend_multiplier = parseDecimal(settings.delivery.weekend_multiplier, 3);
+        }
+
+        console.log('Sending delivery data:', JSON.stringify(deliveryData, null, 2));
+        
         const response = await appSettingsService.patch(
           appSettings.id,
           deliveryData
@@ -511,7 +574,11 @@ const AdminSettings = () => {
         toast.success(translate('admin.settings.delivery_saved_success'));
         
         // โหลดข้อมูลใหม่หลังจากบันทึก
-        await fetchSettings();
+        // รอสักครู่ก่อน fetch เพื่อให้ backend บันทึกเสร็จ
+        setTimeout(async () => {
+          console.log('🔍 Re-fetching settings after save...');
+          await fetchSettings();
+        }, 1000);
         
         // รีเฟรชการตั้งค่าค่าจัดส่งใน CartContext
         await refreshDeliverySettings();
@@ -521,7 +588,14 @@ const AdminSettings = () => {
       }
     } catch (error) {
       console.error("Error saving settings:", error);
-      toast.error(translate('admin.settings.save_failed'));
+      console.error("Error response:", error.response?.data);
+      const errorMessage = error.response?.data?.detail || 
+                          error.response?.data?.message || 
+                          (error.response?.data && typeof error.response.data === 'object' 
+                            ? Object.values(error.response.data).flat().join(', ')
+                            : '') ||
+                          translate('admin.settings.save_failed');
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -545,6 +619,17 @@ const AdminSettings = () => {
   };
 
   const handleInputChange = (section, field, value) => {
+    // 🔍 Debug เฉพาะ multi_restaurant_additional_fee
+    if (field === 'multi_restaurant_additional_fee') {
+      console.log('🔍 Multi-restaurant fee input change:', {
+        section: section,
+        field: field,
+        value: value,
+        type: typeof value,
+        previous: settings[section]?.[field]
+      });
+    }
+    
     setSettings((prev) => ({
       ...prev,
       [section]: {
@@ -1056,140 +1141,124 @@ const AdminSettings = () => {
 
   const renderDeliverySettings = () => (
     <div className="space-y-6">
-      {/* ส่วนที่ 1: การตั้งค่าทั่วไปเกี่ยวกับการจัดส่ง */}
-      {/*
-      <div className="bg-white p-6 rounded-lg border border-secondary-200">
-        <h4 className="text-md font-semibold text-secondary-800 mb-4">การจัดส่ง</h4>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-secondary-700 mb-2">ค่าจัดส่งพื้นฐาน</label>
-            <input
-              type="number"
-              value={settings.delivery.base_delivery_fee ?? ''}
-              onChange={(e) => handleInputChange('delivery', 'base_delivery_fee', e.target.value)}
-              className="w-full p-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-            />
-            <p className="mt-1 text-xs text-secondary-500">ค่าจัดส่งเริ่มต้นที่ลูกค้าต้องจ่ายต่อครั้ง</p>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-secondary-700 mb-2">ยอดขั้นต่ำสำหรับจัดส่งฟรี</label>
-            <input
-              type="number"
-              value={settings.delivery.free_delivery_minimum ?? ''}
-              onChange={(e) => handleInputChange('delivery', 'free_delivery_minimum', e.target.value)}
-              className="w-full p-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-            />
-            <p className="mt-1 text-xs text-secondary-500">จำนวนเงินขั้นต่ำที่ลูกค้าต้องสั่งเพื่อรับการจัดส่งฟรี</p>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-secondary-700 mb-2">ระยะทางจัดส่งสูงสุด (กม.)</label>
-            <input
-              type="number"
-              value={settings.delivery.max_delivery_distance ?? ''}
-              onChange={(e) => handleInputChange('delivery', 'max_delivery_distance', e.target.value)}
-              className="w-full p-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-            />
-            <p className="mt-1 text-xs text-secondary-500">ระยะทางสูงสุดที่อนุญาตสำหรับการจัดส่ง</p>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-secondary-700 mb-2">ช่วงเวลาให้บริการ</label>
-            <input
-              type="text"
-              value={settings.delivery.delivery_time_slots ?? ''}
-              onChange={(e) => handleInputChange('delivery', 'delivery_time_slots', e.target.value)}
-              className="w-full p-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-              placeholder="เช่น 09:00-21:00"
-            />
-            <p className="mt-1 text-xs text-secondary-500">ช่วงเวลาที่เปิดให้บริการจัดส่ง</p>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-secondary-700 mb-2">ค่าจัดส่งต่อ กม.</label>
-            <input
-              type="number"
-              value={settings.delivery.per_km_fee ?? ''}
-              onChange={(e) => handleInputChange('delivery', 'per_km_fee', e.target.value)}
-              className="w-full p-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-            />
-            <p className="mt-1 text-xs text-secondary-500">ค่าจัดส่งที่คิดเพิ่มต่อกิโลเมตร</p>
-          </div>
-        </div>
-      </div>
-      */}
-
-      {/* ส่วนที่ 2: ค่าจัดส่งแบบหลายร้าน */}
+      {/* ส่วนที่ 1: การตั้งค่าค่าจัดส่งตามระยะทาง */}
       <div className="bg-white p-6 rounded-lg border border-secondary-200">
         <h4 className="text-md font-semibold text-secondary-800 mb-4">
-          {translate('admin.settings.multi_restaurant_fees_title')}
+          {translate('admin.settings.delivery_fee_by_distance')}
         </h4>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-secondary-700 mb-2">
-              {translate('admin.settings.multi_restaurant_base_fee')}
+              {translate('admin.settings.base_delivery_fee')}
             </label>
             <input
               type="number"
-              value={settings.delivery.multi_restaurant_base_fee ?? ""}
-              onChange={(e) =>
-                handleInputChange(
-                  "delivery",
-                  "multi_restaurant_base_fee",
-                  e.target.value
-                )
-              }
+              step="0.01"
+              min="0"
+              value={settings.delivery.base_delivery_fee ?? ''}
+              onChange={(e) => handleInputChange('delivery', 'base_delivery_fee', e.target.value)}
               className="w-full p-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             />
-            <p className="mt-1 text-xs text-secondary-500">{translate('admin.settings.multi_restaurant_base_fee_hint')}</p>
+            <p className="mt-1 text-xs text-secondary-500">
+              {translate('admin.settings.base_delivery_fee_hint')}
+            </p>
           </div>
           <div>
             <label className="block text-sm font-medium text-secondary-700 mb-2">
-              {translate('admin.settings.multi_restaurant_additional_fee')}
+              {translate('admin.settings.per_km_fee')} ⭐
             </label>
             <input
               type="number"
-              value={settings.delivery.multi_restaurant_additional_fee ?? ""}
-              onChange={(e) =>
-                handleInputChange(
-                  "delivery",
-                  "multi_restaurant_additional_fee",
-                  e.target.value
-                )
-              }
+              step="0.01"
+              min="0"
+              value={settings.delivery.per_km_fee ?? ''}
+              onChange={(e) => handleInputChange('delivery', 'per_km_fee', e.target.value)}
               className="w-full p-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             />
-            <p className="mt-1 text-xs text-secondary-500">{translate('admin.settings.multi_restaurant_additional_fee_hint')}</p>
+            <p className="mt-1 text-xs text-secondary-500">
+              {translate('admin.settings.per_km_fee_hint')}
+            </p>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-secondary-700 mb-2">
+              {translate('admin.settings.free_delivery_minimum')}
+            </label>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              value={settings.delivery.free_delivery_minimum ?? ''}
+              onChange={(e) => handleInputChange('delivery', 'free_delivery_minimum', e.target.value)}
+              className="w-full p-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            />
+            <p className="mt-1 text-xs text-secondary-500">
+              {translate('admin.settings.free_delivery_minimum_hint')}
+            </p>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-secondary-700 mb-2">
+              {translate('admin.settings.max_delivery_distance')}
+            </label>
+            <input
+              type="number"
+              step="0.1"
+              min="0"
+              value={settings.delivery.max_delivery_distance ?? ''}
+              onChange={(e) => handleInputChange('delivery', 'max_delivery_distance', e.target.value)}
+              className="w-full p-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            />
+            <p className="mt-1 text-xs text-secondary-500">
+              {translate('admin.settings.max_delivery_distance_hint')}
+            </p>
           </div>
         </div>
+      </div>
 
-        {/* ตัวอย่างการคำนวณ */}
-        <div className="mt-6 p-4 bg-secondary-50 rounded-lg border border-secondary-200">
-          <h5 className="text-md font-semibold text-secondary-800 mb-2">{translate('admin.settings.example_calculation')}</h5>
-          <ul className="list-disc list-inside text-sm text-secondary-700 space-y-1">
-            <li>
-              {translate('admin.settings.order_from_n_restaurants', { count: 1 })}{" "}
-              {formatPrice(
-                settings.delivery.multi_restaurant_base_fee || 0
-              )}
-            </li>
-            <li>
-              {translate('admin.settings.order_from_n_restaurants', { count: 2 })}{" "}
-              {formatPrice(
-                parseFloat(settings.delivery.multi_restaurant_base_fee || 0) +
-                parseFloat(
-                  settings.delivery.multi_restaurant_additional_fee || 0
-                )
-              )}
-            </li>
-            <li>
-              {translate('admin.settings.order_from_n_restaurants', { count: 3 })}{" "}
-              {formatPrice(
-                parseFloat(settings.delivery.multi_restaurant_base_fee || 0) +
-                2 *
-                  parseFloat(
-                    settings.delivery.multi_restaurant_additional_fee || 0
-                  )
-              )}
-            </li>
-          </ul>
+      {/* ส่วนที่ 2: การตั้งค่าค่าจัดส่งหลายร้าน */}
+      <div className="bg-white p-6 rounded-lg border border-secondary-200">
+        <h4 className="text-md font-semibold text-secondary-800 mb-4">
+          {translate('admin.settings.multi_restaurant_title')}
+        </h4>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-secondary-700 mb-2">
+              {translate('admin.settings.multi_restaurant_additional_label')} <span aria-hidden="true">⭐</span>
+            </label>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              value={settings.delivery.multi_restaurant_additional_fee ?? ''}
+              onChange={(e) => handleInputChange('delivery', 'multi_restaurant_additional_fee', e.target.value)}
+              className="w-full p-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            />
+            <div className="mt-1 text-xs text-blue-600">
+              {translate('admin.settings.current_value')}:{' '}
+              {(
+                settings.delivery.multi_restaurant_additional_fee !== null &&
+                settings.delivery.multi_restaurant_additional_fee !== undefined &&
+                settings.delivery.multi_restaurant_additional_fee !== ''
+              )
+                ? settings.delivery.multi_restaurant_additional_fee
+                : translate('admin.settings.not_configured_default', { value: 15 })}
+            </div>
+            <p className="mt-1 text-xs text-secondary-500">
+              {translate('admin.settings.multi_restaurant_additional_description')}
+            </p>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-secondary-700 mb-2">
+              {translate('admin.settings.multi_restaurant_note_title')}
+            </label>
+            <div className="p-3 bg-secondary-50 border border-secondary-200 rounded-lg">
+              <ul className="text-sm text-secondary-600 list-disc pl-4 space-y-1">
+                <li>{translate('admin.settings.multi_restaurant_note_base')}</li>
+                <li>{translate('admin.settings.multi_restaurant_note_base_fee')}</li>
+                <li>{translate('admin.settings.multi_restaurant_note_additional')}</li>
+                <li>{translate('admin.settings.multi_restaurant_note_suggestion')}</li>
+              </ul>
+            </div>
+          </div>
         </div>
       </div>
 

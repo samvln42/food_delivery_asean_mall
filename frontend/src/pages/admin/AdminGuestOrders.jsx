@@ -7,6 +7,7 @@ import { useNotificationContext } from "../../layouts/AdminLayout";
 import { formatPrice } from "../../utils/formatPrice";
 import { useLanguage } from "../../contexts/LanguageContext";
 import { getTranslatedName, getTranslatedDescription } from "../../utils/translationUtils";
+import { LuMapPin } from "react-icons/lu";
 
 // Guest Order Details Modal Component
 const GuestOrderDetailsModal = ({ order, isOpen, onClose, orderStatuses, formatDateTime, onDelete }) => {
@@ -171,7 +172,37 @@ const GuestOrderDetailsModal = ({ order, isOpen, onClose, orderStatuses, formatD
                   </div>
                   <div>
                     <span className="text-sm text-gray-600">{translate('order.delivery_address')}:</span>
-                    <span className="mt-2 ml-2 text-sm">{order.delivery_address || "ไม่ระบุ"}</span>
+                    <div className="mt-2 ml-2 text-sm">
+                      {order.delivery_address ? (
+                        (() => {
+                          const addressLines = order.delivery_address.split('\n');
+                          const detailAddress = addressLines.slice(1).join('\n');
+                          return (
+                            <>
+                              {detailAddress && (
+                                <div className="text-gray-600">
+                                  <p className="whitespace-pre-line">{detailAddress}</p>
+                                </div>
+                              )}
+                            </>
+                          );
+                        })()
+                      ) : (
+                        <span>ไม่ระบุ</span>
+                      )}
+                    </div>
+                    {order.delivery_latitude && order.delivery_longitude && (
+                      <div className="mt-2 ml-2">
+                        <a
+                          href={`https://www.google.com/maps?q=${order.delivery_latitude},${order.delivery_longitude}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:text-blue-800 underline text-sm cursor-pointer inline-flex items-center gap-1"
+                        >
+                          <LuMapPin className="w-4 h-4" /> {order.delivery_latitude}, {order.delivery_longitude}
+                        </a>
+                      </div>
+                    )}
                   </div>
                   <div>
                     <span className="text-sm text-gray-600">{translate('admin.temporary_id')}:</span>
@@ -1130,7 +1161,37 @@ const GuestOrderCard = ({
           </div>
             <div className="bg-gray-50/50 rounded-xl p-3 border border-gray-100">
               <p className="text-xs text-gray-500 mb-1 font-medium">📍 {translate('order.delivery_address')}</p>
-              <p className="font-bold text-gray-900 text-sm truncate">{order.delivery_address || "ไม่ระบุ"}</p>
+              <div className="text-gray-900 text-sm">
+                {order.delivery_address ? (
+                  (() => {
+                    const addressLines = order.delivery_address.split('\n');
+                    const detailAddress = addressLines.slice(1).join('\n');
+                    return (
+                      <>
+                        {detailAddress && (
+                          <div>
+                            <p className="text-xs text-gray-700 whitespace-pre-line">{detailAddress}</p>
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()
+                ) : (
+                  <p className="font-bold">ไม่ระบุ</p>
+                )}
+              </div>
+              {order.delivery_latitude && order.delivery_longitude && (
+                <div className="mt-2 pt-2 border-t border-gray-200">
+                  <a
+                    href={`https://www.google.com/maps?q=${order.delivery_latitude},${order.delivery_longitude}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:text-blue-800 underline text-xs cursor-pointer inline-flex items-center gap-1"
+                  >
+                    🗺️ {order.delivery_latitude}, {order.delivery_longitude}
+                  </a>
+                </div>
+              )}
           </div>
             <div className="bg-gray-50/50 rounded-xl p-3 border border-gray-100">
               <p className="text-xs text-gray-500 mb-1 font-medium">📦 {translate('order.items')}</p>

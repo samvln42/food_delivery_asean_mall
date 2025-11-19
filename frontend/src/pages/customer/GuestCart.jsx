@@ -7,25 +7,34 @@ import { toast } from "../../hooks/useNotification";
 import { useLanguage } from "../../contexts/LanguageContext";
 import { getTranslatedName, getTranslatedDescription } from "../../utils/translationUtils";
 import { formatCurrency } from "../../utils/formatPrice";
+import AddressPickerLeaflet from "../../components/maps/AddressPickerLeaflet";
+import MapPickerLeaflet from "../../components/maps/MapPickerLeaflet";
+import { LuMapPin } from "react-icons/lu";
 
 const GuestCart = () => {
   const { translate, currentLanguage } = useLanguage();
   const navigate = useNavigate();
   const {
-    items: cartItems,
+    items: rawCartItems,
     total,
     subtotal,
     itemCount,
     deliveryFee,
+    deliveryLocation,
     updateQuantity,
     removeItem,
     clearCart,
     getItemsByRestaurant,
     getRestaurantCount,
+    setDeliveryLocation,
   } = useGuestCart();
+  
+  const cartItems = Array.isArray(rawCartItems) ? rawCartItems : [];
 
   const [loading, setLoading] = useState(false);
   const [deliveryAddress, setDeliveryAddress] = useState("");
+  const [deliveryAddressDetail, setDeliveryAddressDetail] = useState("");
+  const [showMapPicker, setShowMapPicker] = useState(false);
   const [specialInstructions, setSpecialInstructions] = useState("");
   const [restaurantStatuses, setRestaurantStatuses] = useState({});
   const [paymentInfo, setPaymentInfo] = useState(null);
@@ -36,6 +45,13 @@ const GuestCart = () => {
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
+
+  // โหลดที่อยู่เริ่มต้นจาก deliveryLocation ถ้ามี
+  useEffect(() => {
+    if (deliveryLocation && deliveryLocation.address) {
+      setDeliveryAddress(deliveryLocation.address);
+    }
+  }, [deliveryLocation]);
 
   // โหลดข้อมูลการชำระเงิน
   useEffect(() => {
@@ -90,8 +106,14 @@ const GuestCart = () => {
   }, [cartItems]);
 
   // จัดกลุ่มสินค้าตามร้าน
-  const itemsByRestaurant = getItemsByRestaurant();
-  const restaurantCount = getRestaurantCount();
+  const itemsByRestaurant =
+    typeof getItemsByRestaurant === "function"
+      ? getItemsByRestaurant()
+      : {};
+  const restaurantCount =
+    typeof getRestaurantCount === "function"
+      ? getRestaurantCount()
+      : 0;
 
   // จัดการการอัปโหลดหลักฐานการโอน
   const handleProofOfPaymentChange = (e) => {
@@ -105,8 +127,8 @@ const GuestCart = () => {
       return;
     }
 
-    if (!deliveryAddress.trim()) {
-      toast.warning("Please enter delivery address");
+    if (!deliveryAddress.trim() || !deliveryLocation) {
+      toast.warning("Please enter delivery address and select location");
       return;
     }
 
@@ -160,13 +182,18 @@ const GuestCart = () => {
       let orderData;
       let endpoint;
 
+      // รวมที่อยู่หลักและรายละเอียดเพิ่มเติม
+      const fullDeliveryAddress = deliveryAddressDetail.trim()
+        ? `${deliveryAddress.trim()}\n${deliveryAddressDetail.trim()}`
+        : deliveryAddress.trim();
+
       if (restaurantCount > 1) {
         // Multi-restaurant order
         orderData = {
-          delivery_address: deliveryAddress.trim(),
-          delivery_latitude: null,
-          delivery_longitude: null,
-          total_delivery_fee: deliveryFee,
+          delivery_address: fullDeliveryAddress,
+          delivery_latitude: deliveryLocation?.lat ? parseFloat(deliveryLocation.lat.toFixed(12)) : null,
+          delivery_longitude: deliveryLocation?.lng ? parseFloat(deliveryLocation.lng.toFixed(12)) : null,
+          total_delivery_fee: parseFloat(deliveryFee.toFixed(5)),
           customer_name: customerName.trim(),
           customer_phone: customerPhone.trim(),
           customer_email: customerEmail.trim() || "guest@gmail.com",
@@ -185,10 +212,10 @@ const GuestCart = () => {
         // Single restaurant order
         orderData = {
           restaurant: cartItems[0]?.restaurant_id,
-          delivery_address: deliveryAddress.trim(),
-          delivery_latitude: null,
-          delivery_longitude: null,
-          delivery_fee: deliveryFee,
+          delivery_address: fullDeliveryAddress,
+          delivery_latitude: deliveryLocation?.lat ? parseFloat(deliveryLocation.lat.toFixed(12)) : null,
+          delivery_longitude: deliveryLocation?.lng ? parseFloat(deliveryLocation.lng.toFixed(12)) : null,
+          delivery_fee: parseFloat(deliveryFee.toFixed(5)),
           customer_name: customerName.trim(),
           customer_phone: customerPhone.trim(),
           customer_email: customerEmail.trim() || "guest@gmail.com",
@@ -518,16 +545,65 @@ const GuestCart = () => {
               <h3 className="text-lg font-semibold text-secondary-700 mb-4">
                 {translate("cart.delivery_address")}
               </h3>
-              <textarea
-                value={deliveryAddress}
-                onChange={(e) => setDeliveryAddress(e.target.value)}
-                className="w-full p-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                placeholder={translate(
-                  "cart.enter_the_delivery_address_in_detail"
-                )}
-                rows="3"
+              
+              {/* Address Picker with Google Maps Autocomplete */}
+              <div className="mb-4 flex flex-col gap-2 md:flex-row md:items-stretch">
+                <AddressPickerLeaflet
+                  className="w-full md:w-72 lg:w-80"
+                  value={deliveryAddress}
+                  onChange={(address) => {
+                    setDeliveryAddress(address);
+                  }}
+                  onLocationSelect={(location) => {
+                    setDeliveryLocation(location);
+                    setDeliveryAddress(location.address);
+                  }}
                 required
-              />
+                readOnly
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowMapPicker(!showMapPicker)}
+                  className="px-4 py-2 bg-secondary-200 text-secondary-700 rounded-lg hover:bg-secondary-300 transition-colors flex items-center justify-center gap-2 md:w-auto"
+                >
+                  <LuMapPin className="w-4 h-4" />{" "}
+                  {showMapPicker
+                    ? translate("cart.hide_map_picker")
+                    : translate("cart.show_map_picker")}
+                </button>
+              </div>
+
+              {/* Map Picker */}
+              {showMapPicker && (
+                <div className="mb-4">
+                  <MapPickerLeaflet
+                    initialCenter={deliveryLocation ? { lat: deliveryLocation.lat, lng: deliveryLocation.lng } : { lat: 13.7563, lng: 100.5018 }}
+                    onLocationSelect={(location) => {
+                      setDeliveryLocation(location);
+                      setDeliveryAddress(location.address);
+                    }}
+                    height="300px"
+                  />
+                </div>
+              )}
+
+              {/* Additional Address Details */}
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-secondary-700 mb-2">
+                  {translate("cart.delivery_address_detail")}
+                </label>
+                <textarea
+                  value={deliveryAddressDetail}
+                  onChange={(e) => setDeliveryAddressDetail(e.target.value)}
+                  className="w-full p-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  placeholder={translate("cart.delivery_address_detail_placeholder")}
+                  rows="3"
+                />
+                <p className="text-xs text-secondary-500 mt-1">
+                  {translate("cart.delivery_address_detail_hint")}
+                </p>
+              </div>
+
             </div>
 
             {/* Special Instructions */}
@@ -728,17 +804,34 @@ const GuestCart = () => {
                       {formatCurrency(deliveryFee)}
                     </span>
                   </div>
-                  {/* {restaurantCount > 1 && (
-                    <div className="text-xs text-secondary-500 pl-2">
-                      • {translate("cart.first_restaurant")}:{" "}
-                      {formatCurrency(2)}
-                      <br />• {translate("cart.additional_restaurant")}:{" "}
-                      {formatCurrency(1 * (restaurantCount - 1))} (
-                      {restaurantCount - 1} {translate("common.restaurants")} ×{" "}
-                      {formatCurrency(1)})
-                      <br />• {translate("cart.delivery_fee_calculated_by_admin")}
-                    </div>
-                  )} */}
+                  {restaurantCount > 1 && (() => {
+                    try {
+                      const breakdownData = localStorage.getItem('guest_delivery_fee_breakdown');
+                      if (breakdownData) {
+                        const breakdown = JSON.parse(breakdownData);
+                        const feeBreakdown = breakdown.breakdown;
+                        const maxFee = breakdown.actual_max_fee_from_distance || feeBreakdown.base_amount;
+                        const additionalCount = breakdown.additional_restaurants || 0;
+                        const perRestaurant = breakdown.additional_fee_per_restaurant || 0;
+                        
+                        return (
+                          <div className="text-xs text-secondary-500 pl-2">
+                            • {translate('cart.base_delivery_fee_label', { max_fee: formatCurrency(maxFee) })} {formatCurrency(feeBreakdown.base_amount)}
+                            <br />• {translate('cart.additional_restaurant_fee_label', { count: additionalCount })} {formatCurrency(feeBreakdown.additional_amount)}
+                            <br />• <span className="text-blue-600">{translate('cart.delivery_fee_explanation', {
+                              base_fee: formatCurrency(feeBreakdown.base_amount),
+                              count: additionalCount,
+                              per_restaurant: formatCurrency(perRestaurant),
+                              total: formatCurrency(feeBreakdown.total_amount)
+                            })}</span>
+                          </div>
+                        );
+                      }
+                    } catch (e) {
+                      console.warn('Failed to parse delivery fee breakdown:', e);
+                    }
+                    return null;
+                  })()}
                 </div>
 
                 <div className="border-t pt-3">
@@ -764,7 +857,7 @@ const GuestCart = () => {
                 onClick={handleGuestCheckout}
                 disabled={
                   loading ||
-                  !deliveryAddress.trim() ||
+                  !deliveryAddress.trim() || !deliveryLocation ||
                   !customerName.trim() ||
                   !customerPhone.trim() ||
                   // !customerEmail.trim() ||
@@ -775,7 +868,7 @@ const GuestCart = () => {
                 }
                 className={`w-full py-3 px-4 rounded-lg font-semibold transition-colors ${
                   loading ||
-                  !deliveryAddress.trim() ||
+                  !deliveryAddress.trim() || !deliveryLocation ||
                   !customerName.trim() ||
                   !customerPhone.trim() ||
                   // !customerEmail.trim() ||
@@ -793,7 +886,7 @@ const GuestCart = () => {
                       (status) => status.status !== "open"
                     )
                   ? translate("cart.cannot_order_closed_restaurants")
-                  : !deliveryAddress.trim()
+                  : !deliveryAddress.trim() || !deliveryLocation
                   ? translate("cart.please_enter_the_delivery_address")
                   : !customerName.trim()
                   ? translate("cart.please_enter_your_name")

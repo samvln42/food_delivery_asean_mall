@@ -76,7 +76,6 @@ function ScrollToTop() {
 }
 
 function App() {
-
   return (
     <ErrorBoundary>
       <LanguageProvider>

@@ -641,6 +641,8 @@ const RestaurantModal = ({ restaurant, type, onClose, onUpdate, availableUsers }
     restaurant_name: restaurant?.restaurant_name || '',
     description: restaurant?.description || '',
     address: restaurant?.address || '',
+    latitude: restaurant?.latitude || '',
+    longitude: restaurant?.longitude || '',
     phone_number: restaurant?.phone_number || '',
     opening_hours: restaurant?.opening_hours || '',
     status: restaurant?.status || 'open',
@@ -702,6 +704,8 @@ const RestaurantModal = ({ restaurant, type, onClose, onUpdate, availableUsers }
           createData.append('bank_name', formData.bank_name || '');
           createData.append('account_name', formData.account_name || '');
           createData.append('user', parseInt(formData.user, 10));
+          if (formData.latitude) createData.append('latitude', parseFloat(formData.latitude));
+          if (formData.longitude) createData.append('longitude', parseFloat(formData.longitude));
           createData.append('image', selectedFile);
           // ไม่ส่ง image_url ถ้ามีไฟล์ เพราะไฟล์มีความสำคัญกว่า
         } else {
@@ -718,6 +722,8 @@ const RestaurantModal = ({ restaurant, type, onClose, onUpdate, availableUsers }
             bank_name: formData.bank_name || '',
             account_name: formData.account_name || '',
             user: parseInt(formData.user, 10), // แปลงเป็น integer
+            latitude: formData.latitude ? parseFloat(formData.latitude) : null,
+            longitude: formData.longitude ? parseFloat(formData.longitude) : null,
             image_url: formData.image_url || ''
           };
         }
@@ -744,9 +750,15 @@ const RestaurantModal = ({ restaurant, type, onClose, onUpdate, availableUsers }
           updateData.append('bank_name', formData.bank_name || '');
           updateData.append('account_name', formData.account_name || '');
           updateData.append('user', parseInt(formData.user, 10));
+          if (formData.latitude) updateData.append('latitude', parseFloat(formData.latitude));
+          if (formData.longitude) updateData.append('longitude', parseFloat(formData.longitude));
           updateData.append('image', selectedFile);
         } else {
-          updateData = formData;
+          updateData = {
+            ...formData,
+            latitude: formData.latitude ? parseFloat(formData.latitude) : null,
+            longitude: formData.longitude ? parseFloat(formData.longitude) : null
+          };
         }
         
         await restaurantService.partialUpdate(restaurant.restaurant_id, updateData);
@@ -1068,6 +1080,69 @@ const RestaurantModal = ({ restaurant, type, onClose, onUpdate, availableUsers }
                 disabled={!isEditable}
                 className="w-full p-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent disabled:bg-secondary-50"
               />
+              {isEditable && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!formData.address) {
+                      alert('กรุณากรอกที่อยู่ก่อน');
+                      return;
+                    }
+                    try {
+                      const { geocodeAddress } = await import('../../utils/nominatim');
+                      const result = await geocodeAddress(formData.address);
+                      setFormData({
+                        ...formData,
+                        latitude: result.lat.toString(),
+                        longitude: result.lng.toString()
+                      });
+                      alert('ค้นหาพิกัดสำเร็จ');
+                    } catch (error) {
+                      console.error('Geocoding error:', error);
+                      alert('ไม่สามารถค้นหาพิกัดได้ กรุณากรอกพิกัดด้วยตนเอง');
+                    }
+                  }}
+                  className="mt-2 px-3 py-1 text-sm bg-primary-500 text-white rounded hover:bg-primary-600"
+                >
+                  🔍 ค้นหาพิกัดจากที่อยู่
+                </button>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-secondary-700 mb-2">
+                Latitude (พิกัดละติจูด)
+              </label>
+              <input
+                type="number"
+                step="any"
+                value={formData.latitude}
+                onChange={(e) => setFormData({ ...formData, latitude: e.target.value })}
+                disabled={!isEditable}
+                placeholder="17.9668552"
+                className="w-full p-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent disabled:bg-secondary-50"
+              />
+              <p className="mt-1 text-xs text-secondary-500">
+                พิกัดละติจูด (Latitude) เช่น 17.9668552
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-secondary-700 mb-2">
+                Longitude (พิกัดลองจิจูด)
+              </label>
+              <input
+                type="number"
+                step="any"
+                value={formData.longitude}
+                onChange={(e) => setFormData({ ...formData, longitude: e.target.value })}
+                disabled={!isEditable}
+                placeholder="102.6427002"
+                className="w-full p-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent disabled:bg-secondary-50"
+              />
+              <p className="mt-1 text-xs text-secondary-500">
+                พิกัดลองจิจูด (Longitude) เช่น 102.6427002
+              </p>
             </div>
 
             <div>

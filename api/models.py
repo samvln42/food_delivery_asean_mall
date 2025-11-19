@@ -54,6 +54,8 @@ class Restaurant(models.Model):
     restaurant_name = models.CharField(max_length=100)
     description = models.TextField(blank=True, null=True)
     address = models.CharField(max_length=255)
+    latitude = models.DecimalField(max_digits=20, decimal_places=12, null=True, blank=True, help_text='Restaurant latitude')
+    longitude = models.DecimalField(max_digits=20, decimal_places=12, null=True, blank=True, help_text='Restaurant longitude')
     phone_number = models.CharField(max_length=20, blank=True, null=True)
     is_special = models.BooleanField(default=False)
     opening_hours = models.CharField(max_length=100, blank=True, null=True)
@@ -117,7 +119,7 @@ class Product(models.Model):
     category = models.ForeignKey(Category, on_delete=models.CASCADE, related_name='products')
     product_name = models.CharField(max_length=100)
     description = models.TextField(blank=True, null=True)
-    price = models.DecimalField(max_digits=10, decimal_places=2)
+    price = models.DecimalField(max_digits=15, decimal_places=2)
     image_url = models.CharField(max_length=255, blank=True, null=True)
     image = models.ImageField(upload_to=product_image_upload_path, blank=True, null=True, help_text="Upload product image")
     is_available = models.BooleanField(default=True)
@@ -158,12 +160,12 @@ class Order(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='orders')
     restaurant = models.ForeignKey(Restaurant, on_delete=models.CASCADE, related_name='orders')
     order_date = models.DateTimeField(auto_now_add=True)
-    total_amount = models.DecimalField(max_digits=10, decimal_places=2)
-    delivery_address = models.CharField(max_length=255)
-    delivery_latitude = models.DecimalField(max_digits=10, decimal_places=8, blank=True, null=True)
-    delivery_longitude = models.DecimalField(max_digits=11, decimal_places=8, blank=True, null=True)
+    total_amount = models.DecimalField(max_digits=20, decimal_places=2)
+    delivery_address = models.CharField(max_length=500, help_text="additional delivery address")
+    delivery_latitude = models.DecimalField(max_digits=20, decimal_places=12, blank=True, null=True)
+    delivery_longitude = models.DecimalField(max_digits=20, decimal_places=12, blank=True, null=True)
     current_status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
-    delivery_fee = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    delivery_fee = models.DecimalField(max_digits=20, decimal_places=5, null=True, blank=True)
     estimated_delivery_time = models.DateTimeField(blank=True, null=True)
     is_reviewed = models.BooleanField(default=False)
     
@@ -184,8 +186,8 @@ class OrderDetail(models.Model):
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='order_details')
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
     quantity = models.IntegerField()
-    price_at_order = models.DecimalField(max_digits=10, decimal_places=2)
-    subtotal = models.DecimalField(max_digits=10, decimal_places=2)
+    price_at_order = models.DecimalField(max_digits=15, decimal_places=2)
+    subtotal = models.DecimalField(max_digits=15, decimal_places=2)
     
     class Meta:
         db_table = 'order_details'
@@ -217,7 +219,7 @@ class Payment(models.Model):
     payment_id = models.AutoField(primary_key=True)
     order = models.OneToOneField(Order, on_delete=models.CASCADE, related_name='payment')
     payment_date = models.DateTimeField(auto_now_add=True)
-    amount_paid = models.DecimalField(max_digits=10, decimal_places=2)
+    amount_paid = models.DecimalField(max_digits=15, decimal_places=2)
     payment_method = models.CharField(max_length=20, choices=PAYMENT_METHOD_CHOICES)
     transaction_id = models.CharField(max_length=100, unique=True, blank=True, null=True)
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending')
@@ -566,8 +568,8 @@ class AppSettings(models.Model):
     # Delivery Settings
     base_delivery_fee = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, help_text='Base delivery fee in THB')
     free_delivery_minimum = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, help_text='Minimum order amount for free delivery')
-    max_delivery_distance = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True, help_text='Maximum delivery distance in km')
-    per_km_fee = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True, help_text='Additional fee per kilometer')
+    max_delivery_distance = models.DecimalField(max_digits=6, decimal_places=0, null=True, blank=True, help_text='Maximum delivery distance in km')
+    per_km_fee = models.DecimalField(max_digits=6, decimal_places=0, null=True, blank=True, help_text='Additional fee per kilometer')
     multi_restaurant_base_fee = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, help_text='Base fee for multi-restaurant orders')
     multi_restaurant_additional_fee = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, help_text='Additional fee per additional restaurant')
     delivery_time_slots = models.CharField(max_length=100, default='09:00-21:00', help_text='Delivery time slots (e.g., 09:00-21:00)')
@@ -724,12 +726,12 @@ class GuestOrder(models.Model):
     restaurants = models.JSONField(default=list, blank=True, help_text="For multi-restaurant orders: [{'restaurant_id': 1, 'restaurant_name': 'Restaurant 1', 'delivery_fee': 50.00}, ...]")
     
     order_date = models.DateTimeField(auto_now_add=True)
-    total_amount = models.DecimalField(max_digits=10, decimal_places=2)
-    delivery_address = models.CharField(max_length=255)
-    delivery_latitude = models.DecimalField(max_digits=10, decimal_places=8, blank=True, null=True)
-    delivery_longitude = models.DecimalField(max_digits=11, decimal_places=8, blank=True, null=True)
+    total_amount = models.DecimalField(max_digits=20, decimal_places=2)
+    delivery_address = models.CharField(max_length=500, help_text="ที่อยู่จัดส่งหลักและรายละเอียดเพิ่มเติม")
+    delivery_latitude = models.DecimalField(max_digits=20, decimal_places=12, blank=True, null=True)
+    delivery_longitude = models.DecimalField(max_digits=20, decimal_places=12, blank=True, null=True)
     current_status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
-    delivery_fee = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, help_text="Total delivery fee for all restaurants")
+    delivery_fee = models.DecimalField(max_digits=20, decimal_places=5, null=True, blank=True, help_text="Total delivery fee for all restaurants")
     estimated_delivery_time = models.DateTimeField(blank=True, null=True)
     
     # ข้อมูลลูกค้าแบบไม่ต้องล็อกอิน
@@ -807,8 +809,8 @@ class GuestOrderDetail(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
     restaurant = models.ForeignKey(Restaurant, on_delete=models.CASCADE, null=True, blank=True, help_text="Restaurant for this order detail")
     quantity = models.IntegerField()
-    price_at_order = models.DecimalField(max_digits=10, decimal_places=2)
-    subtotal = models.DecimalField(max_digits=10, decimal_places=2)
+    price_at_order = models.DecimalField(max_digits=15, decimal_places=2)
+    subtotal = models.DecimalField(max_digits=15, decimal_places=2)
     
     class Meta:
         db_table = 'guest_order_details'

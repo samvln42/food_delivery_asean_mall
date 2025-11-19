@@ -402,6 +402,14 @@ export const dashboardService = {
   getCustomer: () => api.get('/dashboard/customer/'),
 };
 
+// Delivery Fee Calculation Service
+export const deliveryFeeService = {
+  // Calculate delivery fee for single restaurant
+  calculate: (data) => api.post('/calculate-delivery-fee/', data),
+  // Calculate delivery fee for multi-restaurant order
+  calculateMulti: (data) => api.post('/calculate-multi-restaurant-delivery-fee/', data),
+};
+
 // App Settings Service
 export const appSettingsService = {
   // Get public settings (no authentication required)

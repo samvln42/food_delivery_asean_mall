@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useReducer, useEffect, useState, useCallback } from 'react';
 import { useAuth } from './AuthContext';
-import { appSettingsService } from '../services/api';
+import { appSettingsService, deliveryFeeService } from '../services/api';
 
 // Initial state
 const initialState = {
@@ -12,6 +12,7 @@ const initialState = {
   promoCode: '',
   restaurants: {}, // เก็บข้อมูลร้านต่างๆ ที่มีสินค้าในตะกร้า
   deliverySettings: null, // เก็บการตั้งค่าค่าจัดส่ง
+  deliveryLocation: null, // เก็บพิกัดที่อยู่จัดส่ง { lat, lng, address }
 };
 
 // Action types
@@ -25,32 +26,35 @@ const actionTypes = {
   SET_PROMO_CODE: 'SET_PROMO_CODE',
   LOAD_CART: 'LOAD_CART',
   UPDATE_DELIVERY_SETTINGS: 'UPDATE_DELIVERY_SETTINGS',
+  SET_DELIVERY_LOCATION: 'SET_DELIVERY_LOCATION',
 };
 
 // Reducer
-const cartReducer = (state, action) => {
+const cartReducer = (state = initialState, action) => {
   switch (action.type) {
     case actionTypes.ADD_ITEM: {
       const { product, restaurant } = action.payload;
-      
       console.log('Adding item from restaurant:', restaurant.name);
       console.log('Product restaurant status:', product.restaurant_status);
-      
-      // ตรวจสอบสถานะร้าน
-      if (product.restaurant_status !== 'open') {
+
+      // ตรวจสอบสถานะร้าน (ถือว่า open หากไม่ส่งสถานะมา)
+      const restaurantStatus =
+        product.restaurant_status ?? restaurant.status ?? 'open';
+
+      if (restaurantStatus !== 'open') {
         console.warn('Cannot add item from closed restaurant');
         throw new Error('This restaurant is closed. Cannot add items to cart.');
       }
-      
       // เพิ่มสินค้าจากร้านใดก็ได้ (ไม่จำกัดร้านเดียว)
-      const existingItemIndex = state.items.findIndex(
-        item => item.product_id === product.product_id
+      const currentItems = Array.isArray(state?.items) ? state.items : [];
+      const existingItemIndex = currentItems.findIndex(
+        (item) => item.product_id === product.product_id
       );
       
       let newItems;
       if (existingItemIndex >= 0) {
         // อัพเดทจำนวนสินค้าที่มีอยู่
-        newItems = state.items.map((item, index) =>
+        newItems = currentItems.map((item, index) =>
           index === existingItemIndex
             ? { ...item, quantity: item.quantity + 1 }
             : item
@@ -72,9 +76,9 @@ const cartReducer = (state, action) => {
           image_display_url: product.image_display_url,
           special_instructions: '',
         };
-        
-        console.log('Created new item:', newItem);
-        newItems = [...state.items, newItem];
+
+        console.log("Created new item:", newItem);
+        newItems = [...currentItems, newItem];
       }
       
       // อัพเดทข้อมูลร้าน
@@ -94,7 +98,9 @@ const cartReducer = (state, action) => {
         items: newItems,
         restaurants: newRestaurants,
       };
-      return calculateTotals(newState);
+      
+      
+      return calculateTotalsSync(newState);
     }
     
     case actionTypes.UPDATE_QUANTITY: {
@@ -108,7 +114,7 @@ const cartReducer = (state, action) => {
       );
       
       const newState = { ...state, items: newItems };
-      return calculateTotals(newState);
+      return calculateTotalsSync(newState);
     }
     
     case actionTypes.REMOVE_ITEM: {
@@ -129,7 +135,7 @@ const cartReducer = (state, action) => {
         items: newItems,
         restaurants: newRestaurants,
       };
-      return calculateTotals(newState);
+      return calculateTotalsSync(newState);
     }
     
     case actionTypes.CLEAR_CART:
@@ -137,76 +143,160 @@ const cartReducer = (state, action) => {
     
     case actionTypes.SET_DELIVERY_FEE:
       const newStateWithDelivery = { ...state, deliveryFee: action.payload };
-      return calculateTotals(newStateWithDelivery);
+      return calculateTotalsSync(newStateWithDelivery);
     
     case actionTypes.SET_DISCOUNT:
       const newStateWithDiscount = { ...state, discount: action.payload };
-      return calculateTotals(newStateWithDiscount);
+      return calculateTotalsSync(newStateWithDiscount);
     
     case actionTypes.SET_PROMO_CODE:
       return { ...state, promoCode: action.payload };
     
-    case actionTypes.LOAD_CART:
-      const loadedState = { ...state, ...action.payload };
-      return calculateTotals(loadedState);
+    case actionTypes.LOAD_CART: {
+      const payload = action.payload || {};
+      const loadedItems = Array.isArray(payload.items) ? payload.items : [];
+      const loadedRestaurants = payload.restaurants && typeof payload.restaurants === 'object' ? payload.restaurants : {};
+      const loadedState = { 
+        ...state, 
+        ...payload,
+        items: loadedItems,
+        restaurants: loadedRestaurants
+      };
+      return calculateTotalsSync(loadedState);
+    }
     
     case actionTypes.UPDATE_DELIVERY_SETTINGS:
       // console.log('CartContext - UPDATE_DELIVERY_SETTINGS payload:', action.payload); // เพิ่ม log
       const newStateWithUpdatedSettings = { ...state, deliverySettings: action.payload };
-      return calculateTotals(newStateWithUpdatedSettings); // Re-calculate totals after settings update
+      return calculateTotalsSync(newStateWithUpdatedSettings); // Re-calculate totals after settings update
+    
+    case actionTypes.SET_DELIVERY_LOCATION:
+      const newStateWithLocation = { ...state, deliveryLocation: action.payload };
+      // ใช้ sync version ก่อน แล้วจะคำนวณใหม่ใน useEffect
+      return calculateTotalsSync(newStateWithLocation);
     
     default:
       return state;
   }
 };
 
-// คำนวณค่าจัดส่งสำหรับหลายร้าน
-const calculateMultiRestaurantDeliveryFee = (restaurants, settings = null) => {
-  const restaurantCount = Object.keys(restaurants).length;
-  if (restaurantCount === 0) return 0;
-  
-  // console.log('calculateMultiRestaurantDeliveryFee - settings:', settings);
-  // console.log('calculateMultiRestaurantDeliveryFee - settings?.multi_restaurant_base_fee:', settings?.multi_restaurant_base_fee);
-  // console.log('calculateMultiRestaurantDeliveryFee - settings?.multi_restaurant_additional_fee:', settings?.multi_restaurant_additional_fee);
-  
-  // ใช้ค่าจาก settings ถ้ามี และแปลงเป็น float ให้แน่ใจ
-  const baseFee = parseFloat(settings?.multi_restaurant_base_fee) || 0;
-  const additionalFee = parseFloat(settings?.multi_restaurant_additional_fee) || 0;
+// คำนวณค่าจัดส่งตามระยะทาง (ใช้ API)
+const calculateDeliveryFeeByDistance = async (restaurants, deliveryLocation) => {
+  if (!deliveryLocation || !deliveryLocation.lat || !deliveryLocation.lng) {
+    return 0;
+  }
 
-  // console.log('calculateMultiRestaurantDeliveryFee - restaurantCount:', restaurantCount);
-  // console.log('calculateMultiRestaurantDeliveryFee - baseFee:', baseFee, 'type:', typeof baseFee);
-  // console.log('calculateMultiRestaurantDeliveryFee - additionalFee:', additionalFee, 'type:', typeof additionalFee);
+  const restaurantIds = Object.keys(restaurants);
+  if (restaurantIds.length === 0) return 0;
 
-  const result = restaurantCount === 1 ? baseFee : baseFee + ((restaurantCount - 1) * additionalFee);
-  // console.log('calculateMultiRestaurantDeliveryFee - result:', result);
-  
-  return result;
+  try {
+    if (restaurantIds.length === 1) {
+      // Single restaurant
+      const restaurantId = parseInt(restaurantIds[0], 10);
+      const restaurant = restaurants[restaurantId];
+
+      if (!restaurant) {
+        console.warn(`CartContext - Restaurant ${restaurantId} not found in state`);
+        return 0;
+      }
+
+      const response = await deliveryFeeService.calculate({
+        restaurant_id: restaurantId,
+        delivery_latitude: parseFloat(deliveryLocation.lat.toFixed(12)),
+        delivery_longitude: parseFloat(deliveryLocation.lng.toFixed(12))
+      });
+
+      return response.data.delivery_fee || 0;
+    } else {
+      // Multi-restaurant - คำนวณค่าจัดส่งจากร้านที่ไกลที่สุด
+      const response = await deliveryFeeService.calculateMulti({
+        restaurant_ids: restaurantIds.map(id => parseInt(id, 10)),
+        delivery_latitude: parseFloat(deliveryLocation.lat.toFixed(12)),
+        delivery_longitude: parseFloat(deliveryLocation.lng.toFixed(12))
+      });
+
+      // เก็บข้อมูล delivery fee breakdown สำหรับแสดงผล
+      const responseData = response.data;
+      if (responseData.fee_breakdown) {
+        // บันทึกข้อมูล breakdown ไว้ใน localStorage หรือ context state
+        localStorage.setItem('delivery_fee_breakdown', JSON.stringify({
+          breakdown: responseData.fee_breakdown,
+          explanation: responseData.explanation,
+          restaurants: responseData.restaurants,
+          calculation_method: responseData.calculation_method
+        }));
+      }
+      
+      return responseData.total_delivery_fee || 0;
+    }
+  } catch (error) {
+    console.error('Error calculating delivery fee:', error);
+    return 0;
+  }
 };
 
+// ไม่ใช้ค่าจัดส่งแบบหลายร้านแล้ว ใช้เฉพาะค่าจัดส่งตามระยะทาง
+
 // คำนวณยอดรวม
-const calculateTotals = (state) => {
-  const subtotal = state.items.reduce((total, item) => total + (item.price * item.quantity), 0);
+const calculateTotals = async (state) => {
+  const itemsArray = Array.isArray(state.items) ? state.items : [];
+  const subtotal = itemsArray.reduce((total, item) => total + (item.price * item.quantity), 0);
   
-  // คำนวณค่าจัดส่ง
-  const deliveryFee = state.items.length === 0 ? 0 : calculateMultiRestaurantDeliveryFee(state.restaurants, state.deliverySettings);
+  
+  // คำนวณค่าจัดส่งตามระยะทางเท่านั้น
+  let deliveryFee = 0;
+  if (itemsArray.length > 0) {
+    // ถ้ามี delivery location ให้คำนวณตามระยะทาง
+    if (state.deliveryLocation && state.deliveryLocation.lat && state.deliveryLocation.lng) {
+      deliveryFee = await calculateDeliveryFeeByDistance(state.restaurants, state.deliveryLocation);
+    }
+    // ถ้าไม่มี delivery location ค่าจัดส่งจะเป็น 0 (ต้องเลือกที่อยู่ก่อน)
+  }
   
   const total = subtotal + deliveryFee - state.discount;
-  const itemCount = state.items.reduce((count, item) => count + item.quantity, 0);
+  const itemCount = itemsArray.reduce((count, item) => count + item.quantity, 0);
   
-  return {
+  const result = {
     ...state,
     total: Math.max(0, total),
     itemCount,
     subtotal,
     deliveryFee,
   };
+  
+  
+  return result;
+};
+
+// Synchronous version สำหรับ reducer (ใช้ค่าจัดส่งจาก state)
+const calculateTotalsSync = (state) => {
+  const itemsArray = Array.isArray(state.items) ? state.items : [];
+  const subtotal = itemsArray.reduce((total, item) => total + (item.price * item.quantity), 0);
+  
+  // ใช้ค่าจัดส่งจาก state (จะถูกคำนวณใน useEffect)
+  const deliveryFee = state.deliveryFee || 0;
+  
+  const total = subtotal + deliveryFee - state.discount;
+  const itemCount = itemsArray.reduce((count, item) => count + item.quantity, 0);
+  
+  const result = {
+    ...state,
+    total: Math.max(0, total),
+    itemCount,
+    subtotal,
+    deliveryFee,
+  };
+  
+  
+  return result;
 };
 
 // จัดกลุ่มสินค้าตามร้าน
 const groupItemsByRestaurant = (items, restaurants) => {
   const grouped = {};
+  const itemsArray = Array.isArray(items) ? items : [];
   
-  items.forEach(item => {
+  itemsArray.forEach(item => {
     const restaurantId = item.restaurant_id;
     if (!grouped[restaurantId]) {
       grouped[restaurantId] = {
@@ -230,7 +320,9 @@ const CartContext = createContext();
 
 // Cart provider component
 export const CartProvider = ({ children }) => {
-  const { user } = useAuth();
+  // ใช้ useAuth โดยตรง - แต่ต้องให้แน่ใจว่า AuthProvider wrap ถูกต้อง
+  const authContext = useAuth();
+  const user = authContext?.user;
   const [state, dispatch] = useReducer(cartReducer, initialState);
 
   // โหลดตะกร้าจาก localStorage เมื่อเข้าสู่ระบบ
@@ -305,12 +397,58 @@ export const CartProvider = ({ children }) => {
     return () => window.removeEventListener('focus', handleFocus);
   }, [refreshDeliverySettings]);
 
+  const itemsCount = Array.isArray(state.items) ? state.items.length : 0;
+  const restaurantsKey = state.restaurants ? Object.keys(state.restaurants).join(',') : '';
+
+  // คำนวณค่าจัดส่งตามระยะทางเมื่อ deliveryLocation เปลี่ยน
+  useEffect(() => {
+    const calculateFee = async () => {
+      // ถ้าไม่มี deliveryLocation ให้ reset deliveryFee เป็น 0
+      if (!state.deliveryLocation || !state.deliveryLocation.lat || !state.deliveryLocation.lng) {
+        if (state.deliveryFee !== 0) {
+          dispatch({
+            type: actionTypes.SET_DELIVERY_FEE,
+            payload: 0
+          });
+        }
+        return;
+      }
+
+      // ถ้ามี items และ deliveryLocation ให้คำนวณค่าจัดส่ง
+      if (itemsCount > 0 && Object.keys(state.restaurants || {}).length > 0) {
+        try {
+          const fee = await calculateDeliveryFeeByDistance(state.restaurants, state.deliveryLocation);
+          
+          // อัปเดต deliveryFee เสมอ
+          dispatch({
+            type: actionTypes.SET_DELIVERY_FEE,
+            payload: fee
+          });
+        } catch (error) {
+          console.error('CartContext - Error calculating delivery fee:', error);
+          // ถ้ามี error ให้ reset เป็น 0
+          dispatch({
+            type: actionTypes.SET_DELIVERY_FEE,
+            payload: 0
+          });
+        }
+      }
+    };
+
+    calculateFee();
+  }, [
+    state.deliveryLocation?.lat, 
+    state.deliveryLocation?.lng, 
+    itemsCount, 
+    restaurantsKey
+  ]);
+
   // อัพเดท localStorage เมื่อ state เปลี่ยนแปลง
   useEffect(() => {
     const userId = user?.id || user?.user_id || 'guest';
     try {
       localStorage.setItem(`cart_${userId}`, JSON.stringify(state));
-      // console.log('CartContext - Saved to localStorage:', state);
+      
     } catch (error) {
       console.error('CartContext - Error saving to localStorage:', error);
     }
@@ -318,8 +456,9 @@ export const CartProvider = ({ children }) => {
 
   // Functions
   const addItem = (product, restaurant) => {
-    // ตรวจสอบว่าผู้ใช้ล็อกอินแล้วหรือยัง
-    if (!user || !user.id) {
+    // ตรวจสอบว่าผู้ใช้ล็อกอินแล้วหรือยัง (เช็กทั้ง id และ user_id)
+    const userId = user?.id || user?.user_id;
+    if (!user || !userId) {
       const shouldRedirect = window.confirm(
         'Please login before adding items to cart\n\nClick "OK" to go to the login page'
       );
@@ -385,6 +524,16 @@ export const CartProvider = ({ children }) => {
     });
   };
 
+  const setDeliveryLocation = (location) => {
+    // ล้าง delivery fee breakdown เก่าเมื่อเปลี่ยนตำแหน่ง
+    localStorage.removeItem('delivery_fee_breakdown');
+    
+    dispatch({
+      type: actionTypes.SET_DELIVERY_LOCATION,
+      payload: location
+    });
+  };
+
   const setDiscount = (discount) => {
     dispatch({
       type: actionTypes.SET_DISCOUNT,
@@ -419,12 +568,13 @@ export const CartProvider = ({ children }) => {
 
   // จัดกลุ่มสินค้าตามร้าน
   const getItemsByRestaurant = () => {
-    return groupItemsByRestaurant(state.items, state.restaurants);
+    return groupItemsByRestaurant(state.items || [], state.restaurants || {});
   };
 
   // ได้จำนวนร้านในตะกร้า
   const getRestaurantCount = () => {
-    return Object.keys(state.restaurants).length;
+    const restaurants = state.restaurants || {};
+    return Object.keys(restaurants).length;
   };
 
   const value = {
@@ -434,6 +584,7 @@ export const CartProvider = ({ children }) => {
     updateQuantity,
     clearCart,
     setDeliveryFee,
+    setDeliveryLocation,
     setDiscount,
     setPromoCode,
     applyPromoCode,

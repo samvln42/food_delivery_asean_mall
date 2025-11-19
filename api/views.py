@@ -447,16 +447,16 @@ class OrderViewSet(viewsets.ModelViewSet):
                     )
                     # print(f"✅ Payment record created: {payment.payment_id}")
                 
-                            # ส่ง notification ไปยังแอดมินทุกคน (ลูกค้าใช้ delivery_status_log แทน)
-            admin_users = User.objects.filter(role='admin')
-            for admin_user in admin_users:
-                Notification.objects.create(
-                    user=admin_user,
-                    title='New Multi-Restaurant Order Received',
-                    message=f'Multi-restaurant order #{order.order_id} was placed by {order.user.username}',
-                    type='order',
-                    related_order=order
-                )
+                # ส่ง notification ไปยังแอดมินทุกคน (ลูกค้าใช้ delivery_status_log แทน)
+                admin_users = User.objects.filter(role='admin')
+                for admin_user in admin_users:
+                    Notification.objects.create(
+                        user=admin_user,
+                        title='New Multi-Restaurant Order Received',
+                        message=f'Multi-restaurant order #{order.order_id} was placed by {order.user.username}',
+                        type='order',
+                        related_order=order
+                    )
 
                 # ส่ง WebSocket notification ไปยังกลุ่มแอดมิน
                 channel_layer = get_channel_layer()
@@ -1657,8 +1657,9 @@ class AppSettingsViewSet(viewsets.ModelViewSet):
                 'free_delivery_minimum': data.get('free_delivery_minimum', 200.0),
                 'max_delivery_distance': data.get('max_delivery_distance', 10.0),
                 'per_km_fee': data.get('per_km_fee', 5.0),
-                'multi_restaurant_base_fee': data.get('multi_restaurant_base_fee', 2.0),
-                'multi_restaurant_additional_fee': data.get('multi_restaurant_additional_fee', 1.0),
+                # ไม่ใช้ multi_restaurant_base_fee และ multi_restaurant_additional_fee แล้ว
+                # 'multi_restaurant_base_fee': data.get('multi_restaurant_base_fee', 2.0),
+                # 'multi_restaurant_additional_fee': data.get('multi_restaurant_additional_fee', 1.0),
                 'delivery_time_slots': data.get('delivery_time_slots', '09:00-21:00'),
                 'enable_scheduled_delivery': data.get('enable_scheduled_delivery', True),
                 'rush_hour_multiplier': data.get('rush_hour_multiplier', 1.5),
@@ -2063,6 +2064,189 @@ class AdvertisementViewSet(viewsets.ModelViewSet):
         
         serializer = self.get_serializer(advertisements, many=True)
         return Response(serializer.data)
+
+
+# API endpoint สำหรับคำนวณค่าจัดส่งตามระยะทาง
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def calculate_delivery_fee_api(request):
+    """
+    API endpoint สำหรับคำนวณค่าจัดส่งตามระยะทาง
+    รับ restaurant_id และ delivery coordinates
+    """
+    try:
+        restaurant_id = request.data.get('restaurant_id')
+        delivery_lat = request.data.get('delivery_latitude')
+        delivery_lon = request.data.get('delivery_longitude')
+        
+        if not all([restaurant_id, delivery_lat, delivery_lon]):
+            return Response(
+                {'error': 'Missing required fields: restaurant_id, delivery_latitude, delivery_longitude'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            restaurant = Restaurant.objects.get(restaurant_id=restaurant_id)
+        except Restaurant.DoesNotExist:
+            return Response(
+                {'error': 'Restaurant not found'}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        if not restaurant.latitude or not restaurant.longitude:
+            return Response(
+                {'error': 'Restaurant location not set. Please set restaurant coordinates in admin.'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        from .utils import calculate_delivery_fee_by_distance
+        fee = calculate_delivery_fee_by_distance(
+            restaurant.latitude, restaurant.longitude,
+            delivery_lat, delivery_lon
+        )
+        
+        # คำนวณระยะทางด้วย
+        from .utils import calculate_distance_km
+        distance = calculate_distance_km(
+            restaurant.latitude, restaurant.longitude,
+            delivery_lat, delivery_lon
+        )
+        
+        return Response({
+            'delivery_fee': round(float(fee), 5),
+            'distance_km': round(distance, 2)
+        })
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return Response(
+            {'error': str(e)}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def calculate_multi_restaurant_delivery_fee_api(request):
+    """
+    API endpoint สำหรับคำนวณค่าจัดส่งสำหรับ multi-restaurant order
+    รับ list ของ restaurant_ids และ delivery coordinates
+    ใช้วิธี Base + Additional: ค่าจัดส่งร้านหลัก + ค่าเพิ่มต่อร้านเพิ่มเติม
+    """
+    try:
+        restaurant_ids = request.data.get('restaurant_ids', [])
+        delivery_lat = request.data.get('delivery_latitude')
+        delivery_lon = request.data.get('delivery_longitude')
+        
+        if not all([restaurant_ids, delivery_lat, delivery_lon]):
+            return Response(
+                {'error': 'Missing required fields: restaurant_ids (array), delivery_latitude, delivery_longitude'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        if not isinstance(restaurant_ids, list):
+            return Response(
+                {'error': 'restaurant_ids must be an array'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        from .utils import calculate_delivery_fee_by_distance, calculate_distance_km
+        from .models import AppSettings
+        
+        # ดึงการตั้งค่าค่าจัดส่งสำหรับ multi-restaurant
+        settings = AppSettings.get_settings()
+        # ไม่ใช้ base_fee_override เพื่อป้องกันการ override ค่าจัดส่งจริง
+        # base_fee_override = float(settings.multi_restaurant_base_fee) if settings and settings.multi_restaurant_base_fee else None
+        additional_fee_per_restaurant = float(settings.multi_restaurant_additional_fee) if settings and settings.multi_restaurant_additional_fee else 15.00
+        
+        max_fee = 0.0
+        max_distance = 0.0
+        base_restaurant_id = None
+        restaurant_details = []
+        
+        # หาร้านที่ไกลที่สุด (จะเป็นร้านหลัก)
+        for restaurant_id in restaurant_ids:
+            try:
+                restaurant = Restaurant.objects.get(restaurant_id=restaurant_id)
+            except Restaurant.DoesNotExist:
+                continue
+            
+            if not restaurant.latitude or not restaurant.longitude:
+                continue
+            
+            distance = calculate_distance_km(
+                restaurant.latitude, restaurant.longitude,
+                delivery_lat, delivery_lon
+            )
+            
+            fee = calculate_delivery_fee_by_distance(
+                restaurant.latitude, restaurant.longitude,
+                delivery_lat, delivery_lon
+            )
+            
+            restaurant_details.append({
+                'restaurant_id': restaurant.restaurant_id,
+                'restaurant_name': restaurant.restaurant_name,
+                'distance_km': round(distance, 2),
+                'individual_delivery_fee': round(float(fee), 2)
+            })
+            
+            # หาร้านที่มีค่าจัดส่งสูงสุด (ไกลสุด) เป็นร้านหลัก
+            if fee > max_fee:
+                max_fee = fee
+                max_distance = distance
+                base_restaurant_id = restaurant.restaurant_id
+        
+        if not restaurant_details:
+            return Response(
+                {'error': 'No valid restaurants found'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # คำนวณค่าจัดส่งแบบ Base + Additional
+        # ใช้ค่าจัดส่งจริงจากร้านไกลสุดเสมอ (ไม่ให้ setting override)
+        base_fee = max_fee  # ค่าจัดส่งจากร้านไกลสุด
+        additional_restaurants_count = len(restaurant_ids) - 1  # ร้านเพิ่มเติม (ไม่นับร้านหลัก)
+        additional_fee = additional_restaurants_count * additional_fee_per_restaurant
+        total_delivery_fee = base_fee + additional_fee
+        
+        # อัปเดต restaurant_details ให้แสดงข้อมูลที่ชัดเจนขึ้น
+        for detail in restaurant_details:
+            if detail['restaurant_id'] == base_restaurant_id:
+                detail['role'] = 'base_restaurant'
+                detail['fee_contribution'] = round(base_fee, 2)
+            else:
+                detail['role'] = 'additional_restaurant'
+                detail['fee_contribution'] = additional_fee_per_restaurant
+        
+        return Response({
+            'total_delivery_fee': round(float(total_delivery_fee), 5),
+            'base_fee': round(float(base_fee), 2),
+            'additional_fee': round(float(additional_fee), 2),
+            'additional_fee_per_restaurant': additional_fee_per_restaurant,
+            'base_restaurant_id': base_restaurant_id,
+            'total_restaurants': len(restaurant_ids),
+            'additional_restaurants': additional_restaurants_count,
+            'max_distance_km': round(max_distance, 2),
+            'calculation_method': 'base_plus_additional',
+            'actual_max_fee_from_distance': round(float(max_fee), 2),
+            'explanation': f'ค่าจัดส่งหลัก {base_fee:.2f} บาท + ค่าเพิ่มร้านเพิ่มเติม {additional_restaurants_count} ร้าน × {additional_fee_per_restaurant:.2f} บาท = {total_delivery_fee:.2f} บาท',
+            'fee_breakdown': {
+                'base_description': f'ค่าจัดส่งหลัก (ร้านไกลสุด: {max_fee:.2f} บาท)',
+                'additional_description': f'ค่าเพิ่มร้านเพิ่มเติม ({additional_restaurants_count} ร้าน)',
+                'base_amount': round(float(base_fee), 2),
+                'additional_amount': round(float(additional_fee), 2),
+                'total_amount': round(float(total_delivery_fee), 2)
+            },
+            'restaurants': restaurant_details
+        })
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return Response(
+            {'error': str(e)}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
 
 
 

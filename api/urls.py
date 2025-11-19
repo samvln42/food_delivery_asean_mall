@@ -37,4 +37,7 @@ urlpatterns = [
     path('dashboard/customer/', views.DashboardViewSet.as_view({'get': 'customer'}), name='dashboard-customer'),
     path('reports/sales/', views.ReportViewSet.as_view({'get': 'sales'}), name='report-sales'),
     path('reports/products/', views.ReportViewSet.as_view({'get': 'products'}), name='report-products'),
+    # Delivery fee calculation endpoints
+    path('calculate-delivery-fee/', views.calculate_delivery_fee_api, name='calculate-delivery-fee'),
+    path('calculate-multi-restaurant-delivery-fee/', views.calculate_multi_restaurant_delivery_fee_api, name='calculate-multi-restaurant-delivery-fee'),
 ] 

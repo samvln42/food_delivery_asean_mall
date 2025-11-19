@@ -91,6 +91,7 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const sessionData = validateAndCleanSession();
     
+    
     if (sessionData) {
       dispatch({
         type: actionTypes.LOGIN_SUCCESS,
@@ -126,6 +127,7 @@ export const AuthProvider = ({ children }) => {
       // Store in localStorage
       localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(user));
+      
       
       dispatch({
         type: actionTypes.LOGIN_SUCCESS,
@@ -309,7 +311,26 @@ export const AuthProvider = ({ children }) => {
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    // เพิ่ม debug info และ temporary fallback
+    console.warn('useAuth: AuthContext is null - using fallback. This might be due to ErrorBoundary reset or component re-initialization.');
+    
+    // ส่ง fallback object แทนการ throw error เพื่อป้องกัน app crash
+    return {
+      user: null,
+      token: null,
+      isAuthenticated: false,
+      loading: false,
+      error: null,
+      login: async () => ({ success: false, error: 'AuthProvider not available' }),
+      register: async () => ({ success: false, error: 'AuthProvider not available' }),
+      googleLogin: async () => ({ success: false, error: 'AuthProvider not available' }),
+      logout: async () => {},
+      updateProfile: async () => ({ success: false, error: 'AuthProvider not available' }),
+      clearError: () => {},
+      verifyEmail: async () => ({ success: false, error: 'AuthProvider not available' }),
+      resendVerification: async () => ({ success: false, error: 'AuthProvider not available' }),
+      resetPassword: async () => ({ success: false, error: 'AuthProvider not available' })
+    };
   }
   return context;
 };

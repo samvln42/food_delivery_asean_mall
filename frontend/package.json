@@ -13,17 +13,20 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
+    "@erikmichelson/open-location-code-ts": "^1.20250411.0",
     "@headlessui/react": "^2.2.4",
     "@heroicons/react": "^2.2.0",
     "@hookform/resolvers": "^5.1.1",
     "@tanstack/react-query": "^5.81.2",
     "axios": "^1.10.0",
     "chart.js": "^4.5.0",
+    "leaflet": "^1.9.4",
     "react": "^19.1.0",
     "react-chartjs-2": "^5.3.0",
     "react-dom": "^19.1.0",
     "react-hook-form": "^7.58.1",
     "react-icons": "^5.5.0",
+    "react-leaflet": "^5.0.0",
     "react-router-dom": "^7.6.2",
     "yup": "^1.6.1"
   },
