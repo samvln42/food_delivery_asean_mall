@@ -1,4 +1,4 @@
-from rest_framework import serializers
+﻿from rest_framework import serializers
 from accounts.models import User
 from .models import (
     Restaurant, Category, Product, Order, OrderDetail,
@@ -6,7 +6,9 @@ from .models import (
     SearchHistory, PopularSearch, UserFavorite, AnalyticsDaily,
     RestaurantAnalytics, ProductAnalytics, AppSettings, Language, Translation,
     CategoryTranslation, ProductTranslation, GuestOrder, GuestOrderDetail, GuestDeliveryStatusLog,
-    Advertisement
+    Advertisement, RestaurantTable, DineInCart, DineInCartItem, DineInOrder, 
+    DineInOrderDetail, DineInStatusLog, DineInProduct, DineInProductTranslation,
+    EntertainmentVenue, VenueImage, VenueCategory, VenueReview
 )
 
 
@@ -55,41 +57,41 @@ class CategorySerializer(serializers.ModelSerializer):
     def get_translations(self, obj):
         """
         Get translations, optionally filtered by language from query parameter
-        ถ้ามี ?lang=th จะส่งแค่ translation ภาษาไทย
-        ถ้าไม่มี จะส่งทุกภาษา (backward compatible)
+        à¸–à¹‰à¸²à¸¡à¸µ ?lang=th à¸ˆà¸°à¸ªà¹ˆà¸‡à¹à¸„à¹ˆ translation à¸ à¸²à¸©à¸²à¹„à¸—à¸¢
+        à¸–à¹‰à¸²à¹„à¸¡à¹ˆà¸¡à¸µ à¸ˆà¸°à¸ªà¹ˆà¸‡à¸—à¸¸à¸à¸ à¸²à¸©à¸² (backward compatible)
         """
         request = self.context.get('request')
         if request:
             lang_code = request.query_params.get('lang', None)
             if lang_code:
-                # ส่งแค่ภาษาที่ต้องการ (optimize performance)
+                # à¸ªà¹ˆà¸‡à¹à¸„à¹ˆà¸ à¸²à¸©à¸²à¸—à¸µà¹ˆà¸•à¹‰à¸­à¸‡à¸à¸²à¸£ (optimize performance)
                 filtered_translations = obj.translations.filter(language__code=lang_code)
                 return CategoryTranslationSerializer(filtered_translations, many=True).data
         
-        # ส่งทุกภาษา (default behavior - backward compatible)
+        # à¸ªà¹ˆà¸‡à¸—à¸¸à¸à¸ à¸²à¸©à¸² (default behavior - backward compatible)
         return CategoryTranslationSerializer(obj.translations.all(), many=True).data
 
     def create(self, validated_data):
         """Custom create method to handle translations"""
         translations_data = self.context.get('request').data.get('translations') if self.context.get('request') else validated_data.pop('translations', None)
         
-        # Parse JSON string if needed (เมื่อส่งมาเป็น FormData)
+        # Parse JSON string if needed (à¹€à¸¡à¸·à¹ˆà¸­à¸ªà¹ˆà¸‡à¸¡à¸²à¹€à¸›à¹‡à¸™ FormData)
         if isinstance(translations_data, str):
             import json
             try:
                 translations_data = json.loads(translations_data)
-                print(f"📝 Parsed category translations from JSON string: {translations_data}")
+                print(f"ðŸ“ Parsed category translations from JSON string: {translations_data}")
             except json.JSONDecodeError:
-                print(f"❌ Failed to parse category translations JSON: {translations_data}")
+                print(f"âŒ Failed to parse category translations JSON: {translations_data}")
                 translations_data = None
         
-        # สร้างหมวดหมู่
+        # à¸ªà¸£à¹‰à¸²à¸‡à¸«à¸¡à¸§à¸”à¸«à¸¡à¸¹à¹ˆ
         category = Category.objects.create(**validated_data)
-        print(f"✅ Created category: {category.category_id} - {category.category_name}")
+        print(f"âœ… Created category: {category.category_id} - {category.category_name}")
         
-        # เพิ่มการแปล
+        # à¹€à¸žà¸´à¹ˆà¸¡à¸à¸²à¸£à¹à¸›à¸¥
         if translations_data:
-            print(f"📝 Adding translations for category {category.category_id}")
+            print(f"ðŸ“ Adding translations for category {category.category_id}")
             for lang_code, translation_data in translations_data.items():
                 if translation_data.get('name'):
                     try:
@@ -100,12 +102,12 @@ class CategorySerializer(serializers.ModelSerializer):
                             translated_name=translation_data['name'],
                             translated_description=translation_data.get('description', '')
                         )
-                        print(f"✅ Added {lang_code} translation: {translation_data['name']}")
+                        print(f"âœ… Added {lang_code} translation: {translation_data['name']}")
                     except Language.DoesNotExist:
-                        print(f"❌ Language {lang_code} not found")
+                        print(f"âŒ Language {lang_code} not found")
                         pass
         else:
-            print(f"⚠️ No translations provided for category {category.category_id}")
+            print(f"âš ï¸ No translations provided for category {category.category_id}")
         
         return category
 
@@ -113,7 +115,7 @@ class CategorySerializer(serializers.ModelSerializer):
         """Custom update method to handle translations"""
         translations_data = self.context.get('request').data.get('translations') if self.context.get('request') else validated_data.pop('translations', None)
         
-        # Parse JSON string if needed (เมื่อส่งมาเป็น FormData)
+        # Parse JSON string if needed (à¹€à¸¡à¸·à¹ˆà¸­à¸ªà¹ˆà¸‡à¸¡à¸²à¹€à¸›à¹‡à¸™ FormData)
         if isinstance(translations_data, str):
             import json
             try:
@@ -121,14 +123,14 @@ class CategorySerializer(serializers.ModelSerializer):
             except json.JSONDecodeError:
                 translations_data = None
         
-        # อัปเดตหมวดหมู่
+        # à¸­à¸±à¸›à¹€à¸”à¸•à¸«à¸¡à¸§à¸”à¸«à¸¡à¸¹à¹ˆ
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         instance.save()
         
-        # อัปเดตการแปล
+        # à¸­à¸±à¸›à¹€à¸”à¸•à¸à¸²à¸£à¹à¸›à¸¥
         if translations_data:
-            # อัปเดตหรือเพิ่มการแปลสำหรับแต่ละภาษา
+            # à¸­à¸±à¸›à¹€à¸”à¸•à¸«à¸£à¸·à¸­à¹€à¸žà¸´à¹ˆà¸¡à¸à¸²à¸£à¹à¸›à¸¥à¸ªà¸³à¸«à¸£à¸±à¸šà¹à¸•à¹ˆà¸¥à¸°à¸ à¸²à¸©à¸²
             for lang_code, translation_data in translations_data.items():
                 if translation_data.get('name'):
                     try:
@@ -142,7 +144,7 @@ class CategorySerializer(serializers.ModelSerializer):
                             }
                         )
                         if not created:
-                            # อัปเดตการแปลที่มีอยู่
+                            # à¸­à¸±à¸›à¹€à¸”à¸•à¸à¸²à¸£à¹à¸›à¸¥à¸—à¸µà¹ˆà¸¡à¸µà¸­à¸¢à¸¹à¹ˆ
                             translation.translated_name = translation_data['name']
                             translation.translated_description = translation_data.get('description', '')
                             translation.save()
@@ -184,18 +186,18 @@ class ProductSerializer(serializers.ModelSerializer):
     def get_translations(self, obj):
         """
         Get translations, optionally filtered by language from query parameter
-        ถ้ามี ?lang=th จะส่งแค่ translation ภาษาไทย
-        ถ้าไม่มี จะส่งทุกภาษา (backward compatible)
+        à¸–à¹‰à¸²à¸¡à¸µ ?lang=th à¸ˆà¸°à¸ªà¹ˆà¸‡à¹à¸„à¹ˆ translation à¸ à¸²à¸©à¸²à¹„à¸—à¸¢
+        à¸–à¹‰à¸²à¹„à¸¡à¹ˆà¸¡à¸µ à¸ˆà¸°à¸ªà¹ˆà¸‡à¸—à¸¸à¸à¸ à¸²à¸©à¸² (backward compatible)
         """
         request = self.context.get('request')
         if request:
             lang_code = request.query_params.get('lang', None)
             if lang_code:
-                # ส่งแค่ภาษาที่ต้องการ (optimize performance)
+                # à¸ªà¹ˆà¸‡à¹à¸„à¹ˆà¸ à¸²à¸©à¸²à¸—à¸µà¹ˆà¸•à¹‰à¸­à¸‡à¸à¸²à¸£ (optimize performance)
                 filtered_translations = obj.translations.filter(language__code=lang_code)
                 return ProductTranslationSerializer(filtered_translations, many=True).data
         
-        # ส่งทุกภาษา (default behavior - backward compatible)
+        # à¸ªà¹ˆà¸‡à¸—à¸¸à¸à¸ à¸²à¸©à¸² (default behavior - backward compatible)
         return ProductTranslationSerializer(obj.translations.all(), many=True).data
     
     def create(self, validated_data):
@@ -203,23 +205,23 @@ class ProductSerializer(serializers.ModelSerializer):
         # Get translations data from request (for FormData) or validated_data (for JSON)
         translations_data = self.context.get('request').data.get('translations') if self.context.get('request') else validated_data.pop('translations', None)
         
-        # Parse JSON string if needed (เมื่อส่งมาเป็น FormData)
+        # Parse JSON string if needed (à¹€à¸¡à¸·à¹ˆà¸­à¸ªà¹ˆà¸‡à¸¡à¸²à¹€à¸›à¹‡à¸™ FormData)
         if isinstance(translations_data, str):
             import json
             try:
                 translations_data = json.loads(translations_data)
-                print(f"📝 Parsed translations from JSON string: {translations_data}")
+                print(f"ðŸ“ Parsed translations from JSON string: {translations_data}")
             except json.JSONDecodeError:
-                print(f"❌ Failed to parse translations JSON: {translations_data}")
+                print(f"âŒ Failed to parse translations JSON: {translations_data}")
                 translations_data = None
         
-        # สร้างสินค้า
+        # à¸ªà¸£à¹‰à¸²à¸‡à¸ªà¸´à¸™à¸„à¹‰à¸²
         product = Product.objects.create(**validated_data)
-        print(f"✅ Created product: {product.product_id} - {product.product_name}")
+        print(f"âœ… Created product: {product.product_id} - {product.product_name}")
         
-        # เพิ่มการแปล
+        # à¹€à¸žà¸´à¹ˆà¸¡à¸à¸²à¸£à¹à¸›à¸¥
         if translations_data:
-            print(f"📝 Adding translations for product {product.product_id}")
+            print(f"ðŸ“ Adding translations for product {product.product_id}")
             for lang_code, translation_data in translations_data.items():
                 if translation_data.get('name'):
                     try:
@@ -230,12 +232,12 @@ class ProductSerializer(serializers.ModelSerializer):
                             translated_name=translation_data['name'],
                             translated_description=translation_data.get('description', '')
                         )
-                        print(f"✅ Added {lang_code} translation: {translation_data['name']}")
+                        print(f"âœ… Added {lang_code} translation: {translation_data['name']}")
                     except Language.DoesNotExist:
-                        print(f"❌ Language {lang_code} not found")
+                        print(f"âŒ Language {lang_code} not found")
                         pass
         else:
-            print(f"⚠️ No translations provided for product {product.product_id}")
+            print(f"âš ï¸ No translations provided for product {product.product_id}")
         
         return product
 
@@ -250,23 +252,23 @@ class ProductSerializer(serializers.ModelSerializer):
             translations_data = json.loads(translations_data)
         
         # Debug logs
-        print(f"🔄 ProductSerializer.update - Product ID: {instance.product_id}")
-        print(f"📝 translations_data: {translations_data}")
+        print(f"ðŸ”„ ProductSerializer.update - Product ID: {instance.product_id}")
+        print(f"ðŸ“ translations_data: {translations_data}")
         
-        # อัปเดตสินค้า
+        # à¸­à¸±à¸›à¹€à¸”à¸•à¸ªà¸´à¸™à¸„à¹‰à¸²
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         instance.save()
         
-        # อัปเดตการแปล
+        # à¸­à¸±à¸›à¹€à¸”à¸•à¸à¸²à¸£à¹à¸›à¸¥
         if translations_data is not None:
-            print(f"🔄 Processing {len(translations_data)} translations")
-            # อัปเดตหรือเพิ่มการแปลสำหรับแต่ละภาษา
+            print(f"ðŸ”„ Processing {len(translations_data)} translations")
+            # à¸­à¸±à¸›à¹€à¸”à¸•à¸«à¸£à¸·à¸­à¹€à¸žà¸´à¹ˆà¸¡à¸à¸²à¸£à¹à¸›à¸¥à¸ªà¸³à¸«à¸£à¸±à¸šà¹à¸•à¹ˆà¸¥à¸°à¸ à¸²à¸©à¸²
             for lang_code, translation_data in translations_data.items():
                 if translation_data.get('name'):
                     try:
                         language = Language.objects.get(code=lang_code)
-                        print(f"📝 Creating/updating translation for {lang_code}: {translation_data['name']}")
+                        print(f"ðŸ“ Creating/updating translation for {lang_code}: {translation_data['name']}")
                         translation, created = ProductTranslation.objects.get_or_create(
                             product=instance,
                             language=language,
@@ -276,18 +278,18 @@ class ProductSerializer(serializers.ModelSerializer):
                             }
                         )
                         if not created:
-                            # อัปเดตการแปลที่มีอยู่
-                            print(f"🔄 Updating existing translation for {lang_code}")
+                            # à¸­à¸±à¸›à¹€à¸”à¸•à¸à¸²à¸£à¹à¸›à¸¥à¸—à¸µà¹ˆà¸¡à¸µà¸­à¸¢à¸¹à¹ˆ
+                            print(f"ðŸ”„ Updating existing translation for {lang_code}")
                             translation.translated_name = translation_data['name']
                             translation.translated_description = translation_data.get('description', '')
                             translation.save()
                         else:
-                            print(f"✅ Created new translation for {lang_code}")
+                            print(f"âœ… Created new translation for {lang_code}")
                     except Language.DoesNotExist:
-                        print(f"❌ Language {lang_code} does not exist")
+                        print(f"âŒ Language {lang_code} does not exist")
                         pass
         else:
-            print("❌ No translations_data provided")
+            print("âŒ No translations_data provided")
         
         return instance
 
@@ -314,15 +316,15 @@ class RestaurantSerializer(serializers.ModelSerializer):
         return get_absolute_image_url(image_url, self.context.get('request'))
     
     def update(self, instance, validated_data):
-        """อัปเดทร้านและซิงก์ User role อัตโนมัติ"""
+        """à¸­à¸±à¸›à¹€à¸”à¸—à¸£à¹‰à¸²à¸™à¹à¸¥à¸°à¸‹à¸´à¸‡à¸à¹Œ User role à¸­à¸±à¸•à¹‚à¸™à¸¡à¸±à¸•à¸´"""
         old_is_special = instance.is_special
         
-        # อัปเดทข้อมูลร้าน
+        # à¸­à¸±à¸›à¹€à¸”à¸—à¸‚à¹‰à¸­à¸¡à¸¹à¸¥à¸£à¹‰à¸²à¸™
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         instance.save()
         
-        # ซิงก์ User role เมื่อ is_special เปลี่ยนแปลง
+        # à¸‹à¸´à¸‡à¸à¹Œ User role à¹€à¸¡à¸·à¹ˆà¸­ is_special à¹€à¸›à¸¥à¸µà¹ˆà¸¢à¸™à¹à¸›à¸¥à¸‡
         if 'is_special' in validated_data and validated_data['is_special'] != old_is_special:
             user = instance.user
             new_role = 'special_restaurant' if validated_data['is_special'] else 'general_restaurant'
@@ -330,7 +332,7 @@ class RestaurantSerializer(serializers.ModelSerializer):
             if user.role != new_role:
                 user.role = new_role
                 user.save()
-                # print(f"🔄 Auto-sync: Restaurant {instance.restaurant_name} is_special={validated_data['is_special']} → User {user.username} role={new_role}")
+                # print(f"ðŸ”„ Auto-sync: Restaurant {instance.restaurant_name} is_special={validated_data['is_special']} â†’ User {user.username} role={new_role}")
         
         return instance
 
@@ -405,7 +407,7 @@ class OrderSerializer(serializers.ModelSerializer):
         read_only_fields = ['order_id', 'order_date']
     
     def get_order_details_by_restaurant(self, obj):
-        """จัดกลุ่ม OrderDetail ตามร้าน"""
+        """à¸ˆà¸±à¸”à¸à¸¥à¸¸à¹ˆà¸¡ OrderDetail à¸•à¸²à¸¡à¸£à¹‰à¸²à¸™"""
         order_details = obj.order_details.all()
         restaurants = {}
         
@@ -429,11 +431,11 @@ class OrderSerializer(serializers.ModelSerializer):
         return list(restaurants.values())
     
     def get_restaurant_count(self, obj):
-        """นับจำนวนร้านในคำสั่งซื้อ"""
+        """à¸™à¸±à¸šà¸ˆà¸³à¸™à¸§à¸™à¸£à¹‰à¸²à¸™à¹ƒà¸™à¸„à¸³à¸ªà¸±à¹ˆà¸‡à¸‹à¸·à¹‰à¸­"""
         return obj.order_details.values('product__restaurant').distinct().count()
     
     def get_is_multi_restaurant(self, obj):
-        """ตรวจสอบว่าเป็น multi-restaurant order หรือไม่"""
+        """à¸•à¸£à¸§à¸ˆà¸ªà¸­à¸šà¸§à¹ˆà¸²à¹€à¸›à¹‡à¸™ multi-restaurant order à¸«à¸£à¸·à¸­à¹„à¸¡à¹ˆ"""
         return self.get_restaurant_count(obj) > 1
 
 
@@ -472,8 +474,8 @@ class CreateOrderSerializer(serializers.ModelSerializer):
 
 class MultiRestaurantOrderSerializer(serializers.Serializer):
     """
-    Serializer สำหรับการสั่งซื้อจากหลายร้านในครั้งเดียว
-    ระบบจะสร้าง Order เดียวที่มี OrderDetail จากหลายร้าน
+    Serializer à¸ªà¸³à¸«à¸£à¸±à¸šà¸à¸²à¸£à¸ªà¸±à¹ˆà¸‡à¸‹à¸·à¹‰à¸­à¸ˆà¸²à¸à¸«à¸¥à¸²à¸¢à¸£à¹‰à¸²à¸™à¹ƒà¸™à¸„à¸£à¸±à¹‰à¸‡à¹€à¸”à¸µà¸¢à¸§
+    à¸£à¸°à¸šà¸šà¸ˆà¸°à¸ªà¸£à¹‰à¸²à¸‡ Order à¹€à¸”à¸µà¸¢à¸§à¸—à¸µà¹ˆà¸¡à¸µ OrderDetail à¸ˆà¸²à¸à¸«à¸¥à¸²à¸¢à¸£à¹‰à¸²à¸™
     """
     user = serializers.IntegerField()
     delivery_address = serializers.CharField(max_length=500)
@@ -481,54 +483,54 @@ class MultiRestaurantOrderSerializer(serializers.Serializer):
     delivery_longitude = serializers.DecimalField(max_digits=20, decimal_places=12, required=False, allow_null=True)
     total_delivery_fee = serializers.DecimalField(max_digits=20, decimal_places=5)
     notes = serializers.CharField(max_length=500, required=False, allow_blank=True)
-    restaurants = serializers.JSONField(write_only=True)  # เปลี่ยนเป็น JSONField เพื่อรองรับ complex structure
+    restaurants = serializers.JSONField(write_only=True)  # à¹€à¸›à¸¥à¸µà¹ˆà¸¢à¸™à¹€à¸›à¹‡à¸™ JSONField à¹€à¸žà¸·à¹ˆà¸­à¸£à¸­à¸‡à¸£à¸±à¸š complex structure
     
     def validate_delivery_latitude(self, value):
-        """ตรวจสอบและปรับค่า latitude"""
+        """à¸•à¸£à¸§à¸ˆà¸ªà¸­à¸šà¹à¸¥à¸°à¸›à¸£à¸±à¸šà¸„à¹ˆà¸² latitude"""
         if value is None:
             return value
         
-        # ตรวจสอบขอบเขต latitude (-90 ถึง 90)
+        # à¸•à¸£à¸§à¸ˆà¸ªà¸­à¸šà¸‚à¸­à¸šà¹€à¸‚à¸• latitude (-90 à¸–à¸¶à¸‡ 90)
         if value < -90 or value > 90:
             raise serializers.ValidationError("Latitude must be between -90 and 90")
         
-        # ปรับให้มีทศนิยมไม่เกิน 12 หลัก (ไม่จำกัดจำนวนหลักรวม)
+        # à¸›à¸£à¸±à¸šà¹ƒà¸«à¹‰à¸¡à¸µà¸—à¸¨à¸™à¸´à¸¢à¸¡à¹„à¸¡à¹ˆà¹€à¸à¸´à¸™ 12 à¸«à¸¥à¸±à¸ (à¹„à¸¡à¹ˆà¸ˆà¸³à¸à¸±à¸”à¸ˆà¸³à¸™à¸§à¸™à¸«à¸¥à¸±à¸à¸£à¸§à¸¡)
         from decimal import Decimal, ROUND_HALF_UP
         return value.quantize(Decimal('0.000000000001'), rounding=ROUND_HALF_UP)
     
     def validate_delivery_longitude(self, value):
-        """ตรวจสอบและปรับค่า longitude"""
+        """à¸•à¸£à¸§à¸ˆà¸ªà¸­à¸šà¹à¸¥à¸°à¸›à¸£à¸±à¸šà¸„à¹ˆà¸² longitude"""
         if value is None:
             return value
         
-        # ตรวจสอบขอบเขต longitude (-180 ถึง 180)
+        # à¸•à¸£à¸§à¸ˆà¸ªà¸­à¸šà¸‚à¸­à¸šà¹€à¸‚à¸• longitude (-180 à¸–à¸¶à¸‡ 180)
         if value < -180 or value > 180:
             raise serializers.ValidationError("Longitude must be between -180 and 180")
         
-        # ปรับให้มีทศนิยมไม่เกิน 12 หลัก (ไม่จำกัดจำนวนหลักรวม)
+        # à¸›à¸£à¸±à¸šà¹ƒà¸«à¹‰à¸¡à¸µà¸—à¸¨à¸™à¸´à¸¢à¸¡à¹„à¸¡à¹ˆà¹€à¸à¸´à¸™ 12 à¸«à¸¥à¸±à¸ (à¹„à¸¡à¹ˆà¸ˆà¸³à¸à¸±à¸”à¸ˆà¸³à¸™à¸§à¸™à¸«à¸¥à¸±à¸à¸£à¸§à¸¡)
         from decimal import Decimal, ROUND_HALF_UP
         return value.quantize(Decimal('0.000000000001'), rounding=ROUND_HALF_UP)
     
     def validate_total_delivery_fee(self, value):
-        """ตรวจสอบและปรับค่า delivery fee"""
+        """à¸•à¸£à¸§à¸ˆà¸ªà¸­à¸šà¹à¸¥à¸°à¸›à¸£à¸±à¸šà¸„à¹ˆà¸² delivery fee"""
         if value is None:
             return value
         
-        # ตรวจสอบว่าไม่เป็นค่าลบ
+        # à¸•à¸£à¸§à¸ˆà¸ªà¸­à¸šà¸§à¹ˆà¸²à¹„à¸¡à¹ˆà¹€à¸›à¹‡à¸™à¸„à¹ˆà¸²à¸¥à¸š
         if value < 0:
             raise serializers.ValidationError("Delivery fee cannot be negative")
         
-        # ปรับให้มีทศนิยมไม่เกิน 5 หลัก (ไม่จำกัดจำนวนหลัก)
+        # à¸›à¸£à¸±à¸šà¹ƒà¸«à¹‰à¸¡à¸µà¸—à¸¨à¸™à¸´à¸¢à¸¡à¹„à¸¡à¹ˆà¹€à¸à¸´à¸™ 5 à¸«à¸¥à¸±à¸ (à¹„à¸¡à¹ˆà¸ˆà¸³à¸à¸±à¸”à¸ˆà¸³à¸™à¸§à¸™à¸«à¸¥à¸±à¸)
         from decimal import Decimal, ROUND_HALF_UP
         return value.quantize(Decimal('0.00001'), rounding=ROUND_HALF_UP)
     
     def validate_restaurants(self, value):
-        """ตรวจสอบข้อมูลร้านและสินค้า"""
+        """à¸•à¸£à¸§à¸ˆà¸ªà¸­à¸šà¸‚à¹‰à¸­à¸¡à¸¹à¸¥à¸£à¹‰à¸²à¸™à¹à¸¥à¸°à¸ªà¸´à¸™à¸„à¹‰à¸²"""
         if not isinstance(value, list) or not value:
             raise serializers.ValidationError("Must have at least 1 restaurant and must be a list")
         
         for i, restaurant_data in enumerate(value):
-            # ตรวจสอบ structure ของแต่ละร้าน
+            # à¸•à¸£à¸§à¸ˆà¸ªà¸­à¸š structure à¸‚à¸­à¸‡à¹à¸•à¹ˆà¸¥à¸°à¸£à¹‰à¸²à¸™
             if not isinstance(restaurant_data, dict):
                 raise serializers.ValidationError(f"Restaurant data at index {i+1} must be an object")
             
@@ -540,7 +542,7 @@ class MultiRestaurantOrderSerializer(serializers.Serializer):
             restaurant_id = restaurant_data.get('restaurant_id')
             items = restaurant_data.get('items')
             
-            # ตรวจสอบ restaurant_id
+            # à¸•à¸£à¸§à¸ˆà¸ªà¸­à¸š restaurant_id
             try:
                 restaurant_id = int(restaurant_id)
                 restaurant = Restaurant.objects.get(restaurant_id=restaurant_id)
@@ -549,11 +551,11 @@ class MultiRestaurantOrderSerializer(serializers.Serializer):
             except Restaurant.DoesNotExist:
                 raise serializers.ValidationError(f"Restaurant not found with ID: {restaurant_id}")
             
-            # ตรวจสอบ items
+            # à¸•à¸£à¸§à¸ˆà¸ªà¸­à¸š items
             if not isinstance(items, list) or not items:
                 raise serializers.ValidationError(f"Restaurant {i+1}: must have at least 1 item in the list")
             
-            # ตรวจสอบสินค้าในร้าน
+            # à¸•à¸£à¸§à¸ˆà¸ªà¸­à¸šà¸ªà¸´à¸™à¸„à¹‰à¸²à¹ƒà¸™à¸£à¹‰à¸²à¸™
             for j, item in enumerate(items):
                 if not isinstance(item, dict):
                     raise serializers.ValidationError(f"Restaurant {i+1}, item {j+1}: must be an object")
@@ -585,14 +587,14 @@ class MultiRestaurantOrderSerializer(serializers.Serializer):
     def create(self, validated_data):
         restaurants_data = validated_data.pop('restaurants')
         
-        # สร้าง Order หลัก (ไม่ผูกกับร้านใดร้านหนึ่ง)
-        # NOTE: ต้องแก้ไข Model เพื่อให้ restaurant field เป็น optional
+        # à¸ªà¸£à¹‰à¸²à¸‡ Order à¸«à¸¥à¸±à¸ (à¹„à¸¡à¹ˆà¸œà¸¹à¸à¸à¸±à¸šà¸£à¹‰à¸²à¸™à¹ƒà¸”à¸£à¹‰à¸²à¸™à¸«à¸™à¸¶à¹ˆà¸‡)
+        # NOTE: à¸•à¹‰à¸­à¸‡à¹à¸à¹‰à¹„à¸‚ Model à¹€à¸žà¸·à¹ˆà¸­à¹ƒà¸«à¹‰ restaurant field à¹€à¸›à¹‡à¸™ optional
         
-        # วิธีแก้ไขชั่วคราว: ใช้ร้านแรกเป็น primary restaurant
+        # à¸§à¸´à¸˜à¸µà¹à¸à¹‰à¹„à¸‚à¸Šà¸±à¹ˆà¸§à¸„à¸£à¸²à¸§: à¹ƒà¸Šà¹‰à¸£à¹‰à¸²à¸™à¹à¸£à¸à¹€à¸›à¹‡à¸™ primary restaurant
         first_restaurant_id = restaurants_data[0]['restaurant_id']
         primary_restaurant = Restaurant.objects.get(restaurant_id=first_restaurant_id)
         
-        # คำนวณยอดรวม
+        # à¸„à¸³à¸™à¸§à¸“à¸¢à¸­à¸”à¸£à¸§à¸¡
         total_amount = validated_data.get('total_delivery_fee', 0)
         
         for restaurant_data in restaurants_data:
@@ -601,10 +603,10 @@ class MultiRestaurantOrderSerializer(serializers.Serializer):
                 product = Product.objects.get(product_id=item_data['product_id'])
                 total_amount += product.price * int(item_data['quantity'])
         
-        # สร้าง Order
+        # à¸ªà¸£à¹‰à¸²à¸‡ Order
         order = Order.objects.create(
             user_id=validated_data['user'],
-            restaurant=primary_restaurant,  # ชั่วคราว ใช้ร้านแรก
+            restaurant=primary_restaurant,  # à¸Šà¸±à¹ˆà¸§à¸„à¸£à¸²à¸§ à¹ƒà¸Šà¹‰à¸£à¹‰à¸²à¸™à¹à¸£à¸
             delivery_address=validated_data['delivery_address'],
             delivery_latitude=validated_data.get('delivery_latitude'),
             delivery_longitude=validated_data.get('delivery_longitude'),
@@ -613,7 +615,7 @@ class MultiRestaurantOrderSerializer(serializers.Serializer):
             current_status='pending'
         )
         
-        # สร้าง OrderDetail สำหรับทุกสินค้าจากทุกร้าน
+        # à¸ªà¸£à¹‰à¸²à¸‡ OrderDetail à¸ªà¸³à¸«à¸£à¸±à¸šà¸—à¸¸à¸à¸ªà¸´à¸™à¸„à¹‰à¸²à¸ˆà¸²à¸à¸—à¸¸à¸à¸£à¹‰à¸²à¸™
         for restaurant_data in restaurants_data:
             restaurant = Restaurant.objects.get(restaurant_id=restaurant_data['restaurant_id'])
             for item_data in restaurant_data['items']:
@@ -625,7 +627,7 @@ class MultiRestaurantOrderSerializer(serializers.Serializer):
                     price_at_order=product.price
                 )
         
-        # สร้าง status log
+        # à¸ªà¸£à¹‰à¸²à¸‡ status log
         DeliveryStatusLog.objects.create(
             order=order,
             status='pending',
@@ -644,7 +646,19 @@ class ReviewSerializer(serializers.ModelSerializer):
         fields = ['review_id', 'user', 'user_username', 'order', 'restaurant', 
                  'restaurant_name', 'rating_restaurant', 'comment_restaurant', 
                  'review_date']
-        read_only_fields = ['review_id', 'review_date']
+        read_only_fields = ['review_id', 'review_date', 'user']
+    
+    def validate_restaurant(self, value):
+        """Validate that restaurant exists"""
+        if not value:
+            raise serializers.ValidationError("Restaurant is required")
+        return value
+    
+    def validate_rating_restaurant(self, value):
+        """Validate rating is between 1 and 5"""
+        if not isinstance(value, int) or value < 1 or value > 5:
+            raise serializers.ValidationError("Rating must be an integer between 1 and 5")
+        return value
 
 
 class ProductReviewSerializer(serializers.ModelSerializer):
@@ -659,6 +673,45 @@ class ProductReviewSerializer(serializers.ModelSerializer):
         read_only_fields = ['product_review_id', 'review_date']
 
 
+class VenueReviewSerializer(serializers.ModelSerializer):
+    user_username = serializers.CharField(source='user.username', read_only=True)
+    venue_name = serializers.CharField(source='venue.venue_name', read_only=True)
+    
+    class Meta:
+        model = VenueReview
+        fields = ['review_id', 'venue', 'venue_name', 'user', 'user_username', 
+                 'rating', 'comment', 'review_date', 'updated_at']
+        read_only_fields = ['review_id', 'review_date', 'updated_at', 'user']
+    
+    def validate_venue(self, value):
+        """Validate venue field - can be integer ID or EntertainmentVenue instance"""
+        if value is None:
+            raise serializers.ValidationError("Venue is required")
+        # If it's an integer, try to get the venue
+        if isinstance(value, (int, str)):
+            try:
+                from .models import EntertainmentVenue
+                venue = EntertainmentVenue.objects.get(venue_id=int(value))
+                return venue
+            except EntertainmentVenue.DoesNotExist:
+                raise serializers.ValidationError(f"Venue with ID {value} does not exist")
+            except (ValueError, TypeError):
+                raise serializers.ValidationError("Venue must be a valid integer ID")
+        return value
+    
+    def validate_rating(self, value):
+        """Validate rating is between 1 and 5"""
+        if value is None:
+            raise serializers.ValidationError("Rating is required")
+        try:
+            rating_int = int(value)
+            if rating_int < 1 or rating_int > 5:
+                raise serializers.ValidationError("Rating must be between 1 and 5")
+            return rating_int
+        except (ValueError, TypeError):
+            raise serializers.ValidationError("Rating must be a valid integer")
+
+
 class DeliveryStatusLogSerializer(serializers.ModelSerializer):
     updated_by_username = serializers.CharField(source='updated_by_user.username', read_only=True)
     
@@ -670,7 +723,7 @@ class DeliveryStatusLogSerializer(serializers.ModelSerializer):
 
 
 class NotificationSerializer(serializers.ModelSerializer):
-    # ใช้ PrimaryKeyRelatedField กับ allow_null=True เพื่อป้องกัน error เมื่อ related object ถูกลบ
+    # à¹ƒà¸Šà¹‰ PrimaryKeyRelatedField à¸à¸±à¸š allow_null=True à¹€à¸žà¸·à¹ˆà¸­à¸›à¹‰à¸­à¸‡à¸à¸±à¸™ error à¹€à¸¡à¸·à¹ˆà¸­ related object à¸–à¸¹à¸à¸¥à¸š
     related_order = serializers.PrimaryKeyRelatedField(read_only=True, allow_null=True)
     related_guest_order = serializers.PrimaryKeyRelatedField(read_only=True, allow_null=True)
     
@@ -874,7 +927,7 @@ class GuestOrderSerializer(serializers.ModelSerializer):
         read_only_fields = ['guest_order_id', 'temporary_id', 'order_date', 'expires_at']
 
     def get_restaurant_name(self, obj):
-        """ดึงชื่อร้านหลักหรือชื่อร้านแรก"""
+        """à¸”à¸¶à¸‡à¸Šà¸·à¹ˆà¸­à¸£à¹‰à¸²à¸™à¸«à¸¥à¸±à¸à¸«à¸£à¸·à¸­à¸Šà¸·à¹ˆà¸­à¸£à¹‰à¸²à¸™à¹à¸£à¸"""
         if obj.is_multi_restaurant:
             restaurant_names = obj.get_restaurant_names()
             return restaurant_names[0] if restaurant_names else 'Multi-Restaurant Order'
@@ -883,7 +936,7 @@ class GuestOrderSerializer(serializers.ModelSerializer):
         return 'Unknown Restaurant'
 
     def get_restaurants(self, obj):
-        """ดึงข้อมูลร้านทั้งหมด"""
+        """à¸”à¸¶à¸‡à¸‚à¹‰à¸­à¸¡à¸¹à¸¥à¸£à¹‰à¸²à¸™à¸—à¸±à¹‰à¸‡à¸«à¸¡à¸”"""
         if obj.is_multi_restaurant:
             return obj.restaurants
         elif obj.restaurant:
@@ -907,7 +960,7 @@ class GuestOrderSerializer(serializers.ModelSerializer):
         ]
 
     def get_order_details_by_restaurant(self, obj):
-        """จัดกลุ่ม OrderDetail ตามร้าน"""
+        """à¸ˆà¸±à¸”à¸à¸¥à¸¸à¹ˆà¸¡ OrderDetail à¸•à¸²à¸¡à¸£à¹‰à¸²à¸™"""
         order_details = obj.order_details.all()
         restaurants = {}
         
@@ -931,18 +984,18 @@ class GuestOrderSerializer(serializers.ModelSerializer):
         return list(restaurants.values())
     
     def get_restaurant_count(self, obj):
-        """นับจำนวนร้านในคำสั่งซื้อ"""
+        """à¸™à¸±à¸šà¸ˆà¸³à¸™à¸§à¸™à¸£à¹‰à¸²à¸™à¹ƒà¸™à¸„à¸³à¸ªà¸±à¹ˆà¸‡à¸‹à¸·à¹‰à¸­"""
         return obj.restaurant_count
     
     def get_is_multi_restaurant(self, obj):
-        """ตรวจสอบว่าเป็น multi-restaurant order หรือไม่"""
+        """à¸•à¸£à¸§à¸ˆà¸ªà¸­à¸šà¸§à¹ˆà¸²à¹€à¸›à¹‡à¸™ multi-restaurant order à¸«à¸£à¸·à¸­à¹„à¸¡à¹ˆ"""
         return obj.is_multi_restaurant
 
 
 class GuestMultiRestaurantOrderSerializer(serializers.Serializer):
     """
-    Serializer สำหรับการสั่งซื้อจากหลายร้านในครั้งเดียว (Guest Order)
-    ระบบจะสร้าง GuestOrder เดียวที่มี GuestOrderDetail จากหลายร้าน
+    Serializer à¸ªà¸³à¸«à¸£à¸±à¸šà¸à¸²à¸£à¸ªà¸±à¹ˆà¸‡à¸‹à¸·à¹‰à¸­à¸ˆà¸²à¸à¸«à¸¥à¸²à¸¢à¸£à¹‰à¸²à¸™à¹ƒà¸™à¸„à¸£à¸±à¹‰à¸‡à¹€à¸”à¸µà¸¢à¸§ (Guest Order)
+    à¸£à¸°à¸šà¸šà¸ˆà¸°à¸ªà¸£à¹‰à¸²à¸‡ GuestOrder à¹€à¸”à¸µà¸¢à¸§à¸—à¸µà¹ˆà¸¡à¸µ GuestOrderDetail à¸ˆà¸²à¸à¸«à¸¥à¸²à¸¢à¸£à¹‰à¸²à¸™
     """
     delivery_address = serializers.CharField(max_length=500)
     delivery_latitude = serializers.DecimalField(max_digits=20, decimal_places=12, required=False, allow_null=True)
@@ -956,51 +1009,51 @@ class GuestMultiRestaurantOrderSerializer(serializers.Serializer):
     restaurants = serializers.JSONField(write_only=True)
     
     def validate_delivery_latitude(self, value):
-        """ตรวจสอบและปรับค่า latitude"""
+        """à¸•à¸£à¸§à¸ˆà¸ªà¸­à¸šà¹à¸¥à¸°à¸›à¸£à¸±à¸šà¸„à¹ˆà¸² latitude"""
         if value is None:
             return value
         
-        # ตรวจสอบขอบเขต latitude (-90 ถึง 90)
+        # à¸•à¸£à¸§à¸ˆà¸ªà¸­à¸šà¸‚à¸­à¸šà¹€à¸‚à¸• latitude (-90 à¸–à¸¶à¸‡ 90)
         if value < -90 or value > 90:
             raise serializers.ValidationError("Latitude must be between -90 and 90")
         
-        # ปรับให้มีทศนิยมไม่เกิน 12 หลัก (ไม่จำกัดจำนวนหลักรวม)
+        # à¸›à¸£à¸±à¸šà¹ƒà¸«à¹‰à¸¡à¸µà¸—à¸¨à¸™à¸´à¸¢à¸¡à¹„à¸¡à¹ˆà¹€à¸à¸´à¸™ 12 à¸«à¸¥à¸±à¸ (à¹„à¸¡à¹ˆà¸ˆà¸³à¸à¸±à¸”à¸ˆà¸³à¸™à¸§à¸™à¸«à¸¥à¸±à¸à¸£à¸§à¸¡)
         from decimal import Decimal, ROUND_HALF_UP
         return value.quantize(Decimal('0.000000000001'), rounding=ROUND_HALF_UP)
     
     def validate_delivery_longitude(self, value):
-        """ตรวจสอบและปรับค่า longitude"""
+        """à¸•à¸£à¸§à¸ˆà¸ªà¸­à¸šà¹à¸¥à¸°à¸›à¸£à¸±à¸šà¸„à¹ˆà¸² longitude"""
         if value is None:
             return value
         
-        # ตรวจสอบขอบเขต longitude (-180 ถึง 180)
+        # à¸•à¸£à¸§à¸ˆà¸ªà¸­à¸šà¸‚à¸­à¸šà¹€à¸‚à¸• longitude (-180 à¸–à¸¶à¸‡ 180)
         if value < -180 or value > 180:
             raise serializers.ValidationError("Longitude must be between -180 and 180")
         
-        # ปรับให้มีทศนิยมไม่เกิน 12 หลัก (ไม่จำกัดจำนวนหลักรวม)
+        # à¸›à¸£à¸±à¸šà¹ƒà¸«à¹‰à¸¡à¸µà¸—à¸¨à¸™à¸´à¸¢à¸¡à¹„à¸¡à¹ˆà¹€à¸à¸´à¸™ 12 à¸«à¸¥à¸±à¸ (à¹„à¸¡à¹ˆà¸ˆà¸³à¸à¸±à¸”à¸ˆà¸³à¸™à¸§à¸™à¸«à¸¥à¸±à¸à¸£à¸§à¸¡)
         from decimal import Decimal, ROUND_HALF_UP
         return value.quantize(Decimal('0.000000000001'), rounding=ROUND_HALF_UP)
     
     def validate_total_delivery_fee(self, value):
-        """ตรวจสอบและปรับค่า delivery fee"""
+        """à¸•à¸£à¸§à¸ˆà¸ªà¸­à¸šà¹à¸¥à¸°à¸›à¸£à¸±à¸šà¸„à¹ˆà¸² delivery fee"""
         if value is None:
             return value
         
-        # ตรวจสอบว่าไม่เป็นค่าลบ
+        # à¸•à¸£à¸§à¸ˆà¸ªà¸­à¸šà¸§à¹ˆà¸²à¹„à¸¡à¹ˆà¹€à¸›à¹‡à¸™à¸„à¹ˆà¸²à¸¥à¸š
         if value < 0:
             raise serializers.ValidationError("Delivery fee cannot be negative")
         
-        # ปรับให้มีทศนิยมไม่เกิน 5 หลัก (ไม่จำกัดจำนวนหลัก)
+        # à¸›à¸£à¸±à¸šà¹ƒà¸«à¹‰à¸¡à¸µà¸—à¸¨à¸™à¸´à¸¢à¸¡à¹„à¸¡à¹ˆà¹€à¸à¸´à¸™ 5 à¸«à¸¥à¸±à¸ (à¹„à¸¡à¹ˆà¸ˆà¸³à¸à¸±à¸”à¸ˆà¸³à¸™à¸§à¸™à¸«à¸¥à¸±à¸)
         from decimal import Decimal, ROUND_HALF_UP
         return value.quantize(Decimal('0.00001'), rounding=ROUND_HALF_UP)
     
     def validate_restaurants(self, value):
-        """ตรวจสอบข้อมูลร้านและสินค้า"""
+        """à¸•à¸£à¸§à¸ˆà¸ªà¸­à¸šà¸‚à¹‰à¸­à¸¡à¸¹à¸¥à¸£à¹‰à¸²à¸™à¹à¸¥à¸°à¸ªà¸´à¸™à¸„à¹‰à¸²"""
         if not isinstance(value, list) or not value:
             raise serializers.ValidationError("Must have at least 1 restaurant and must be a list")
         
         for i, restaurant_data in enumerate(value):
-            # ตรวจสอบ structure ของแต่ละร้าน
+            # à¸•à¸£à¸§à¸ˆà¸ªà¸­à¸š structure à¸‚à¸­à¸‡à¹à¸•à¹ˆà¸¥à¸°à¸£à¹‰à¸²à¸™
             if not isinstance(restaurant_data, dict):
                 raise serializers.ValidationError(f"Restaurant data at index {i+1} must be an object")
             
@@ -1012,7 +1065,7 @@ class GuestMultiRestaurantOrderSerializer(serializers.Serializer):
             restaurant_id = restaurant_data.get('restaurant_id')
             items = restaurant_data.get('items')
             
-            # ตรวจสอบ restaurant_id
+            # à¸•à¸£à¸§à¸ˆà¸ªà¸­à¸š restaurant_id
             try:
                 restaurant_id = int(restaurant_id)
                 restaurant = Restaurant.objects.get(restaurant_id=restaurant_id)
@@ -1021,11 +1074,11 @@ class GuestMultiRestaurantOrderSerializer(serializers.Serializer):
             except Restaurant.DoesNotExist:
                 raise serializers.ValidationError(f"Restaurant not found with ID: {restaurant_id}")
             
-            # ตรวจสอบ items
+            # à¸•à¸£à¸§à¸ˆà¸ªà¸­à¸š items
             if not isinstance(items, list) or not items:
                 raise serializers.ValidationError(f"Restaurant {i+1}: must have at least 1 item in the list")
             
-            # ตรวจสอบสินค้าในร้าน
+            # à¸•à¸£à¸§à¸ˆà¸ªà¸­à¸šà¸ªà¸´à¸™à¸„à¹‰à¸²à¹ƒà¸™à¸£à¹‰à¸²à¸™
             for j, item in enumerate(items):
                 if not isinstance(item, dict):
                     raise serializers.ValidationError(f"Restaurant {i+1}, item {j+1}: must be an object")
@@ -1057,10 +1110,10 @@ class GuestMultiRestaurantOrderSerializer(serializers.Serializer):
     def create(self, validated_data):
         restaurants_data = validated_data.pop('restaurants')
         
-        # คำนวณยอดรวม
+        # à¸„à¸³à¸™à¸§à¸“à¸¢à¸­à¸”à¸£à¸§à¸¡
         total_amount = validated_data.get('total_delivery_fee', 0)
         
-        # เตรียมข้อมูลร้านสำหรับ JSONField
+        # à¹€à¸•à¸£à¸µà¸¢à¸¡à¸‚à¹‰à¸­à¸¡à¸¹à¸¥à¸£à¹‰à¸²à¸™à¸ªà¸³à¸«à¸£à¸±à¸š JSONField
         restaurants_json = []
         
         for restaurant_data in restaurants_data:
@@ -1073,16 +1126,16 @@ class GuestMultiRestaurantOrderSerializer(serializers.Serializer):
             
             total_amount += restaurant_subtotal
             
-            # เพิ่มข้อมูลร้านลงใน JSON
+            # à¹€à¸žà¸´à¹ˆà¸¡à¸‚à¹‰à¸­à¸¡à¸¹à¸¥à¸£à¹‰à¸²à¸™à¸¥à¸‡à¹ƒà¸™ JSON
             restaurants_json.append({
                 'restaurant_id': restaurant.restaurant_id,
                 'restaurant_name': restaurant.restaurant_name,
                 'delivery_fee': float(restaurant_data.get('delivery_fee', 0))
             })
         
-        # สร้าง GuestOrder
+        # à¸ªà¸£à¹‰à¸²à¸‡ GuestOrder
         guest_order = GuestOrder.objects.create(
-            restaurants=restaurants_json,  # ใช้ JSONField ใหม่
+            restaurants=restaurants_json,  # à¹ƒà¸Šà¹‰ JSONField à¹ƒà¸«à¸¡à¹ˆ
             delivery_address=validated_data['delivery_address'],
             delivery_latitude=validated_data.get('delivery_latitude'),
             delivery_longitude=validated_data.get('delivery_longitude'),
@@ -1096,7 +1149,7 @@ class GuestMultiRestaurantOrderSerializer(serializers.Serializer):
             payment_method=validated_data.get('payment_method', 'bank_transfer')
         )
         
-        # สร้าง GuestOrderDetail สำหรับทุกสินค้าจากทุกร้าน
+        # à¸ªà¸£à¹‰à¸²à¸‡ GuestOrderDetail à¸ªà¸³à¸«à¸£à¸±à¸šà¸—à¸¸à¸à¸ªà¸´à¸™à¸„à¹‰à¸²à¸ˆà¸²à¸à¸—à¸¸à¸à¸£à¹‰à¸²à¸™
         for restaurant_data in restaurants_data:
             restaurant = Restaurant.objects.get(restaurant_id=restaurant_data['restaurant_id'])
             for item_data in restaurant_data['items']:
@@ -1104,12 +1157,12 @@ class GuestMultiRestaurantOrderSerializer(serializers.Serializer):
                 GuestOrderDetail.objects.create(
                     guest_order=guest_order,
                     product=product,
-                    restaurant=restaurant,  # เพิ่ม restaurant field
+                    restaurant=restaurant,  # à¹€à¸žà¸´à¹ˆà¸¡ restaurant field
                     quantity=int(item_data['quantity']),
                     price_at_order=product.price
                 )
         
-        # สร้าง status log
+        # à¸ªà¸£à¹‰à¸²à¸‡ status log
         GuestDeliveryStatusLog.objects.create(
             guest_order=guest_order,
             status='pending',
@@ -1133,7 +1186,7 @@ class CreateGuestOrderSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         order_items = validated_data.pop('order_items')
         
-        # คำนวณยอดรวม
+        # à¸„à¸³à¸™à¸§à¸“à¸¢à¸­à¸”à¸£à¸§à¸¡
         total_amount = validated_data.get('delivery_fee', 0)
         restaurant = validated_data.get('restaurant')
         
@@ -1144,18 +1197,18 @@ class CreateGuestOrderSerializer(serializers.ModelSerializer):
         validated_data['total_amount'] = total_amount
         guest_order = GuestOrder.objects.create(**validated_data)
         
-        # สร้างรายละเอียดคำสั่งซื้อ
+        # à¸ªà¸£à¹‰à¸²à¸‡à¸£à¸²à¸¢à¸¥à¸°à¹€à¸­à¸µà¸¢à¸”à¸„à¸³à¸ªà¸±à¹ˆà¸‡à¸‹à¸·à¹‰à¸­
         for item in order_items:
             product = Product.objects.get(product_id=item['product_id'])
             GuestOrderDetail.objects.create(
                 guest_order=guest_order,
                 product=product,
-                restaurant=product.restaurant,  # ใช้ restaurant จาก product
+                restaurant=product.restaurant,  # à¹ƒà¸Šà¹‰ restaurant à¸ˆà¸²à¸ product
                 quantity=item['quantity'],
                 price_at_order=product.price
             )
         
-        # สร้าง status log แรก
+        # à¸ªà¸£à¹‰à¸²à¸‡ status log à¹à¸£à¸
         GuestDeliveryStatusLog.objects.create(
             guest_order=guest_order,
             status='pending',
@@ -1196,7 +1249,7 @@ class GuestOrderTrackingSerializer(serializers.ModelSerializer):
         ]
 
     def get_order_details_by_restaurant(self, obj):
-        """จัดกลุ่ม OrderDetail ตามร้าน"""
+        """à¸ˆà¸±à¸”à¸à¸¥à¸¸à¹ˆà¸¡ OrderDetail à¸•à¸²à¸¡à¸£à¹‰à¸²à¸™"""
         order_details = obj.order_details.all()
         restaurants = {}
         
@@ -1220,11 +1273,11 @@ class GuestOrderTrackingSerializer(serializers.ModelSerializer):
         return list(restaurants.values())
     
     def get_restaurant_count(self, obj):
-        """นับจำนวนร้านในคำสั่งซื้อ"""
+        """à¸™à¸±à¸šà¸ˆà¸³à¸™à¸§à¸™à¸£à¹‰à¸²à¸™à¹ƒà¸™à¸„à¸³à¸ªà¸±à¹ˆà¸‡à¸‹à¸·à¹‰à¸­"""
         return obj.order_details.values('product__restaurant').distinct().count()
     
     def get_is_multi_restaurant(self, obj):
-        """ตรวจสอบว่าเป็น multi-restaurant order หรือไม่"""
+        """à¸•à¸£à¸§à¸ˆà¸ªà¸­à¸šà¸§à¹ˆà¸²à¹€à¸›à¹‡à¸™ multi-restaurant order à¸«à¸£à¸·à¸­à¹„à¸¡à¹ˆ"""
         return self.get_restaurant_count(obj) > 1
 
 
@@ -1243,3 +1296,398 @@ class AdvertisementSerializer(serializers.ModelSerializer):
         """Get the advertisement image URL"""
         image_url = obj.get_image_url()
         return get_absolute_image_url(image_url, self.context.get('request'))
+
+
+# ===== Dine-In QR Code System Serializers =====
+
+class DineInProductTranslationSerializer(serializers.ModelSerializer):
+    language_code = serializers.CharField(source='language.code', read_only=True)
+    language_name = serializers.CharField(source='language.name', read_only=True)
+
+    class Meta:
+        model = DineInProductTranslation
+        fields = ['language_code', 'language_name', 'translated_name', 'translated_description']
+
+
+class DineInProductSerializer(serializers.ModelSerializer):
+    """Serializer for restaurant-managed dine-in products."""
+    image_display_url = serializers.SerializerMethodField()
+    category_name = serializers.CharField(source='category.category_name', read_only=True)
+    restaurant_name = serializers.CharField(source='restaurant.restaurant_name', read_only=True)
+    translations = serializers.SerializerMethodField()
+
+    class Meta:
+        model = DineInProduct
+        fields = [
+            'dine_in_product_id', 'restaurant', 'restaurant_name', 'category', 'category_name',
+            'product_name', 'description', 'price', 'image', 'image_url', 'image_display_url',
+            'is_available', 'sort_order', 'is_recommended', 'preparation_time', 'translations',
+            'created_at', 'updated_at'
+        ]
+        read_only_fields = ['dine_in_product_id', 'restaurant', 'created_at', 'updated_at']
+
+    def get_image_display_url(self, obj):
+        """Get product image URL"""
+        image_url = obj.get_image_url()
+        return get_absolute_image_url(image_url, self.context.get('request'))
+
+    def get_translations(self, obj):
+        request = self.context.get('request')
+        if request:
+            lang_code = request.query_params.get('lang', None)
+            if lang_code:
+                filtered_translations = obj.translations.filter(language__code=lang_code)
+                return DineInProductTranslationSerializer(filtered_translations, many=True).data
+        return DineInProductTranslationSerializer(obj.translations.all(), many=True).data
+
+    def create(self, validated_data):
+        translations_data = self.context.get('request').data.get('translations') if self.context.get('request') else validated_data.pop('translations', None)
+
+        if isinstance(translations_data, str):
+            import json
+            try:
+                translations_data = json.loads(translations_data)
+            except json.JSONDecodeError:
+                translations_data = None
+
+        dine_in_product = DineInProduct.objects.create(**validated_data)
+
+        if translations_data:
+            for lang_code, translation_data in translations_data.items():
+                if translation_data.get('name'):
+                    try:
+                        language = Language.objects.get(code=lang_code)
+                        DineInProductTranslation.objects.create(
+                            dine_in_product=dine_in_product,
+                            language=language,
+                            translated_name=translation_data['name'],
+                            translated_description=translation_data.get('description', '')
+                        )
+                    except Language.DoesNotExist:
+                        pass
+
+        return dine_in_product
+
+    def update(self, instance, validated_data):
+        translations_data = self.context.get('request').data.get('translations') if self.context.get('request') else validated_data.pop('translations', None)
+
+        if isinstance(translations_data, str):
+            import json
+            try:
+                translations_data = json.loads(translations_data)
+            except json.JSONDecodeError:
+                translations_data = None
+
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+
+        if translations_data is not None:
+            for lang_code, translation_data in translations_data.items():
+                if translation_data.get('name'):
+                    try:
+                        language = Language.objects.get(code=lang_code)
+                        translation, created = DineInProductTranslation.objects.get_or_create(
+                            dine_in_product=instance,
+                            language=language,
+                            defaults={
+                                'translated_name': translation_data['name'],
+                                'translated_description': translation_data.get('description', '')
+                            }
+                        )
+                        if not created:
+                            translation.translated_name = translation_data['name']
+                            translation.translated_description = translation_data.get('description', '')
+                            translation.save()
+                    except Language.DoesNotExist:
+                        pass
+
+        return instance
+
+
+class RestaurantTableSerializer(serializers.ModelSerializer):
+    """Serializer à¸ªà¸³à¸«à¸£à¸±à¸šà¸ˆà¸±à¸”à¸à¸²à¸£à¹‚à¸•à¹Šà¸°à¸‚à¸­à¸‡à¸£à¹‰à¸²à¸™à¸­à¸²à¸«à¸²à¸£"""
+    restaurant_name = serializers.CharField(source='restaurant.restaurant_name', read_only=True)
+    qr_code_image_display_url = serializers.SerializerMethodField()
+    qr_code_url = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = RestaurantTable
+        fields = [
+            'table_id', 'restaurant', 'restaurant_name', 'table_number',
+            'qr_code_data', 'qr_code_image', 'qr_code_image_url',
+            'qr_code_image_display_url', 'qr_code_url',
+            'is_active', 'seats', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['table_id', 'restaurant', 'qr_code_data', 'created_at', 'updated_at']
+    
+    def get_qr_code_image_display_url(self, obj):
+        """Get QR code image URL"""
+        if obj.qr_code_image:
+            return get_absolute_image_url(obj.qr_code_image.url, self.context.get('request'))
+        elif obj.qr_code_image_url:
+            return obj.qr_code_image_url
+        return None
+    
+    def get_qr_code_url(self, obj):
+        """à¸ªà¸£à¹‰à¸²à¸‡ URL à¸ªà¸³à¸«à¸£à¸±à¸šà¸¥à¸¹à¸à¸„à¹‰à¸²à¸ªà¹à¸à¸™ QR Code"""
+        request = self.context.get('request')
+        if request:
+            from django.conf import settings
+            frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:3000')
+            return f"{frontend_url}/dine-in/{obj.qr_code_data}"
+        return None
+
+
+class DineInCartItemSerializer(serializers.ModelSerializer):
+    """Serializer à¸ªà¸³à¸«à¸£à¸±à¸šà¸£à¸²à¸¢à¸à¸²à¸£à¹ƒà¸™à¸•à¸°à¸à¸£à¹‰à¸² Dine-in"""
+    product_name = serializers.CharField(source='dine_in_product.product_name', read_only=True)
+    product_image = serializers.SerializerMethodField()
+    translations = DineInProductTranslationSerializer(source='dine_in_product.translations.all', many=True, read_only=True)
+    restaurant_id = serializers.IntegerField(source='dine_in_product.restaurant.restaurant_id', read_only=True)
+    restaurant_name = serializers.CharField(source='dine_in_product.restaurant.restaurant_name', read_only=True)
+    
+    class Meta:
+        model = DineInCartItem
+        fields = [
+            'cart_item_id', 'cart', 'dine_in_product', 'product_name', 'product_image',
+            'translations', 'restaurant_id', 'restaurant_name', 'quantity', 'price_at_add',
+            'subtotal', 'special_instructions', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['cart_item_id', 'subtotal', 'created_at', 'updated_at']
+    
+    def get_product_image(self, obj):
+        """Get product image URL"""
+        image_url = obj.dine_in_product.get_image_url()
+        return get_absolute_image_url(image_url, self.context.get('request'))
+
+
+class DineInCartSerializer(serializers.ModelSerializer):
+    """Serializer à¸ªà¸³à¸«à¸£à¸±à¸šà¸•à¸°à¸à¸£à¹‰à¸² Dine-in"""
+    items = DineInCartItemSerializer(many=True, read_only=True)
+    total = serializers.DecimalField(max_digits=20, decimal_places=2, read_only=True, source='get_total')
+    table_number = serializers.CharField(source='table.table_number', read_only=True)
+    restaurant_id = serializers.IntegerField(source='table.restaurant.restaurant_id', read_only=True)
+    restaurant_name = serializers.CharField(source='table.restaurant.restaurant_name', read_only=True)
+    item_count = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = DineInCart
+        fields = [
+            'cart_id', 'table', 'table_number', 'restaurant_id', 'restaurant_name',
+            'session_id', 'customer_name', 'items', 'item_count', 'total',
+            'is_active', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['cart_id', 'created_at', 'updated_at']
+    
+    def get_item_count(self, obj):
+        """à¸™à¸±à¸šà¸ˆà¸³à¸™à¸§à¸™à¸£à¸²à¸¢à¸à¸²à¸£à¹ƒà¸™à¸•à¸°à¸à¸£à¹‰à¸²"""
+        return obj.items.count()
+
+
+class AddToCartSerializer(serializers.Serializer):
+    """Serializer à¸ªà¸³à¸«à¸£à¸±à¸šà¹€à¸žà¸´à¹ˆà¸¡à¸ªà¸´à¸™à¸„à¹‰à¸²à¸¥à¸‡à¸•à¸°à¸à¸£à¹‰à¸² Dine-in"""
+    product_id = serializers.IntegerField()
+    quantity = serializers.IntegerField(min_value=1)
+    special_instructions = serializers.CharField(required=False, allow_blank=True)
+
+
+class UpdateCartItemSerializer(serializers.Serializer):
+    """Serializer à¸ªà¸³à¸«à¸£à¸±à¸šà¸­à¸±à¸›à¹€à¸”à¸•à¸£à¸²à¸¢à¸à¸²à¸£à¹ƒà¸™à¸•à¸°à¸à¸£à¹‰à¸²"""
+    quantity = serializers.IntegerField(min_value=1)
+    special_instructions = serializers.CharField(required=False, allow_blank=True)
+
+
+class DineInOrderDetailSerializer(serializers.ModelSerializer):
+    """Serializer à¸ªà¸³à¸«à¸£à¸±à¸šà¸£à¸²à¸¢à¸¥à¸°à¹€à¸­à¸µà¸¢à¸”à¸­à¸­à¹€à¸”à¸­à¸£à¹Œ Dine-in"""
+    product_name = serializers.CharField(source='dine_in_product.product_name', read_only=True)
+    product_image = serializers.SerializerMethodField()
+    translations = DineInProductTranslationSerializer(source='dine_in_product.translations.all', many=True, read_only=True)
+    served_by_username = serializers.CharField(source='served_by.username', read_only=True, allow_null=True)
+    
+    class Meta:
+        model = DineInOrderDetail
+        fields = [
+            'order_detail_id', 'order', 'dine_in_product', 'product_name', 'product_image',
+            'translations', 'quantity', 'price_at_order', 'subtotal', 'special_instructions',
+            'is_served', 'served_at', 'served_by', 'served_by_username'
+        ]
+        read_only_fields = ['order_detail_id', 'subtotal', 'served_at', 'served_by']
+    
+    def get_product_image(self, obj):
+        """Get product image URL"""
+        image_url = obj.dine_in_product.get_image_url()
+        return get_absolute_image_url(image_url, self.context.get('request'))
+
+
+class DineInStatusLogSerializer(serializers.ModelSerializer):
+    """Serializer à¸ªà¸³à¸«à¸£à¸±à¸š log à¸à¸²à¸£à¹€à¸›à¸¥à¸µà¹ˆà¸¢à¸™à¸ªà¸–à¸²à¸™à¸°"""
+    updated_by_username = serializers.CharField(source='updated_by_user.username', read_only=True)
+    
+    class Meta:
+        model = DineInStatusLog
+        fields = [
+            'log_id', 'order', 'status', 'timestamp', 'note',
+            'updated_by_user', 'updated_by_username'
+        ]
+        read_only_fields = ['log_id', 'timestamp']
+
+
+class DineInOrderSerializer(serializers.ModelSerializer):
+    """Serializer à¸ªà¸³à¸«à¸£à¸±à¸šà¸­à¸­à¹€à¸”à¸­à¸£à¹Œ Dine-in"""
+    order_details = DineInOrderDetailSerializer(many=True, read_only=True)
+    status_logs = DineInStatusLogSerializer(many=True, read_only=True)
+    table_number = serializers.CharField(source='table.table_number', read_only=True)
+    restaurant_name = serializers.CharField(source='restaurant.restaurant_name', read_only=True)
+    
+    class Meta:
+        model = DineInOrder
+        fields = [
+            'dine_in_order_id', 'table', 'table_number', 'restaurant', 'restaurant_name',
+            'session_id', 'order_date', 'total_amount', 'current_status', 'payment_status',
+            'customer_name', 'customer_count', 'special_instructions',
+            'payment_method', 'paid_at', 'completed_at',
+            'bill_requested', 'bill_requested_at',
+            'order_details', 'status_logs'
+        ]
+        read_only_fields = ['dine_in_order_id', 'order_date', 'paid_at', 'completed_at', 'bill_requested_at']
+
+
+class CreateDineInOrderSerializer(serializers.Serializer):
+    """Serializer à¸ªà¸³à¸«à¸£à¸±à¸šà¸ªà¸£à¹‰à¸²à¸‡à¸­à¸­à¹€à¸”à¸­à¸£à¹Œ Dine-in à¸ˆà¸²à¸à¸•à¸°à¸à¸£à¹‰à¸²"""
+    customer_name = serializers.CharField(required=False, allow_blank=True)
+    customer_count = serializers.IntegerField(min_value=1, default=1)
+    special_instructions = serializers.CharField(required=False, allow_blank=True)
+    payment_method = serializers.CharField(required=False, default='cash')
+
+
+class UpdateDineInOrderStatusSerializer(serializers.Serializer):
+    """Serializer à¸ªà¸³à¸«à¸£à¸±à¸šà¸­à¸±à¸›à¹€à¸”à¸•à¸ªà¸–à¸²à¸™à¸°à¸­à¸­à¹€à¸”à¸­à¸£à¹Œ"""
+    status = serializers.ChoiceField(choices=DineInOrder.STATUS_CHOICES)
+    note = serializers.CharField(required=False, allow_blank=True)
+
+
+# ===== Entertainment Venues Serializers =====
+
+class VenueImageSerializer(serializers.ModelSerializer):
+    """Serializer for venue images"""
+    image_display_url = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = VenueImage
+        fields = ['image_id', 'venue', 'image', 'image_url', 'image_display_url', 'caption', 'sort_order', 'is_primary', 'created_at', 'updated_at']
+        read_only_fields = ['image_id', 'created_at', 'updated_at']
+    
+    def get_image_display_url(self, obj):
+        """Get the image URL"""
+        image_url = obj.get_image_url()
+        return get_absolute_image_url(image_url, self.context.get('request'))
+
+
+class VenueCategorySerializer(serializers.ModelSerializer):
+    """Serializer for venue categories"""
+    icon_display_url = serializers.SerializerMethodField()
+    venues_count = serializers.IntegerField(source='venues.count', read_only=True)
+    
+    class Meta:
+        model = VenueCategory
+        fields = ['category_id', 'category_name', 'description', 'icon', 'icon_url', 'icon_display_url', 'sort_order', 'is_active', 'venues_count', 'created_at', 'updated_at']
+        read_only_fields = ['category_id', 'created_at', 'updated_at']
+    
+    def get_icon_display_url(self, obj):
+        """Get the category icon URL"""
+        icon_url = obj.get_icon_url()
+        return get_absolute_image_url(icon_url, self.context.get('request'))
+
+
+class EntertainmentVenueSerializer(serializers.ModelSerializer):
+    """Serializer for entertainment venues"""
+    image_display_url = serializers.SerializerMethodField()
+    images = VenueImageSerializer(many=True, read_only=True)
+    category_name = serializers.CharField(source='category.category_name', read_only=True)
+    
+    class Meta:
+        model = EntertainmentVenue
+        fields = [
+            'venue_id', 'venue_name', 'description', 'address', 'latitude', 'longitude',
+            'phone_number', 'opening_hours', 'status', 'venue_type', 'category', 'category_name',
+            'image', 'image_url', 'image_display_url', 'average_rating', 'total_reviews',
+            'images', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['venue_id', 'average_rating', 'total_reviews', 'created_at', 'updated_at']
+    
+    def validate_latitude(self, value):
+        """Convert string to Decimal if needed and ensure max 12 decimal places"""
+        if value is None or value == '':
+            return None
+        if isinstance(value, str):
+            try:
+                from decimal import Decimal, ROUND_HALF_UP
+                decimal_value = Decimal(value)
+                # Round to 12 decimal places
+                return decimal_value.quantize(Decimal('0.000000000001'), rounding=ROUND_HALF_UP)
+            except (ValueError, TypeError):
+                return None
+        if isinstance(value, (int, float)):
+            from decimal import Decimal, ROUND_HALF_UP
+            decimal_value = Decimal(str(value))
+            return decimal_value.quantize(Decimal('0.000000000001'), rounding=ROUND_HALF_UP)
+        # If already Decimal, round it
+        if hasattr(value, 'quantize'):
+            from decimal import Decimal, ROUND_HALF_UP
+            return value.quantize(Decimal('0.000000000001'), rounding=ROUND_HALF_UP)
+        return value
+    
+    def validate_longitude(self, value):
+        """Convert string to Decimal if needed and ensure max 12 decimal places"""
+        if value is None or value == '':
+            return None
+        if isinstance(value, str):
+            try:
+                from decimal import Decimal, ROUND_HALF_UP
+                decimal_value = Decimal(value)
+                # Round to 12 decimal places
+                return decimal_value.quantize(Decimal('0.000000000001'), rounding=ROUND_HALF_UP)
+            except (ValueError, TypeError):
+                return None
+        if isinstance(value, (int, float)):
+            from decimal import Decimal, ROUND_HALF_UP
+            decimal_value = Decimal(str(value))
+            return decimal_value.quantize(Decimal('0.000000000001'), rounding=ROUND_HALF_UP)
+        # If already Decimal, round it
+        if hasattr(value, 'quantize'):
+            from decimal import Decimal, ROUND_HALF_UP
+            return value.quantize(Decimal('0.000000000001'), rounding=ROUND_HALF_UP)
+        return value
+    
+    def validate_category(self, value):
+        """Handle category field - can be None, ID, or empty string"""
+        if value is None or value == '':
+            return None
+        return value
+    
+    def get_image_display_url(self, obj):
+        """Get the venue image URL"""
+        image_url = obj.get_image_url()
+        return get_absolute_image_url(image_url, self.context.get('request'))
+
+
+class EntertainmentVenueListSerializer(serializers.ModelSerializer):
+    """Lightweight serializer for venue list (without images)"""
+    image_display_url = serializers.SerializerMethodField()
+    category_name = serializers.CharField(source='category.category_name', read_only=True)
+    
+    class Meta:
+        model = EntertainmentVenue
+        fields = [
+            'venue_id', 'venue_name', 'description', 'address', 'latitude', 'longitude',
+            'phone_number', 'opening_hours', 'status', 'venue_type', 'category', 'category_name',
+            'image_display_url', 'average_rating', 'total_reviews', 'created_at'
+        ]
+        read_only_fields = ['venue_id', 'average_rating', 'total_reviews', 'created_at']
+    
+    def get_image_display_url(self, obj):
+        """Get the venue image URL"""
+        image_url = obj.get_image_url()
+        return get_absolute_image_url(image_url, self.context.get('request'))
+

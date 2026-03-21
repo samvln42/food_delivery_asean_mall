@@ -4,9 +4,55 @@
  * ฟรี 100% ไม่ต้อง API Key
  */
 
-import { encode } from '@erikmichelson/open-location-code-ts';
+import { API_CONFIG } from '../config/api.js';
 
-const NOMINATIM_BASE_URL = 'https://nominatim.openstreetmap.org';
+const GEOCODING_PROXY_BASE_URL = `${API_CONFIG.BASE_URL}/geocode`;
+const REVERSE_CACHE_TTL_MS = 5 * 60 * 1000;
+const MIN_REVERSE_REQUEST_INTERVAL_MS = 1100;
+const REVERSE_RATE_LIMIT_COOLDOWN_MS = 30 * 1000;
+
+const reverseAddressCache = new Map();
+const pendingReverseRequests = new Map();
+let lastReverseRequestAt = 0;
+let reverseRateLimitedUntil = 0;
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const buildGeocodingProxyUrl = (path, params = {}) => {
+  const url = new URL(`${GEOCODING_PROXY_BASE_URL}/${path}/`);
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '') {
+      url.searchParams.set(key, String(value));
+    }
+  });
+  return url.toString();
+};
+
+const getReverseCacheKey = (lat, lng) => `${Number(lat).toFixed(5)},${Number(lng).toFixed(5)}`;
+const formatCoordinateAddress = (lat, lng) => `${Number(lat).toFixed(7)}, ${Number(lng).toFixed(7)}`;
+
+const getCachedReverseAddress = (cacheKey) => {
+  const cached = reverseAddressCache.get(cacheKey);
+  if (!cached) {
+    return null;
+  }
+
+  if (Date.now() - cached.timestamp > REVERSE_CACHE_TTL_MS) {
+    reverseAddressCache.delete(cacheKey);
+    return null;
+  }
+
+  return cached.address;
+};
+
+const throttleReverseRequest = async () => {
+  const elapsed = Date.now() - lastReverseRequestAt;
+  const waitMs = MIN_REVERSE_REQUEST_INTERVAL_MS - elapsed;
+  if (waitMs > 0) {
+    await sleep(waitMs);
+  }
+  lastReverseRequestAt = Date.now();
+};
 
 /**
  * Generate Plus Code (Open Location Code) from coordinates
@@ -16,6 +62,7 @@ const NOMINATIM_BASE_URL = 'https://nominatim.openstreetmap.org';
  * @param {number} codeLength - Code length (default: 10, which gives 8 characters + separator)
  * @returns {string} - Plus Code format (e.g., "7P94+XJ6")
  */
+// eslint-disable-next-line no-unused-vars
 const generatePlusCode = (lat, lng, codeLength = 10) => {
   const CODE_ALPHABET = '23456789CFGHJMPQRVWX';
   const SEPARATOR = '+';
@@ -76,7 +123,9 @@ const generatePlusCode = (lat, lng, codeLength = 10) => {
  * @param {number} lng - Longitude (-180 to 180)
  * @returns {string} - Plus Code (e.g., "7P94+XJ6")
  */
+// eslint-disable-next-line no-unused-vars
 const generateCorrectPlusCode = (lat, lng) => {
+
   const CODE_ALPHABET = '23456789CFGHJMPQRVWX';
   const SEPARATOR = '+';
   const SEPARATOR_POSITION = 8;
@@ -124,6 +173,7 @@ const formatShortAddress = (addressData, lat = null, lng = null) => {
   }
 
   const addr = addressData.address;
+  // eslint-disable-next-line no-unused-vars
   const parts = [];
 
   // Get city/town/village name
@@ -187,13 +237,11 @@ export const geocodeAddress = async (address) => {
   }
 
   try {
-    const url = `${NOMINATIM_BASE_URL}/search?format=json&q=${encodeURIComponent(address)}&limit=1&addressdetails=1`;
-    
-    const response = await fetch(url, {
-      headers: {
-        'User-Agent': 'FoodDeliveryApp/1.0' // Required by Nominatim
-      }
+    const url = buildGeocodingProxyUrl('search', {
+      q: address,
+      limit: 1,
     });
+    const response = await fetch(url);
 
     if (!response.ok) {
       throw new Error(`Geocoding failed: ${response.status}`);
@@ -213,10 +261,18 @@ export const geocodeAddress = async (address) => {
         place_id: result.place_id
       };
     } else {
-      throw new Error('No results found');
+      // ไม่พบผลลัพธ์ - ไม่ใช่ error ที่ร้ายแรง แค่ไม่มีข้อมูล
+      const error = new Error(`ไม่พบตำแหน่งสำหรับที่อยู่: "${address}"`);
+      error.code = 'NO_RESULTS';
+      throw error;
     }
   } catch (error) {
-    console.error('Geocoding error:', error);
+    // ถ้าเป็น error ที่เราสร้างขึ้นเอง (NO_RESULTS) ไม่ต้อง log เป็น error
+    if (error.code === 'NO_RESULTS') {
+      console.warn('Geocoding: No results found for address:', address);
+    } else {
+      console.error('Geocoding error:', error);
+    }
     throw error;
   }
 };
@@ -228,36 +284,81 @@ export const geocodeAddress = async (address) => {
  * @returns {Promise<string>} - Formatted address (short format)
  */
 export const reverseGeocode = async (lat, lng) => {
-  if (!lat || !lng) {
+  if (lat === undefined || lat === null || lng === undefined || lng === null) {
     throw new Error('Coordinates are required');
   }
 
-  try {
-    const url = `${NOMINATIM_BASE_URL}/reverse?format=json&lat=${lat}&lon=${lng}&addressdetails=1`;
-    
-    const response = await fetch(url, {
-      headers: {
-        'User-Agent': 'FoodDeliveryApp/1.0' // Required by Nominatim
-      }
-    });
-
-    if (!response.ok) {
-      throw new Error(`Reverse geocoding failed: ${response.status}`);
-    }
-
-    const data = await response.json();
-
-    if (data && data.display_name) {
-      // Format to short address with Plus Code
-      const shortAddress = formatShortAddress(data, lat, lng);
-      return shortAddress || data.display_name;
-    } else {
-      throw new Error('No address found');
-    }
-  } catch (error) {
-    console.error('Reverse geocoding error:', error);
-    throw error;
+  const numericLat = Number(lat);
+  const numericLng = Number(lng);
+  if (!Number.isFinite(numericLat) || !Number.isFinite(numericLng)) {
+    throw new Error('Coordinates must be valid numbers');
   }
+
+  const cacheKey = getReverseCacheKey(numericLat, numericLng);
+  const cachedAddress = getCachedReverseAddress(cacheKey);
+  if (cachedAddress) {
+    return cachedAddress;
+  }
+
+  if (Date.now() < reverseRateLimitedUntil) {
+    const fallbackAddress = formatCoordinateAddress(numericLat, numericLng);
+    reverseAddressCache.set(cacheKey, {
+      address: fallbackAddress,
+      timestamp: Date.now(),
+    });
+    return fallbackAddress;
+  }
+
+  if (pendingReverseRequests.has(cacheKey)) {
+    return pendingReverseRequests.get(cacheKey);
+  }
+
+  const requestPromise = (async () => {
+    try {
+      await throttleReverseRequest();
+      const url = buildGeocodingProxyUrl('reverse', {
+        lat: numericLat,
+        lon: numericLng,
+      });
+      const response = await fetch(url);
+
+      if (!response.ok) {
+        if (response.status === 429) {
+          reverseRateLimitedUntil = Date.now() + REVERSE_RATE_LIMIT_COOLDOWN_MS;
+          const fallbackAddress = formatCoordinateAddress(numericLat, numericLng);
+          reverseAddressCache.set(cacheKey, {
+            address: fallbackAddress,
+            timestamp: Date.now(),
+          });
+          return fallbackAddress;
+        }
+        throw new Error(`Reverse geocoding failed: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      if (data && data.display_name) {
+        // Format to short address with Plus Code
+        const shortAddress = formatShortAddress(data, numericLat, numericLng);
+        const resolvedAddress = shortAddress || data.display_name;
+        reverseAddressCache.set(cacheKey, {
+          address: resolvedAddress,
+          timestamp: Date.now(),
+        });
+        return resolvedAddress;
+      }
+
+      throw new Error('No address found');
+    } catch (error) {
+      console.warn('Reverse geocoding error:', error);
+      throw error;
+    } finally {
+      pendingReverseRequests.delete(cacheKey);
+    }
+  })();
+
+  pendingReverseRequests.set(cacheKey, requestPromise);
+  return requestPromise;
 };
 
 /**
@@ -271,13 +372,11 @@ export const searchAddresses = async (query) => {
   }
 
   try {
-    const url = `${NOMINATIM_BASE_URL}/search?format=json&q=${encodeURIComponent(query)}&limit=5&addressdetails=1`;
-    
-    const response = await fetch(url, {
-      headers: {
-        'User-Agent': 'FoodDeliveryApp/1.0' // Required by Nominatim
-      }
+    const url = buildGeocodingProxyUrl('search', {
+      q: query,
+      limit: 5,
     });
+    const response = await fetch(url);
 
     if (!response.ok) {
       throw new Error(`Search failed: ${response.status}`);

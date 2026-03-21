@@ -1,5 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
+import React, { useState, useEffect, useRef, useCallback, forwardRef, useImperativeHandle } from 'react';
+import { MapContainer, TileLayer, useMap } from 'react-leaflet';
+import { BiCurrentLocation } from "react-icons/bi";
+import { GrLocationPin } from "react-icons/gr";
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { reverseGeocode } from '../../utils/nominatim';
@@ -16,21 +18,54 @@ L.Icon.Default.mergeOptions({
  * MapPickerLeaflet Component
  * Component สำหรับเลือกที่อยู่โดยคลิกบนแผนที่ (ใช้ OpenStreetMap + Leaflet)
  */
-const MapClickHandler = ({ onLocationSelect, updateLocation }) => {
-  useMapEvents({
-    click: async (e) => {
-      const location = {
-        lat: e.latlng.lat,
-        lng: e.latlng.lng
-      };
-      await updateLocation(location);
-    }
-  });
+const MapCenterHandler = ({ updateLocation, commit = true }) => {
+  const map = useMap();
+  const lastCenterKeyRef = useRef('');
+  
+  useEffect(() => {
+    const updateCenterLocation = async () => {
+      const center = map.getCenter();
+      const centerKey = `${center.lat.toFixed(5)},${center.lng.toFixed(5)}`;
+      if (lastCenterKeyRef.current === centerKey) {
+        return;
+      }
+      lastCenterKeyRef.current = centerKey;
+      await updateLocation({
+        lat: center.lat,
+        lng: center.lng
+      }, { commit });
+    };
+
+    // อัพเดทเมื่อแผนที่เลื่อนหรือซูม
+    map.on('moveend', updateCenterLocation);
+    updateCenterLocation();
+
+    return () => {
+      map.off('moveend', updateCenterLocation);
+    };
+  }, [map, updateLocation, commit]);
+
+  return null;
+};
+
+// ลงทะเบียนฟังก์ชัน confirm ตำแหน่งปัจจุบัน (ให้ parent เรียกได้)
+const ConfirmLocationHandler = ({ updateLocation, confirmRef }) => {
+  const map = useMap();
+  useEffect(() => {
+    confirmRef.current = () => {
+      const center = map.getCenter();
+      const loc = { lat: center.lat, lng: center.lng };
+      // commit ทันที (ไม่ await reverse geocode) เพื่อให้ค่าจัดส่งอัปเดตไว
+      updateLocation(loc, { commit: true, awaitGeocode: false });
+      return loc;
+    };
+    return () => { confirmRef.current = null; };
+  }, [map, updateLocation, confirmRef]);
   return null;
 };
 
 // Component สำหรับควบคุมแผนที่ (ซูมไปที่ตำแหน่งปัจจุบัน)
-const MapController = ({ onZoomToCurrentLocation, updateLocation }) => {
+const MapController = ({ onZoomToCurrentLocation, updateLocation, commit = true }) => {
   const map = useMap();
   
   useEffect(() => {
@@ -45,7 +80,7 @@ const MapController = ({ onZoomToCurrentLocation, updateLocation }) => {
               };
               map.setView([location.lat, location.lng], 17); // ซูมที่ระดับ 17
               if (updateLocation) {
-                await updateLocation(location);
+                await updateLocation(location, { commit });
               }
             },
             (error) => {
@@ -58,28 +93,32 @@ const MapController = ({ onZoomToCurrentLocation, updateLocation }) => {
         }
       };
     }
-  }, [map, onZoomToCurrentLocation, updateLocation]);
+  }, [map, onZoomToCurrentLocation, updateLocation, commit]);
 
   return null;
 };
 
-const MapPickerLeaflet = ({ 
+const MapPickerLeaflet = forwardRef(({ 
   initialCenter = { lat: 13.7563, lng: 100.5018 }, // กรุงเทพฯ
   onLocationSelect,
+  deferSelection = false,
   zoom = 15,
   className = '',
   height = '400px'
-}) => {
+}, ref) => {
   const [currentLocation, setCurrentLocation] = useState(initialCenter);
   const [address, setAddress] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [markerPosition, setMarkerPosition] = useState(initialCenter);
   const zoomToCurrentLocationRef = useRef(null);
+  const confirmLocationRef = useRef(null);
 
-  useEffect(() => {
-    // Get initial address
-    updateLocation(initialCenter);
-  }, []);
+  useImperativeHandle(ref, () => ({
+    confirmCurrentLocation: async () => {
+      if (confirmLocationRef.current) {
+        return await confirmLocationRef.current();
+      }
+    }
+  }), []);
 
   // ซ่อน Leaflet attribution
   useEffect(() => {
@@ -103,16 +142,39 @@ const MapPickerLeaflet = ({
     return () => observer.disconnect();
   }, []);
 
-  const updateLocation = async (location) => {
-    setCurrentLocation(location);
-    setMarkerPosition(location);
-    setIsLoading(true);
+  const updateLocation = useCallback(async (location, options = {}) => {
+    const {
+      commit: commitOverride,
+      awaitGeocode = true,
+    } = options;
 
-    try {
+    const shouldCommit = typeof commitOverride === 'boolean'
+      ? commitOverride
+      : !deferSelection;
+
+    setCurrentLocation(location);
+    const fallbackAddr = `ตำแหน่ง: ${location.lat.toFixed(6)}, ${location.lng.toFixed(6)}`;
+
+    // โหมด deferSelection: ยังไม่ commit ตำแหน่งจริงจนกดปุ่ม "เลือกตำแหน่งนี้"
+    if (!shouldCommit) {
+      setAddress(fallbackAddr);
+      return;
+    }
+
+    // commit: ส่ง lat/lng ทันที เพื่อให้ค่าจัดส่งเริ่มคำนวณได้เร็วขึ้น (ไม่รอ reverse geocode)
+    if (onLocationSelect) {
+      onLocationSelect({
+        lat: location.lat,
+        lng: location.lng,
+        address: fallbackAddr
+      });
+    }
+
+    const doGeocode = async () => {
+      setIsLoading(true);
       try {
         const addr = await reverseGeocode(location.lat, location.lng);
         setAddress(addr);
-        
         if (onLocationSelect) {
           onLocationSelect({
             lat: location.lat,
@@ -121,35 +183,27 @@ const MapPickerLeaflet = ({
           });
         }
       } catch (geocodeError) {
-        // ถ้า reverse geocode ไม่สำเร็จ ให้ใช้พิกัดแทน
         console.warn('Reverse geocoding failed, using coordinates:', geocodeError.message);
-        const fallbackAddress = `ตำแหน่ง: ${location.lat.toFixed(6)}, ${location.lng.toFixed(6)}`;
-        setAddress(fallbackAddress);
-        
+        setAddress(fallbackAddr);
         if (onLocationSelect) {
           onLocationSelect({
             lat: location.lat,
             lng: location.lng,
-            address: fallbackAddress
+            address: fallbackAddr
           });
         }
+      } finally {
+        setIsLoading(false);
       }
-    } catch (error) {
-      console.error('Error updating location:', error);
-      const fallbackAddress = `ตำแหน่ง: ${location.lat.toFixed(6)}, ${location.lng.toFixed(6)}`;
-      setAddress(fallbackAddress);
-      
-      if (onLocationSelect) {
-        onLocationSelect({
-          lat: location.lat,
-          lng: location.lng,
-          address: fallbackAddress
-        });
-      }
-    } finally {
-      setIsLoading(false);
+    };
+
+    if (awaitGeocode) {
+      await doGeocode();
+    } else {
+      // fire-and-forget (ให้ปุ่ม confirm ทำงานไว)
+      void doGeocode();
     }
-  };
+  }, [onLocationSelect, deferSelection]);
 
   return (
     <div className={`map-picker-leaflet ${className}`}>
@@ -160,8 +214,38 @@ const MapPickerLeaflet = ({
         .map-picker-leaflet .leaflet-control-zoom {
           display: none !important;
         }
+        .map-picker-leaflet .custom-pin-icon {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          filter: drop-shadow(0 4px 6px rgba(249, 115, 22, 0.35));
+        }
+        .map-picker-leaflet .custom-pin-icon .map-pin-svg {
+          width: 36px;
+          height: 36px;
+        }
+        .map-picker-leaflet .fixed-center-pin {
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -100%);
+          z-index: 1000;
+          pointer-events: none;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          filter: drop-shadow(0 4px 6px rgba(249, 115, 22, 0.35));
+        }
+        .map-picker-leaflet .fixed-center-pin svg {
+          width: 36px;
+          height: 36px;
+        }
       `}</style>
       <div style={{ height: height }} className="w-full rounded-lg border border-secondary-300 overflow-hidden relative">
+        {/* Fixed center pin */}
+        <div className="fixed-center-pin">
+          <GrLocationPin size={36} color="#f97316" />
+        </div>
         <MapContainer
           center={[currentLocation.lat, currentLocation.lng]}
           zoom={zoom}
@@ -174,23 +258,9 @@ const MapPickerLeaflet = ({
             attribution=""
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
-          <Marker
-            position={[markerPosition.lat, markerPosition.lng]}
-            draggable={true}
-            eventHandlers={{
-              dragend: async (e) => {
-                const marker = e.target;
-                const position = marker.getLatLng();
-                const location = {
-                  lat: position.lat,
-                  lng: position.lng
-                };
-                await updateLocation(location);
-              }
-            }}
-          />
-          <MapClickHandler onLocationSelect={onLocationSelect} updateLocation={updateLocation} />
-          <MapController onZoomToCurrentLocation={zoomToCurrentLocationRef} updateLocation={updateLocation} />
+          <MapCenterHandler updateLocation={updateLocation} commit={!deferSelection} />
+          <ConfirmLocationHandler updateLocation={updateLocation} confirmRef={confirmLocationRef} />
+          <MapController onZoomToCurrentLocation={zoomToCurrentLocationRef} updateLocation={updateLocation} commit={!deferSelection} />
         </MapContainer>
         {/* ปุ่มซูมไปที่ตำแหน่งปัจจุบัน (แบบกลมเหมือน Google Maps) */}
         <button
@@ -201,21 +271,16 @@ const MapPickerLeaflet = ({
             }
           }}
           className="absolute bottom-4 right-4 w-10 h-10 bg-white rounded-full shadow-lg hover:bg-gray-50 transition-colors flex items-center justify-center z-[1000] border border-gray-300"
-          title="ซูมไปที่ตำแหน่งปัจจุบัน"
+          title="Zoom to current location"
         >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
-            fill="currentColor"
-            className="w-5 h-5 text-gray-700"
-          >
-            <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
-          </svg>
+          <BiCurrentLocation className="w-5 h-5 text-gray-700" />
         </button>
       </div>
     </div>
   );
-};
+});
+
+MapPickerLeaflet.displayName = 'MapPickerLeaflet';
 
 export default MapPickerLeaflet;
 

@@ -8,10 +8,18 @@ from rest_framework.exceptions import ValidationError
 from django_filters.rest_framework import DjangoFilterBackend
 from django.contrib.auth import authenticate, login, logout
 from django.db.models import Q, Count, Sum, Avg
+from django.db import transaction
 from django.utils import timezone
+from django.core.cache import cache
+from django.conf import settings as django_settings
 from datetime import datetime, timedelta
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
+import logging
+import math
+import requests
+import threading
+import time
 
 from accounts.models import User
 from .models import (
@@ -19,7 +27,10 @@ from .models import (
     Payment, Review, ProductReview, DeliveryStatusLog, Notification,
     SearchHistory, PopularSearch, UserFavorite, AnalyticsDaily,
     RestaurantAnalytics, ProductAnalytics, AppSettings, Language, Translation,
-    GuestOrder, GuestOrderDetail, GuestDeliveryStatusLog, Advertisement
+    GuestOrder, GuestOrderDetail, GuestDeliveryStatusLog, Advertisement,
+    RestaurantTable, DineInCart, DineInCartItem, DineInOrder,
+    DineInOrderDetail, DineInStatusLog, DineInProduct,
+    EntertainmentVenue, VenueImage, VenueCategory, VenueReview
 )
 from .serializers import (
     RestaurantSerializer, CategorySerializer, ProductSerializer,
@@ -30,8 +41,16 @@ from .serializers import (
     ProductAnalyticsSerializer, MultiRestaurantOrderSerializer, AppSettingsSerializer,
     LanguageSerializer, TranslationSerializer, GuestOrderSerializer, 
     CreateGuestOrderSerializer, GuestOrderTrackingSerializer, GuestMultiRestaurantOrderSerializer,
-    AdvertisementSerializer
+    AdvertisementSerializer, RestaurantTableSerializer, DineInCartSerializer,
+    DineInCartItemSerializer, DineInOrderSerializer, DineInOrderDetailSerializer,
+    DineInStatusLogSerializer, AddToCartSerializer, UpdateCartItemSerializer,
+    CreateDineInOrderSerializer, UpdateDineInOrderStatusSerializer, DineInProductSerializer,
+    EntertainmentVenueSerializer, EntertainmentVenueListSerializer, VenueImageSerializer, VenueCategorySerializer,
+    VenueReviewSerializer
 )
+
+# Logger instance
+logger = logging.getLogger(__name__)
 
 
 # -------------------- Health Check Endpoint --------------------
@@ -41,6 +60,245 @@ from .serializers import (
 def health_check(request):
     """Simple health check view for load balancer."""
     return Response({"status": "ok"})
+
+
+NOMINATIM_BASE_URL = getattr(
+    django_settings,
+    "NOMINATIM_BASE_URL",
+    "https://nominatim.openstreetmap.org",
+).rstrip("/")
+NOMINATIM_TIMEOUT_SECONDS = int(getattr(django_settings, "NOMINATIM_TIMEOUT_SECONDS", 8))
+NOMINATIM_CACHE_TTL_SECONDS = int(getattr(django_settings, "NOMINATIM_CACHE_TTL_SECONDS", 60 * 60 * 24))
+NOMINATIM_USER_AGENT = getattr(
+    django_settings,
+    "NOMINATIM_USER_AGENT",
+    "FoodDeliveryAseanMall/1.0 (local geocoding proxy)",
+)
+NOMINATIM_MIN_INTERVAL_SECONDS = float(getattr(django_settings, "NOMINATIM_MIN_INTERVAL_SECONDS", 1.1))
+NOMINATIM_RETRY_BACKOFF_SECONDS = float(getattr(django_settings, "NOMINATIM_RETRY_BACKOFF_SECONDS", 2.0))
+NOMINATIM_RETRY_ATTEMPTS = max(0, int(getattr(django_settings, "NOMINATIM_RETRY_ATTEMPTS", 1)))
+NOMINATIM_REVERSE_CACHE_PRECISION = max(
+    3,
+    min(6, int(getattr(django_settings, "NOMINATIM_REVERSE_CACHE_PRECISION", 4))),
+)
+NOMINATIM_RATE_LIMIT_COOLDOWN_SECONDS = max(
+    5, int(getattr(django_settings, "NOMINATIM_RATE_LIMIT_COOLDOWN_SECONDS", 30))
+)
+NOMINATIM_RATE_LIMIT_CACHE_KEY = "nominatim:rate_limited_until"
+
+_nominatim_lock = threading.Lock()
+_nominatim_last_request_at = 0.0
+
+
+def _nominatim_wait_for_rate_slot():
+    global _nominatim_last_request_at
+    if NOMINATIM_MIN_INTERVAL_SECONDS <= 0:
+        return
+
+    with _nominatim_lock:
+        now = time.monotonic()
+        elapsed = now - _nominatim_last_request_at
+        wait_seconds = NOMINATIM_MIN_INTERVAL_SECONDS - elapsed
+        if wait_seconds > 0:
+            time.sleep(wait_seconds)
+            now = time.monotonic()
+        _nominatim_last_request_at = now
+
+
+def _parse_retry_after_seconds(value):
+    if not value:
+        return None
+
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError):
+        return None
+
+    if parsed < 0:
+        return None
+
+    return min(parsed, 60.0)
+
+
+def _nominatim_request(endpoint: str, params: dict, cache_key: str):
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached, None
+
+    now_epoch = time.time()
+    rate_limited_until = cache.get(NOMINATIM_RATE_LIMIT_CACHE_KEY)
+    if isinstance(rate_limited_until, (int, float)) and rate_limited_until > now_epoch:
+        retry_after = max(1, int(math.ceil(rate_limited_until - now_epoch)))
+        return None, Response(
+            {
+                "detail": "Geocoding provider rate limit exceeded. Please retry shortly.",
+                "retry_after_seconds": retry_after,
+            },
+            status=status.HTTP_429_TOO_MANY_REQUESTS,
+        )
+
+    attempt = 0
+    response = None
+    while attempt <= NOMINATIM_RETRY_ATTEMPTS:
+        _nominatim_wait_for_rate_slot()
+        try:
+            response = requests.get(
+                f"{NOMINATIM_BASE_URL}/{endpoint}",
+                params=params,
+                headers={
+                    "User-Agent": NOMINATIM_USER_AGENT,
+                    "Accept": "application/json",
+                },
+                timeout=NOMINATIM_TIMEOUT_SECONDS,
+            )
+        except requests.RequestException:
+            return None, Response(
+                {"detail": "Failed to connect to geocoding provider."},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+
+        if response.status_code != 429:
+            break
+
+        retry_after_header = response.headers.get("Retry-After")
+        retry_after_seconds = _parse_retry_after_seconds(retry_after_header)
+        cooldown_seconds = retry_after_seconds or NOMINATIM_RATE_LIMIT_COOLDOWN_SECONDS
+        limited_until = time.time() + cooldown_seconds
+        cache.set(NOMINATIM_RATE_LIMIT_CACHE_KEY, limited_until, timeout=max(1, int(math.ceil(cooldown_seconds))))
+
+        if attempt >= NOMINATIM_RETRY_ATTEMPTS:
+            return None, Response(
+                {
+                    "detail": "Geocoding provider rate limit exceeded. Please retry shortly.",
+                    "retry_after_seconds": max(1, int(math.ceil(cooldown_seconds))),
+                },
+                status=status.HTTP_429_TOO_MANY_REQUESTS,
+            )
+
+        backoff_seconds = retry_after_seconds or NOMINATIM_RETRY_BACKOFF_SECONDS
+        time.sleep(max(0.5, backoff_seconds))
+        attempt += 1
+
+    if response is None:
+        return None, Response(
+            {"detail": "Geocoding provider returned an unexpected response."},
+            status=status.HTTP_502_BAD_GATEWAY,
+        )
+
+    if response.status_code >= 400:
+        return None, Response(
+            {"detail": "Geocoding provider returned an unexpected response."},
+            status=status.HTTP_502_BAD_GATEWAY,
+        )
+
+    try:
+        data = response.json()
+    except ValueError:
+        return None, Response(
+            {"detail": "Invalid geocoding response format."},
+            status=status.HTTP_502_BAD_GATEWAY,
+        )
+
+    cache.set(cache_key, data, NOMINATIM_CACHE_TTL_SECONDS)
+    return data, None
+
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def reverse_geocode_proxy(request):
+    lat_raw = request.query_params.get("lat")
+    lon_raw = request.query_params.get("lon") or request.query_params.get("lng")
+
+    if lat_raw is None or lon_raw is None:
+        return Response(
+            {"detail": "Both lat and lon are required."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    try:
+        lat = float(lat_raw)
+        lon = float(lon_raw)
+    except (TypeError, ValueError):
+        return Response(
+            {"detail": "lat/lon must be valid numbers."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    if not (-90 <= lat <= 90) or not (-180 <= lon <= 180):
+        return Response(
+            {"detail": "lat/lon are out of valid range."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    rounded_lat = f"{lat:.{NOMINATIM_REVERSE_CACHE_PRECISION}f}"
+    rounded_lon = f"{lon:.{NOMINATIM_REVERSE_CACHE_PRECISION}f}"
+    cache_key = f"nominatim:reverse:{rounded_lat}:{rounded_lon}"
+    data, error_response = _nominatim_request(
+        endpoint="reverse",
+        params={
+            "format": "jsonv2",
+            "lat": f"{lat:.7f}",
+            "lon": f"{lon:.7f}",
+            "addressdetails": 1,
+        },
+        cache_key=cache_key,
+    )
+
+    if error_response is not None:
+        if error_response.status_code == status.HTTP_429_TOO_MANY_REQUESTS:
+            fallback_data = {
+                "display_name": f"{lat:.7f}, {lon:.7f}",
+                "lat": f"{lat:.7f}",
+                "lon": f"{lon:.7f}",
+                "address": {},
+                "provider_rate_limited": True,
+                "source": "coordinate_fallback",
+            }
+            cache.set(cache_key, fallback_data, 60)
+            logger.warning(
+                "Nominatim reverse geocoding rate-limited for lat=%s lon=%s. Returning coordinate fallback.",
+                rounded_lat,
+                rounded_lon,
+            )
+            return Response(fallback_data, status=status.HTTP_200_OK)
+        return error_response
+
+    return Response(data)
+
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def geocode_search_proxy(request):
+    query = (request.query_params.get("q") or "").strip()
+    if not query:
+        return Response([], status=status.HTTP_200_OK)
+
+    try:
+        limit = int(request.query_params.get("limit", 5))
+    except (TypeError, ValueError):
+        limit = 5
+    limit = max(1, min(limit, 10))
+
+    normalized_query = " ".join(query.lower().split())
+    cache_key = f"nominatim:search:{normalized_query}:{limit}"
+    data, error_response = _nominatim_request(
+        endpoint="search",
+        params={
+            "format": "jsonv2",
+            "q": query,
+            "limit": limit,
+            "addressdetails": 1,
+        },
+        cache_key=cache_key,
+    )
+
+    if error_response is not None:
+        if error_response.status_code == status.HTTP_429_TOO_MANY_REQUESTS:
+            logger.warning("Nominatim search rate-limited for query=%s", normalized_query)
+            return Response([], status=status.HTTP_200_OK)
+        return error_response
+
+    return Response(data if isinstance(data, list) else [])
 
 
 class RestaurantViewSet(viewsets.ModelViewSet):
@@ -742,8 +1000,15 @@ class PaymentViewSet(viewsets.ModelViewSet):
 class ReviewViewSet(viewsets.ModelViewSet):
     queryset = Review.objects.all()
     serializer_class = ReviewSerializer
-    permission_classes = [IsAuthenticated]
     ordering = ['-review_date']  # เรียงตามวันที่รีวิวล่าสุด
+    
+    def get_permissions(self):
+        """Allow anyone to view, require authentication for create/update/delete"""
+        if self.action in ['list', 'retrieve']:
+            permission_classes = [AllowAny]
+        else:
+            permission_classes = [IsAuthenticated]
+        return [permission() for permission in permission_classes]
     
     def get_queryset(self):
         queryset = Review.objects.all()
@@ -760,21 +1025,40 @@ class ReviewViewSet(viewsets.ModelViewSet):
         
         return queryset
     
-    def create(self, request, *args, **kwargs):
-        order_id = request.data.get('order')
+    def perform_create(self, serializer):
+        """Set the user to the current user and check for existing review"""
+        restaurant = serializer.validated_data['restaurant']
+        user = self.request.user
+        order = serializer.validated_data.get('order')
         
-        # Check if order has already been reviewed
-        if Review.objects.filter(order_id=order_id).exists():
-            return Response({'error': 'This order has already been reviewed'}, 
-                          status=status.HTTP_400_BAD_REQUEST)
+        # If order is provided, check if order has already been reviewed
+        if order:
+            if Review.objects.filter(order=order).exists():
+                raise ValidationError({'error': 'This order has already been reviewed'})
+        else:
+            # If no order, check if user has already reviewed this restaurant
+            existing_review = Review.objects.filter(restaurant=restaurant, user=user, order__isnull=True).first()
+            if existing_review:
+                raise ValidationError({'error': 'You have already reviewed this restaurant. You can update your existing review instead.'})
         
-        response = super().create(request, *args, **kwargs)
+        serializer.save(user=user)
         
-        # Update order as reviewed
-        if response.status_code == 201:
-            Order.objects.filter(order_id=order_id).update(is_reviewed=True)
-        
-        return response
+        # Update order as reviewed if order is provided
+        if order and serializer.instance:
+            Order.objects.filter(order_id=order.order_id).update(is_reviewed=True)
+    
+    def perform_update(self, serializer):
+        """Only allow user to update their own review"""
+        review = self.get_object()
+        if review.user != self.request.user:
+            raise ValidationError({'error': 'You can only update your own review.'})
+        serializer.save()
+    
+    def perform_destroy(self, instance):
+        """Only allow user to delete their own review"""
+        if instance.user != self.request.user:
+            raise ValidationError({'error': 'You can only delete your own review.'})
+        instance.delete()
 
 
 class ProductReviewViewSet(viewsets.ModelViewSet):
@@ -1380,11 +1664,42 @@ class DashboardViewSet(viewsets.ViewSet):
             return Response({'error': 'Restaurant not found'}, 
                           status=status.HTTP_404_NOT_FOUND)
         
-        today = timezone.now().date()
+        # NOTE เรื่องเวลา:
+        # - ระบบนี้ตั้งค่า TIME_ZONE='Asia/Bangkok' และ USE_TZ=True
+        # - Django จะ “เก็บ” datetime ในฐานข้อมูลเป็น UTC เสมอ (ปกติ/ถูกต้อง)
+        # - เวลาที่ผู้ใช้เห็นควรแปลงเป็นเวลาไทยตอนแสดงผล
+        #
+        # สำหรับสถิติ "วันนี้" ให้ยึดตามวันของไทย (Asia/Bangkok) แล้วแปลงเป็นช่วงเวลา UTC เพื่อ query
+        import pytz
+        from django.utils import timezone as tz
+        from django.utils.timezone import localtime
+
+        bangkok_tz = pytz.timezone('Asia/Bangkok')
+        now_utc = tz.now()
+        now_bangkok = localtime(now_utc, bangkok_tz)
+        today = now_bangkok.date()
+
+        start_of_day_bangkok = bangkok_tz.localize(datetime.combine(today, datetime.min.time()))
+        end_of_day_bangkok = bangkok_tz.localize(datetime.combine(today, datetime.max.time()))
+        start_of_day_utc = start_of_day_bangkok.astimezone(pytz.UTC)
+        end_of_day_utc = end_of_day_bangkok.astimezone(pytz.UTC)
+
+        today_delivery_orders = Order.objects.filter(
+            restaurant=restaurant,
+            order_date__gte=start_of_day_utc,
+            order_date__lte=end_of_day_utc
+        )
+        today_dine_in_orders = DineInOrder.objects.filter(
+            restaurant=restaurant,
+            order_date__gte=start_of_day_utc,
+            order_date__lte=end_of_day_utc
+        )
         
-        # Today's statistics
-        today_orders = Order.objects.filter(restaurant=restaurant, order_date__date=today)
-        today_revenue = today_orders.aggregate(Sum('total_amount'))['total_amount__sum'] or 0
+        today_orders_count = today_delivery_orders.count() + today_dine_in_orders.count()
+        
+        today_delivery_revenue = today_delivery_orders.aggregate(Sum('total_amount'))['total_amount__sum'] or 0
+        today_dine_in_revenue = today_dine_in_orders.aggregate(Sum('total_amount'))['total_amount__sum'] or 0
+        today_revenue = float(today_delivery_revenue) + float(today_dine_in_revenue)
         
         # Pending orders
         pending_orders = Order.objects.filter(
@@ -1415,13 +1730,17 @@ class DashboardViewSet(viewsets.ViewSet):
         ).order_by('-review_date')[:5]
         
         return Response({
+            'server_time': {
+                'utc': now_utc.isoformat(),
+                'bangkok': now_bangkok.isoformat(),
+            },
             'restaurant': {
                 'name': restaurant.restaurant_name,
                 'average_rating': restaurant.average_rating,
                 'total_reviews': restaurant.total_reviews,
             },
             'today': {
-                'orders': today_orders.count(),
+                'orders': today_orders_count,
                 'revenue': today_revenue,
                 'pending_orders': pending_orders,
             },
@@ -1592,7 +1911,9 @@ class AppSettingsViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         # ใช้ singleton pattern - มี settings record เดียว
         settings = AppSettings.get_settings()
-        return AppSettings.objects.filter(pk=settings.pk)
+        if not settings:
+            return AppSettings.objects.none()
+        return AppSettings.objects.filter(pk=settings.pk).order_by('pk')
     
     def get_permissions(self):
         """
@@ -1655,6 +1976,7 @@ class AppSettingsViewSet(viewsets.ModelViewSet):
                 # ข้อมูลค่าจัดส่ง - ใช้ค่าจาก serializer
                 'base_delivery_fee': data.get('base_delivery_fee', 20.0),
                 'free_delivery_minimum': data.get('free_delivery_minimum', 200.0),
+                'free_delivery_minimum_amount': data.get('free_delivery_minimum', 200.0),
                 'max_delivery_distance': data.get('max_delivery_distance', 10.0),
                 'per_km_fee': data.get('per_km_fee', 5.0),
                 # ไม่ใช้ multi_restaurant_base_fee และ multi_restaurant_additional_fee แล้ว
@@ -2078,43 +2400,103 @@ def calculate_delivery_fee_api(request):
         restaurant_id = request.data.get('restaurant_id')
         delivery_lat = request.data.get('delivery_latitude')
         delivery_lon = request.data.get('delivery_longitude')
-        
+        order_subtotal_raw = request.data.get('order_subtotal')
+
         if not all([restaurant_id, delivery_lat, delivery_lon]):
             return Response(
-                {'error': 'Missing required fields: restaurant_id, delivery_latitude, delivery_longitude'}, 
+                {'error': 'Missing required fields: restaurant_id, delivery_latitude, delivery_longitude'},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
+
+        order_subtotal = None
+        if order_subtotal_raw not in (None, ''):
+            try:
+                order_subtotal = float(order_subtotal_raw)
+            except (TypeError, ValueError):
+                return Response(
+                    {'error': 'order_subtotal must be a valid number'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            if order_subtotal < 0:
+                return Response(
+                    {'error': 'order_subtotal must be greater than or equal to 0'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
         try:
             restaurant = Restaurant.objects.get(restaurant_id=restaurant_id)
         except Restaurant.DoesNotExist:
             return Response(
-                {'error': 'Restaurant not found'}, 
+                {'error': 'Restaurant not found'},
                 status=status.HTTP_404_NOT_FOUND
             )
-        
+
         if not restaurant.latitude or not restaurant.longitude:
             return Response(
-                {'error': 'Restaurant location not set. Please set restaurant coordinates in admin.'}, 
+                {'error': 'Restaurant location not set. Please set restaurant coordinates in admin.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
+
         from .utils import calculate_delivery_fee_by_distance
         fee = calculate_delivery_fee_by_distance(
             restaurant.latitude, restaurant.longitude,
             delivery_lat, delivery_lon
         )
-        
+
         # คำนวณระยะทางด้วย
         from .utils import calculate_distance_km
         distance = calculate_distance_km(
             restaurant.latitude, restaurant.longitude,
             delivery_lat, delivery_lon
         )
-        
+
+        settings = AppSettings.get_settings()
+        max_delivery_distance = (
+            float(settings.max_delivery_distance)
+            if settings and settings.max_delivery_distance is not None
+            else None
+        )
+        free_delivery_minimum = (
+            float(settings.free_delivery_minimum)
+            if settings and settings.free_delivery_minimum is not None
+            else None
+        )
+        is_free_delivery = (
+            order_subtotal is not None
+            and free_delivery_minimum is not None
+            and free_delivery_minimum > 0
+            and order_subtotal >= free_delivery_minimum
+        )
+
+        if max_delivery_distance is not None and distance > max_delivery_distance:
+            return Response(
+                {
+                    'delivery_fee': 0.0,
+                    'error': (
+                        f'Delivery location is out of range. '
+                        f'Maximum distance is {max_delivery_distance:.2f} km.'
+                    ),
+                    'error_code': 'out_of_delivery_range',
+                    'within_delivery_range': False,
+                    'distance_km': round(distance, 2),
+                    'max_delivery_distance_km': round(max_delivery_distance, 2),
+                    'free_delivery_minimum_amount': round(free_delivery_minimum, 2) if free_delivery_minimum is not None else None,
+                    'order_subtotal': round(order_subtotal, 2) if order_subtotal is not None else None,
+                    'restaurant_id': restaurant.restaurant_id,
+                    'restaurant_name': restaurant.restaurant_name,
+                },
+                status=status.HTTP_200_OK
+            )
+
+        final_fee = 0.0 if is_free_delivery else float(fee)
         return Response({
-            'delivery_fee': round(float(fee), 5),
-            'distance_km': round(distance, 2)
+            'delivery_fee': round(final_fee, 5),
+            'distance_km': round(distance, 2),
+            'max_delivery_distance_km': round(max_delivery_distance, 2) if max_delivery_distance is not None else None,
+            'free_delivery_minimum_amount': round(free_delivery_minimum, 2) if free_delivery_minimum is not None else None,
+            'order_subtotal': round(order_subtotal, 2) if order_subtotal is not None else None,
+            'is_free_delivery': is_free_delivery,
+            'within_delivery_range': True
         })
     except Exception as e:
         import traceback
@@ -2137,6 +2519,7 @@ def calculate_multi_restaurant_delivery_fee_api(request):
         restaurant_ids = request.data.get('restaurant_ids', [])
         delivery_lat = request.data.get('delivery_latitude')
         delivery_lon = request.data.get('delivery_longitude')
+        order_subtotal_raw = request.data.get('order_subtotal')
         
         if not all([restaurant_ids, delivery_lat, delivery_lon]):
             return Response(
@@ -2149,6 +2532,21 @@ def calculate_multi_restaurant_delivery_fee_api(request):
                 {'error': 'restaurant_ids must be an array'}, 
                 status=status.HTTP_400_BAD_REQUEST
             )
+
+        order_subtotal = None
+        if order_subtotal_raw not in (None, ''):
+            try:
+                order_subtotal = float(order_subtotal_raw)
+            except (TypeError, ValueError):
+                return Response(
+                    {'error': 'order_subtotal must be a valid number'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            if order_subtotal < 0:
+                return Response(
+                    {'error': 'order_subtotal must be greater than or equal to 0'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
         
         from .utils import calculate_delivery_fee_by_distance, calculate_distance_km
         from .models import AppSettings
@@ -2158,11 +2556,22 @@ def calculate_multi_restaurant_delivery_fee_api(request):
         # ไม่ใช้ base_fee_override เพื่อป้องกันการ override ค่าจัดส่งจริง
         # base_fee_override = float(settings.multi_restaurant_base_fee) if settings and settings.multi_restaurant_base_fee else None
         additional_fee_per_restaurant = float(settings.multi_restaurant_additional_fee) if settings and settings.multi_restaurant_additional_fee else 15.00
+        max_delivery_distance = (
+            float(settings.max_delivery_distance)
+            if settings and settings.max_delivery_distance is not None
+            else None
+        )
+        free_delivery_minimum = (
+            float(settings.free_delivery_minimum)
+            if settings and settings.free_delivery_minimum is not None
+            else None
+        )
         
         max_fee = 0.0
         max_distance = 0.0
         base_restaurant_id = None
         restaurant_details = []
+        out_of_range_restaurants = []
         
         # หาร้านที่ไกลที่สุด (จะเป็นร้านหลัก)
         for restaurant_id in restaurant_ids:
@@ -2190,6 +2599,13 @@ def calculate_multi_restaurant_delivery_fee_api(request):
                 'distance_km': round(distance, 2),
                 'individual_delivery_fee': round(float(fee), 2)
             })
+
+            if max_delivery_distance is not None and distance > max_delivery_distance:
+                out_of_range_restaurants.append({
+                    'restaurant_id': restaurant.restaurant_id,
+                    'restaurant_name': restaurant.restaurant_name,
+                    'distance_km': round(distance, 2)
+                })
             
             # หาร้านที่มีค่าจัดส่งสูงสุด (ไกลสุด) เป็นร้านหลัก
             if fee > max_fee:
@@ -2202,6 +2618,28 @@ def calculate_multi_restaurant_delivery_fee_api(request):
                 {'error': 'No valid restaurants found'}, 
                 status=status.HTTP_400_BAD_REQUEST
             )
+
+        if out_of_range_restaurants:
+            farthest_restaurant = max(out_of_range_restaurants, key=lambda item: item['distance_km'])
+            return Response(
+                {
+                    'total_delivery_fee': 0.0,
+                    'original_total_delivery_fee': 0.0,
+                    'error': (
+                        f"Delivery location is out of range. "
+                        f"Maximum distance is {max_delivery_distance:.2f} km."
+                    ),
+                    'error_code': 'out_of_delivery_range',
+                    'within_delivery_range': False,
+                    'max_delivery_distance_km': round(max_delivery_distance, 2),
+                    'max_distance_km': round(max_distance, 2),
+                    'free_delivery_minimum_amount': round(free_delivery_minimum, 2) if free_delivery_minimum is not None else None,
+                    'order_subtotal': round(order_subtotal, 2) if order_subtotal is not None else None,
+                    'farthest_restaurant': farthest_restaurant,
+                    'out_of_range_restaurants': out_of_range_restaurants
+                },
+                status=status.HTTP_200_OK
+            )
         
         # คำนวณค่าจัดส่งแบบ Base + Additional
         # ใช้ค่าจัดส่งจริงจากร้านไกลสุดเสมอ (ไม่ให้ setting override)
@@ -2209,6 +2647,15 @@ def calculate_multi_restaurant_delivery_fee_api(request):
         additional_restaurants_count = len(restaurant_ids) - 1  # ร้านเพิ่มเติม (ไม่นับร้านหลัก)
         additional_fee = additional_restaurants_count * additional_fee_per_restaurant
         total_delivery_fee = base_fee + additional_fee
+        original_total_delivery_fee = float(total_delivery_fee)
+        is_free_delivery = (
+            order_subtotal is not None
+            and free_delivery_minimum is not None
+            and free_delivery_minimum > 0
+            and order_subtotal >= free_delivery_minimum
+        )
+        if is_free_delivery:
+            total_delivery_fee = 0.0
         
         # อัปเดต restaurant_details ให้แสดงข้อมูลที่ชัดเจนขึ้น
         for detail in restaurant_details:
@@ -2218,9 +2665,22 @@ def calculate_multi_restaurant_delivery_fee_api(request):
             else:
                 detail['role'] = 'additional_restaurant'
                 detail['fee_contribution'] = additional_fee_per_restaurant
+
+        explanation_text = (
+            f'ค่าจัดส่งหลัก {base_fee:.2f} บาท + '
+            f'ค่าเพิ่มร้านเพิ่มเติม {additional_restaurants_count} ร้าน '
+            f'× {additional_fee_per_restaurant:.2f} บาท = {original_total_delivery_fee:.2f} บาท'
+        )
+        if is_free_delivery:
+            explanation_text = (
+                explanation_text
+                + f' | ส่งฟรีเมื่อยอดสั่งซื้อ {order_subtotal:.2f} บาท '
+                f'ถึงขั้นต่ำ {free_delivery_minimum:.2f} บาท'
+            )
         
         return Response({
             'total_delivery_fee': round(float(total_delivery_fee), 5),
+            'original_total_delivery_fee': round(original_total_delivery_fee, 5),
             'base_fee': round(float(base_fee), 2),
             'additional_fee': round(float(additional_fee), 2),
             'additional_fee_per_restaurant': additional_fee_per_restaurant,
@@ -2228,14 +2688,23 @@ def calculate_multi_restaurant_delivery_fee_api(request):
             'total_restaurants': len(restaurant_ids),
             'additional_restaurants': additional_restaurants_count,
             'max_distance_km': round(max_distance, 2),
+            'max_delivery_distance_km': round(max_delivery_distance, 2) if max_delivery_distance is not None else None,
+            'free_delivery_minimum_amount': round(free_delivery_minimum, 2) if free_delivery_minimum is not None else None,
+            'order_subtotal': round(order_subtotal, 2) if order_subtotal is not None else None,
+            'is_free_delivery': is_free_delivery,
+            'free_delivery_discount': round(original_total_delivery_fee, 5) if is_free_delivery else 0.0,
+            'within_delivery_range': True,
             'calculation_method': 'base_plus_additional',
             'actual_max_fee_from_distance': round(float(max_fee), 2),
-            'explanation': f'ค่าจัดส่งหลัก {base_fee:.2f} บาท + ค่าเพิ่มร้านเพิ่มเติม {additional_restaurants_count} ร้าน × {additional_fee_per_restaurant:.2f} บาท = {total_delivery_fee:.2f} บาท',
+            'explanation': explanation_text,
             'fee_breakdown': {
                 'base_description': f'ค่าจัดส่งหลัก (ร้านไกลสุด: {max_fee:.2f} บาท)',
                 'additional_description': f'ค่าเพิ่มร้านเพิ่มเติม ({additional_restaurants_count} ร้าน)',
                 'base_amount': round(float(base_fee), 2),
                 'additional_amount': round(float(additional_fee), 2),
+                'original_total_amount': round(original_total_delivery_fee, 2),
+                'free_delivery_applied': is_free_delivery,
+                'free_delivery_discount': round(original_total_delivery_fee, 2) if is_free_delivery else 0.0,
                 'total_amount': round(float(total_delivery_fee), 2)
             },
             'restaurants': restaurant_details
@@ -2249,4 +2718,1480 @@ def calculate_multi_restaurant_delivery_fee_api(request):
         )
 
 
+# ===== Dine-In QR Code System Views =====
 
+class DineInProductViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet สำหรับจัดการสินค้า Dine-in
+    - ร้านอาหารสามารถ CRUD สินค้าของตัวเองได้
+    - ไม่ต้องผ่านแอดมิน
+    """
+    serializer_class = DineInProductSerializer
+    permission_classes = [IsAuthenticated]
+    parser_classes = [JSONParser, MultiPartParser, FormParser]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['restaurant', 'category', 'is_available', 'is_recommended']
+    search_fields = ['product_name', 'description', 'translations__translated_name', 'translations__translated_description']
+    ordering_fields = ['sort_order', 'product_name', 'price', 'created_at']
+    ordering = ['sort_order', 'product_name']
+    
+    def get_queryset(self):
+        """ร้านอาหารเห็นเฉพาะสินค้าของตัวเอง"""
+        user = self.request.user
+        
+        # ถ้าเป็น public request (AllowAny) ให้ดูได้ทั้งหมดที่ available
+        if not user.is_authenticated:
+            return DineInProduct.objects.filter(is_available=True).prefetch_related('translations__language')
+        
+        if user.role == 'admin':
+            return DineInProduct.objects.all().prefetch_related('translations__language')
+        elif user.role in ['special_restaurant', 'general_restaurant']:
+            if hasattr(user, 'restaurant'):
+                return DineInProduct.objects.filter(restaurant=user.restaurant).prefetch_related('translations__language')
+        
+        # สำหรับลูกค้า - ดูเฉพาะที่ available
+        return DineInProduct.objects.filter(is_available=True).prefetch_related('translations__language')
+    
+    def perform_create(self, serializer):
+        """สร้างสินค้า - ต้องเป็นของร้านตัวเอง"""
+        user = self.request.user
+        if user.role in ['special_restaurant', 'general_restaurant']:
+            try:
+                restaurant = Restaurant.objects.get(user=user)
+                serializer.save(restaurant=restaurant)
+            except Restaurant.DoesNotExist:
+                raise ValidationError({'error': 'Restaurant not found for this user'})
+        elif user.role == 'admin':
+            serializer.save()
+        else:
+            raise ValidationError({'error': 'Only restaurant owners can create products'})
+
+    def perform_update(self, serializer):
+        product = serializer.save()
+        self._broadcast_dine_in_product_changed(
+            action='updated',
+            product=product,
+            is_available=product.is_available
+        )
+
+    def perform_destroy(self, instance):
+        restaurant_id = instance.restaurant.restaurant_id if instance.restaurant else None
+        dine_in_product_id = instance.dine_in_product_id
+
+        instance.delete()
+
+        self._broadcast_dine_in_product_changed(
+            action='deleted',
+            restaurant_id=restaurant_id,
+            dine_in_product_id=dine_in_product_id,
+            is_available=False
+        )
+
+    def _broadcast_dine_in_product_changed(
+        self,
+        action,
+        product=None,
+        restaurant_id=None,
+        dine_in_product_id=None,
+        is_available=None
+    ):
+        try:
+            if product is not None:
+                restaurant_id = product.restaurant.restaurant_id if product.restaurant else restaurant_id
+                dine_in_product_id = product.dine_in_product_id
+                is_available = product.is_available if is_available is None else is_available
+
+            if not restaurant_id or not dine_in_product_id:
+                return
+
+            channel_layer = get_channel_layer()
+            if not channel_layer:
+                return
+
+            async_to_sync(channel_layer.group_send)(
+                f"dine_in_restaurant_{restaurant_id}",
+                {
+                    'type': 'dine_in_product_changed',
+                    'action': action,
+                    'restaurant_id': restaurant_id,
+                    'dine_in_product_id': dine_in_product_id,
+                    'is_available': is_available,
+                    'timestamp': timezone.now().isoformat()
+                }
+            )
+        except Exception as e:
+            logger.error(f"Failed to broadcast dine-in product change: {str(e)}")
+
+    def get_permissions(self):
+        """ถ้าเป็น list/retrieve ให้ AllowAny เพื่อลูกค้าดูได้"""
+        if self.action in ['list', 'retrieve']:
+            return [AllowAny()]
+        return [IsAuthenticated()]
+
+
+class RestaurantTableViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet สำหรับจัดการโต๊ะของร้านอาหาร
+    - ร้านอาหารสามารถสร้าง/แก้ไข/ลบโต๊ะของตัวเองได้
+    - สามารถสร้าง QR Code สำหรับแต่ละโต๊ะ
+    """
+    serializer_class = RestaurantTableSerializer
+    permission_classes = [IsAuthenticated]
+    parser_classes = [JSONParser, MultiPartParser, FormParser]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['restaurant', 'is_active']
+    search_fields = ['table_number']
+    ordering_fields = ['table_number', 'created_at']
+    ordering = ['table_number']
+    
+    def get_permissions(self):
+        """ถ้าเป็น get_by_qr_code ให้ AllowAny เพราะลูกค้าไม่ได้ login"""
+        if self.action == 'get_by_qr_code':
+            return [AllowAny()]
+        return [IsAuthenticated()]
+    
+    def get_queryset(self):
+        """ร้านอาหารเห็นเฉพาะโต๊ะของตัวเอง, admin เห็นทั้งหมด"""
+        user = self.request.user
+        if user.role == 'admin':
+            return RestaurantTable.objects.all()
+        elif user.role in ['special_restaurant', 'general_restaurant']:
+            if hasattr(user, 'restaurant'):
+                return RestaurantTable.objects.filter(restaurant=user.restaurant)
+        return RestaurantTable.objects.none()
+    
+    def perform_create(self, serializer):
+        """สร้างโต๊ะใหม่ - ต้องเป็นของร้านตัวเอง"""
+        user = self.request.user
+        if user.role in ['special_restaurant', 'general_restaurant']:
+            try:
+                restaurant = Restaurant.objects.get(user=user)
+                serializer.save(restaurant=restaurant)
+            except Restaurant.DoesNotExist:
+                raise ValidationError({'error': 'Restaurant not found for this user'})
+        elif user.role == 'admin':
+            # Admin ต้องส่ง restaurant_id มาด้วย
+            serializer.save()
+        else:
+            raise ValidationError({'error': 'Only restaurant owners can create tables'})
+    
+    @action(detail=True, methods=['post'], url_path='generate-qr')
+    def generate_qr(self, request, pk=None):
+        """
+        สร้าง QR Code image สำหรับโต๊ะ
+        ใช้ library qrcode เพื่อสร้างรูป QR Code
+        """
+        table = self.get_object()
+        
+        try:
+            import qrcode
+            from io import BytesIO
+            from django.core.files.base import ContentFile
+            import os
+            
+            # สร้าง QR Code URL
+            from django.conf import settings
+            frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:3000')
+            qr_url = f"{frontend_url}/dine-in/{table.qr_code_data}"
+            
+            # สร้าง QR Code image
+            qr = qrcode.QRCode(
+                version=1,
+                error_correction=qrcode.constants.ERROR_CORRECT_L,
+                box_size=10,
+                border=4,
+            )
+            qr.add_data(qr_url)
+            qr.make(fit=True)
+            
+            img = qr.make_image(fill_color="black", back_color="white")
+            
+            # บันทึกเป็นไฟล์
+            buffer = BytesIO()
+            img.save(buffer, format='PNG')
+            file_name = f"table_{table.restaurant.restaurant_id}_{table.table_number}_qr.png"
+            
+            table.qr_code_image.save(
+                file_name,
+                ContentFile(buffer.getvalue()),
+                save=True
+            )
+            
+            serializer = self.get_serializer(table)
+            return Response({
+                'message': 'QR Code generated successfully',
+                'table': serializer.data
+            }, status=status.HTTP_200_OK)
+            
+        except ImportError:
+            return Response({
+                'error': 'QR code library not installed. Please install: pip install qrcode[pil]'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        except Exception as e:
+            return Response({
+                'error': f'Failed to generate QR code: {str(e)}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    @action(detail=False, methods=['get'], url_path='by-qr-code')
+    def get_by_qr_code(self, request):
+        """
+        ดึงข้อมูลโต๊ะจาก QR Code data
+        ใช้สำหรับลูกค้าที่สแกน QR Code
+        """
+        qr_code_data = request.query_params.get('qr_code_data')
+        if not qr_code_data:
+            return Response({
+                'error': 'qr_code_data parameter is required'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            table = RestaurantTable.objects.get(qr_code_data=qr_code_data, is_active=True)
+            serializer = self.get_serializer(table)
+            
+            # ส่งข้อมูลร้านอาหารด้วย
+            restaurant_serializer = RestaurantSerializer(table.restaurant, context={'request': request})
+            
+            return Response({
+                'table': serializer.data,
+                'restaurant': restaurant_serializer.data
+            }, status=status.HTTP_200_OK)
+        except RestaurantTable.DoesNotExist:
+            return Response({
+                'error': 'Invalid or inactive QR code'
+            }, status=status.HTTP_404_NOT_FOUND)
+
+
+class DineInCartViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet สำหรับจัดการตะกร้า Dine-in
+    - ใช้ session_id เพื่อแยกแต่ละการสั่ง (ไม่ต้อง login)
+    - ตะกร้าจะผูกกับโต๊ะ (table)
+    """
+    serializer_class = DineInCartSerializer
+    permission_classes = [AllowAny]  # ไม่ต้อง login
+    
+    def _get_session_id(self, request):
+        """
+        ดึง session_id สำหรับ dine-in cart
+        รองรับ:
+        - query param: ?session_id=...
+        - header: X-Dine-In-Session-Id / X-Session-Id
+        - body: { "session_id": "..." } (สำหรับ POST/PUT)
+        - django session key (fallback)
+        """
+        session_id = request.query_params.get('session_id')
+        if session_id:
+            return session_id
+
+        session_id = (
+            request.headers.get('X-Dine-In-Session-Id')
+            or request.headers.get('X-Session-Id')
+        )
+        if session_id:
+            return session_id
+
+        # request.data ใช้ได้เฉพาะบาง method และบาง parser
+        try:
+            if isinstance(getattr(request, 'data', None), dict):
+                session_id = request.data.get('session_id')
+                if session_id:
+                    return session_id
+        except Exception:
+            pass
+
+        return getattr(request.session, 'session_key', None)
+
+    def get_queryset(self):
+        """ดึงตะกร้าตาม session_id"""
+        session_id = self._get_session_id(self.request)
+        if session_id:
+            return DineInCart.objects.filter(session_id=session_id, is_active=True)
+        return DineInCart.objects.none()
+    
+    @action(detail=False, methods=['post'], url_path='get-or-create')
+    def get_or_create_cart(self, request):
+        """
+        สร้างหรือดึงตะกร้าสำหรับโต๊ะและ session นี้
+        Body: {
+            "qr_code_data": "DINE-xxx-xxx-xxx",
+            "session_id": "optional-session-id"
+        }
+        """
+        qr_code_data = request.data.get('qr_code_data')
+        session_id = request.data.get('session_id') or getattr(request.session, 'session_key', None)
+        
+        if not qr_code_data:
+            return Response({
+                'error': 'qr_code_data is required'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        if not session_id:
+            # สร้าง session ใหม่
+            request.session.create()
+            session_id = request.session.session_key
+        
+        try:
+            # หาโต๊ะจาก QR code
+            table = RestaurantTable.objects.get(qr_code_data=qr_code_data, is_active=True)
+            
+            # หาหรือสร้างตะกร้า
+            # ใช้ filter().first() แทน get_or_create() เพื่อป้องกัน MultipleObjectsReturned error
+            # ถ้ามีหลาย cart ที่ตรงเงื่อนไข ใช้ตัวล่าสุด (ตาม ordering: -created_at)
+            existing_carts = DineInCart.objects.filter(
+                table=table,
+                session_id=session_id,
+                is_active=True
+            )
+            
+            cart = existing_carts.first()
+            created = False
+            
+            if not cart:
+                # ไม่มี cart ให้สร้างใหม่
+                # ตรวจสอบว่ามี cart ที่ inactive อยู่แล้วหรือไม่ (จาก checkout ครั้งก่อน)
+                # ถ้ามีให้ลบ cart ที่ inactive เก่าออกก่อนเพื่อป้องกัน duplicate constraint
+                existing_inactive_carts = DineInCart.objects.filter(
+                    table=table,
+                    session_id=session_id,
+                    is_active=False
+                )
+                
+                if existing_inactive_carts.exists():
+                    # ลบ cart ที่ inactive เก่าออก (ไม่จำเป็นต้องเก็บไว้)
+                    existing_inactive_carts.delete()
+                
+                # สร้าง cart ใหม่
+                cart = DineInCart.objects.create(
+                    table=table,
+                    session_id=session_id,
+                    is_active=True,
+                    customer_name=request.data.get('customer_name', '')
+                )
+                created = True
+            elif existing_carts.count() > 1:
+                # มี cart หลายตัว (กรณีที่เกิด duplicate) ใช้ตัวล่าสุดและลบตัวเก่า
+                carts_to_delete = existing_carts.exclude(cart_id=cart.cart_id)
+                carts_to_delete.delete()
+            
+            serializer = self.get_serializer(cart, context={'request': request})
+            return Response({
+                'cart': serializer.data,
+                'created': created,
+                'session_id': session_id
+            }, status=status.HTTP_200_OK)
+            
+        except RestaurantTable.DoesNotExist:
+            return Response({
+                'error': 'Invalid or inactive QR code'
+            }, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            import traceback
+            error_detail = str(e)
+            traceback_str = traceback.format_exc()
+            print(f"Error in get_or_create_cart: {error_detail}")
+            print(traceback_str)
+            return Response({
+                'error': f'Failed to create or get cart: {error_detail}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    @action(detail=True, methods=['post'], url_path='add-item')
+    def add_item(self, request, pk=None):
+        """
+        เพิ่มสินค้าลงตะกร้า
+        Body: {
+            "product_id": 123,
+            "quantity": 2,
+            "special_instructions": "ไม่ใส่ผักชี"
+        }
+        """
+        cart = self.get_object()
+        serializer = AddToCartSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        product_id = serializer.validated_data['product_id']
+        quantity = serializer.validated_data['quantity']
+        special_instructions = serializer.validated_data.get('special_instructions', '')
+        
+        try:
+            # ใช้ DineInProduct แทน Product
+            product = DineInProduct.objects.get(dine_in_product_id=product_id, is_available=True)
+            
+            # ตรวจสอบว่าสินค้าต้องเป็นของร้านเดียวกับโต๊ะ
+            if product.restaurant != cart.table.restaurant:
+                return Response({
+                    'error': 'Product must be from the same restaurant as the table'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # ตรวจสอบว่ามีสินค้านี้ในตะกร้าแล้วหรือไม่
+            cart_item, created = DineInCartItem.objects.get_or_create(
+                cart=cart,
+                dine_in_product=product,
+                defaults={
+                    'quantity': quantity,
+                    'price_at_add': product.price,
+                    'special_instructions': special_instructions
+                }
+            )
+            
+            if not created:
+                # อัปเดตจำนวน
+                cart_item.quantity += quantity
+                cart_item.special_instructions = special_instructions
+                cart_item.save()
+            
+            cart_serializer = self.get_serializer(cart)
+            return Response({
+                'message': 'Item added to cart',
+                'cart': cart_serializer.data
+            }, status=status.HTTP_200_OK)
+            
+        except DineInProduct.DoesNotExist:
+            return Response({
+                'error': 'Product not found or not available'
+            }, status=status.HTTP_404_NOT_FOUND)
+    
+    @action(detail=True, methods=['put'], url_path='update-item/(?P<item_id>[^/.]+)')
+    def update_item(self, request, pk=None, item_id=None):
+        """
+        อัปเดตรายการในตะกร้า
+        Body: {
+            "quantity": 3,
+            "special_instructions": "ไม่ใส่พริก"
+        }
+        """
+        cart = self.get_object()
+        serializer = UpdateCartItemSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        try:
+            cart_item = DineInCartItem.objects.get(cart_item_id=item_id, cart=cart)
+            cart_item.quantity = serializer.validated_data['quantity']
+            if 'special_instructions' in serializer.validated_data:
+                cart_item.special_instructions = serializer.validated_data['special_instructions']
+            cart_item.save()
+            
+            cart_serializer = self.get_serializer(cart)
+            return Response({
+                'message': 'Cart item updated',
+                'cart': cart_serializer.data
+            }, status=status.HTTP_200_OK)
+            
+        except DineInCartItem.DoesNotExist:
+            return Response({
+                'error': 'Cart item not found'
+            }, status=status.HTTP_404_NOT_FOUND)
+    
+    @action(detail=True, methods=['delete'], url_path='remove-item/(?P<item_id>[^/.]+)')
+    def remove_item(self, request, pk=None, item_id=None):
+        """ลบรายการออกจากตะกร้า"""
+        cart = self.get_object()
+        
+        try:
+            cart_item = DineInCartItem.objects.get(cart_item_id=item_id, cart=cart)
+            cart_item.delete()
+            
+            cart_serializer = self.get_serializer(cart)
+            return Response({
+                'message': 'Item removed from cart',
+                'cart': cart_serializer.data
+            }, status=status.HTTP_200_OK)
+            
+        except DineInCartItem.DoesNotExist:
+            return Response({
+                'error': 'Cart item not found'
+            }, status=status.HTTP_404_NOT_FOUND)
+    
+    @action(detail=True, methods=['post'], url_path='clear')
+    def clear_cart(self, request, pk=None):
+        """ล้างตะกร้า"""
+        cart = self.get_object()
+        cart.items.all().delete()
+        
+        cart_serializer = self.get_serializer(cart)
+        return Response({
+            'message': 'Cart cleared',
+            'cart': cart_serializer.data
+        }, status=status.HTTP_200_OK)
+    
+    @action(detail=True, methods=['post'], url_path='checkout')
+    def checkout(self, request, pk=None):
+        """
+        สร้างออเดอร์จากตะกร้า
+        Body: {
+            "customer_name": "ลูกค้า",
+            "customer_count": 2,
+            "special_instructions": "อาหารเผ็ดน้อย",
+            "payment_method": "cash"
+        }
+        """
+        cart = self.get_object()
+        
+        if not cart.items.exists():
+            return Response({
+                'error': 'Cart is empty'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        serializer = CreateDineInOrderSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        try:
+            # สร้างออเดอร์
+            total_amount = cart.get_total()
+
+            # ปล่อยให้ Django ตั้งเวลา order_date เองด้วย auto_now_add (เวลา server)
+            # หมายเหตุ: เมื่อ USE_TZ=True จะเก็บในฐานข้อมูลเป็น UTC เสมอ
+            order = DineInOrder.objects.create(
+                table=cart.table,
+                restaurant=cart.table.restaurant,
+                session_id=cart.session_id,
+                total_amount=total_amount,
+                customer_name=serializer.validated_data.get('customer_name', cart.customer_name),
+                customer_count=serializer.validated_data.get('customer_count', 1),
+                special_instructions=serializer.validated_data.get('special_instructions', ''),
+                payment_method=serializer.validated_data.get('payment_method', 'cash')
+            )
+            
+            # สร้างรายละเอียดออเดอร์จากตะกร้า
+            for cart_item in cart.items.all():
+                DineInOrderDetail.objects.create(
+                    order=order,
+                    dine_in_product=cart_item.dine_in_product,
+                    quantity=cart_item.quantity,
+                    price_at_order=cart_item.price_at_add,
+                    special_instructions=cart_item.special_instructions
+                )
+            
+            # สร้าง log
+            DineInStatusLog.objects.create(
+                order=order,
+                status='pending',
+                note='Order created'
+            )
+            
+            # ปิดตะกร้า (inactive cart)
+            # ตรวจสอบว่ามี cart ที่ inactive อยู่แล้วหรือไม่ (จาก checkout ครั้งก่อน)
+            # ถ้ามีให้ลบ cart ที่ inactive เก่าออกก่อนเพื่อป้องกัน duplicate constraint
+            existing_inactive_carts = DineInCart.objects.filter(
+                table=cart.table,
+                session_id=cart.session_id,
+                is_active=False
+            ).exclude(cart_id=cart.cart_id)
+            
+            if existing_inactive_carts.exists():
+                # ลบ cart ที่ inactive เก่าออก (ไม่จำเป็นต้องเก็บไว้)
+                existing_inactive_carts.delete()
+            
+            # Inactive cart ปัจจุบัน
+            cart.is_active = False
+            cart.save()
+            
+            # ส่ง notification ไปยังร้าน (WebSocket)
+            try:
+                channel_layer = get_channel_layer()
+                restaurant_group = f"restaurant_{order.restaurant.restaurant_id}"
+                
+                async_to_sync(channel_layer.group_send)(
+                    restaurant_group,
+                    {
+                        'type': 'new_dine_in_order',
+                        'order_id': order.dine_in_order_id,
+                        'restaurant_id': order.restaurant.restaurant_id,
+                        'table_number': order.table.table_number,
+                        'total_amount': float(order.total_amount),
+                        'customer_count': order.customer_count,
+                        'timestamp': timezone.now().isoformat()
+                    }
+                )
+                logger.info(f"📢 New dine-in order notification sent for restaurant: {order.restaurant.restaurant_id}, table: {order.table.table_number}")
+            except Exception as e:
+                logger.error(f"❌ Failed to send WebSocket notification: {e}")
+            
+            order_serializer = DineInOrderSerializer(order, context={'request': request})
+            return Response({
+                'message': 'Order created successfully',
+                'order': order_serializer.data
+            }, status=status.HTTP_201_CREATED)
+            
+        except Exception as e:
+            return Response({
+                'error': f'Failed to create order: {str(e)}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class DineInOrderViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet สำหรับจัดการออเดอร์ Dine-in
+    - ร้านอาหารเห็นออเดอร์ของตัวเอง
+    - ลูกค้าสามารถดูออเดอร์ของตัวเองผ่าน session_id
+    """
+    serializer_class = DineInOrderSerializer
+    filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
+    filterset_fields = ['current_status', 'payment_status', 'table']
+    ordering_fields = ['order_date', 'total_amount']
+    ordering = ['-order_date']
+    
+    def get_permissions(self):
+        """ร้านอาหารต้อง login, ลูกค้าไม่ต้อง login"""
+        # ลูกค้า (ไม่ต้อง login) อ่านได้เฉพาะกรณีส่ง session_id และจะถูก filter ใน get_queryset()
+        # ร้านอาหารต้อง login สำหรับการแก้ไขสถานะ/ชำระเงิน และการแก้ไขข้อมูลออเดอร์ใดๆ
+        if self.action in ['update_status', 'update_payment_status', 'update', 'partial_update', 'destroy', 'create']:
+            return [IsAuthenticated()]
+        return [AllowAny()]
+    
+    def get_queryset(self):
+        """
+        ร้านอาหารเห็นออเดอร์ของตัวเอง
+        ลูกค้าเห็นออเดอร์ของตัวเอง (ผ่าน session_id)
+        """
+        user = self.request.user
+        
+        # สำหรับร้านอาหารและ admin
+        if user.is_authenticated:
+            if user.role == 'admin':
+                return DineInOrder.objects.all()
+            elif user.role in ['special_restaurant', 'general_restaurant']:
+                if hasattr(user, 'restaurant'):
+                    return DineInOrder.objects.filter(restaurant=user.restaurant)
+        
+        # สำหรับลูกค้า (ใช้ session_id)
+        session_id = self.request.query_params.get('session_id')
+        if session_id:
+            return DineInOrder.objects.filter(session_id=session_id)
+        
+        return DineInOrder.objects.none()
+    
+    @action(detail=True, methods=['post'], url_path='update-status')
+    def update_status(self, request, pk=None):
+        """
+        อัปเดตสถานะออเดอร์ (เฉพาะร้านอาหาร)
+        Body: {
+            "status": "served",
+            "note": "Served"
+        }
+        """
+        order = self.get_object()
+        serializer = UpdateDineInOrderStatusSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        new_status = serializer.validated_data['status']
+        note = serializer.validated_data.get('note', '')
+        
+        old_status = order.current_status
+
+        # อัปเดตสถานะ
+        order.current_status = new_status
+        
+        # ถ้า status เป็น served (สถานะสุดท้าย) ให้บันทึกเวลา
+        if new_status == 'served':
+            order.completed_at = timezone.now()
+        
+        order.save()
+        
+        # สร้าง log
+        DineInStatusLog.objects.create(
+            order=order,
+            status=new_status,
+            note=note,
+            updated_by_user=request.user
+        )
+        
+        # ส่ง notification ไปยังลูกค้า (WebSocket)
+        try:
+            channel_layer = get_channel_layer()
+
+            # broadcast ไปที่ session group (ลูกค้าดู history/list จะ subscribe ด้วย session_id)
+            session_group = f"dine_in_session_{order.session_id}"
+            
+            async_to_sync(channel_layer.group_send)(
+                session_group,
+                {
+                    'type': 'dine_in_order_status_update',
+                    'order_id': order.dine_in_order_id,
+                    'old_status': old_status,
+                    'new_status': new_status,
+                    'note': note,
+                    'timestamp': timezone.now().isoformat()
+                }
+            )
+        except Exception as e:
+            print(f"Failed to send WebSocket notification: {e}")
+        
+        order_serializer = self.get_serializer(order)
+        return Response({
+            'message': 'Order status updated',
+            'order': order_serializer.data
+        }, status=status.HTTP_200_OK)
+    
+    @action(detail=True, methods=['post'], url_path='update-payment-status')
+    def update_payment_status(self, request, pk=None):
+        """
+        อัปเดตสถานะการชำระเงิน (เฉพาะร้านอาหาร)
+        Body: {
+            "payment_status": "paid",
+            "payment_method": "cash"
+        }
+        """
+        order = self.get_object()
+        payment_status = request.data.get('payment_status')
+        payment_method = request.data.get('payment_method')
+        
+        if payment_status not in dict(DineInOrder.PAYMENT_STATUS_CHOICES).keys():
+            return Response({
+                'error': 'Invalid payment status'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        order.payment_status = payment_status
+        if payment_method:
+            order.payment_method = payment_method
+        
+        if payment_status == 'paid':
+            order.paid_at = timezone.now()
+        
+        order.save()
+        
+        order_serializer = self.get_serializer(order)
+        return Response({
+            'message': 'Payment status updated',
+            'order': order_serializer.data
+        }, status=status.HTTP_200_OK)
+    
+    @action(detail=False, methods=['get'], url_path='by-table/(?P<table_id>[^/.]+)')
+    def get_by_table(self, request, table_id=None):
+        """ดึงออเดอร์ทั้งหมดของโต๊ะนี้"""
+        orders = self.get_queryset().filter(table_id=table_id)
+        serializer = self.get_serializer(orders, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @action(detail=False, methods=['post'], url_path='cancel-item')
+    def cancel_item(self, request):
+        """
+        ลูกค้ายกเลิกรายการเมนูรายชิ้นได้ก่อนร้านกดยืนยันออเดอร์
+        Body: {
+            "session_id": "session-id",
+            "order_id": 123,
+            "order_detail_id": 456
+        }
+        """
+        session_id = request.data.get('session_id')
+        order_id = request.data.get('order_id')
+        order_detail_id = request.data.get('order_detail_id')
+
+        if not session_id or not order_id or not order_detail_id:
+            return Response({
+                'error': 'session_id, order_id and order_detail_id are required'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        order = DineInOrder.objects.filter(
+            dine_in_order_id=order_id,
+            session_id=session_id,
+            payment_status='unpaid'
+        ).first()
+
+        if not order:
+            return Response({
+                'error': 'Order not found for this session'
+            }, status=status.HTTP_404_NOT_FOUND)
+
+        if order.current_status != 'pending':
+            return Response({
+                'error': 'Cannot cancel item after restaurant confirmed the order',
+                'message': 'ยกเลิกเมนูไม่ได้แล้ว เนื่องจากร้านยืนยันออเดอร์แล้ว'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        order_detail = DineInOrderDetail.objects.filter(
+            order=order,
+            order_detail_id=order_detail_id
+        ).first()
+
+        if not order_detail:
+            return Response({
+                'error': 'Order item not found'
+            }, status=status.HTTP_404_NOT_FOUND)
+
+        with transaction.atomic():
+            removed_order_detail_id = order_detail.order_detail_id
+            order_detail.delete()
+
+            remaining_details = DineInOrderDetail.objects.filter(order=order)
+            if remaining_details.exists():
+                new_total = remaining_details.aggregate(total=Sum('subtotal'))['total'] or 0
+                order.total_amount = new_total
+                order.save(update_fields=['total_amount'])
+                order_cancelled = False
+            else:
+                order.current_status = 'cancelled'
+                order.total_amount = 0
+                order.bill_requested = False
+                order.bill_requested_at = None
+                order.completed_at = timezone.now()
+                order.save(update_fields=[
+                    'current_status', 'total_amount',
+                    'bill_requested', 'bill_requested_at', 'completed_at'
+                ])
+                order_cancelled = True
+
+        serializer = self.get_serializer(order)
+
+        # แจ้งฝั่งร้านแบบ real-time ให้รีเฟรชรายการ
+        try:
+            channel_layer = get_channel_layer()
+            restaurant_group = f"restaurant_{order.restaurant.restaurant_id}"
+            async_to_sync(channel_layer.group_send)(
+                restaurant_group,
+                {
+                    'type': 'dine_in_item_cancelled',
+                    'restaurant_id': order.restaurant.restaurant_id,
+                    'table_number': order.table.table_number if order.table else None,
+                    'order_id': order.dine_in_order_id,
+                    'order_detail_id': removed_order_detail_id,
+                    'order_cancelled': order_cancelled,
+                    'timestamp': timezone.now().isoformat(),
+                }
+            )
+        except Exception as e:
+            logger.error(f"❌ Error sending dine_in_item_cancelled notification: {str(e)}")
+
+        return Response({
+            'message': 'Item cancelled successfully',
+            'order': serializer.data,
+            'removed_order_detail_id': removed_order_detail_id,
+            'order_cancelled': order_cancelled
+        }, status=status.HTTP_200_OK)
+    
+    @action(detail=False, methods=['post'], url_path='request-bill')
+    def request_bill(self, request):
+        """
+        ลูกค้าร้องขอเช็กบิล (สำหรับโต๊ะ/ session นั้น)
+        Body: {
+            "session_id": "session-id"
+        }
+        """
+        session_id = request.data.get('session_id')
+        if not session_id:
+            return Response({
+                'error': 'session_id is required'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # หาออเดอร์ของ session นี้เพื่ออ้างอิงโต๊ะ
+        session_orders = DineInOrder.objects.filter(
+            session_id=session_id,
+            payment_status='unpaid',
+            current_status__in=['pending', 'confirmed', 'served']
+        ).select_related('table')
+        
+        if not session_orders.exists():
+            return Response({
+                'error': 'No unpaid orders found for this session'
+            }, status=status.HTTP_404_NOT_FOUND)
+
+        table = session_orders.first().table
+        if not table:
+            return Response({
+                'error': 'Table not found for this session'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # ต้องเช็กทั้งโต๊ะ: ถ้ายังมีออเดอร์ที่ยังไม่ชำระ/ไม่ยกเลิก และมีรายการที่ยังไม่เสิร์ฟ -> ห้ามเช็กบิล
+        table_orders = DineInOrder.objects.filter(
+            table=table,
+            payment_status='unpaid',
+            current_status__in=['pending', 'confirmed', 'served']
+        )
+
+        has_unserved_items = DineInOrderDetail.objects.filter(
+            order__in=table_orders,
+            is_served=False
+        ).exists()
+
+        # กรณี fallback: order ที่ไม่มี order_details ให้ยึด current_status แทน
+        has_orders_without_details_not_served = table_orders.filter(
+            order_details__isnull=True
+        ).exclude(
+            current_status='served'
+        ).exists()
+
+        if has_unserved_items or has_orders_without_details_not_served:
+            return Response({
+                'error': 'Cannot request bill: some items in this table are not served yet',
+                'message': 'ยังไม่สามารถเช็กบิลได้ เนื่องจากในโต๊ะยังมีรายการที่ยังไม่เสิร์ฟ'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # อัปเดตสถานะการร้องขอเช็กบิล
+        now = timezone.now()
+        updated_count = table_orders.update(
+            bill_requested=True,
+            bill_requested_at=now
+        )
+        
+        return Response({
+            'message': f'Bill request sent for {updated_count} order(s)',
+            'orders_count': updated_count,
+            'session_id': session_id,
+            'table_number': table.table_number
+        }, status=status.HTTP_200_OK)
+
+    @action(detail=False, methods=['get'], url_path='can-request-bill')
+    def can_request_bill(self, request):
+        """
+        ตรวจสอบว่าตอนนี้สามารถร้องขอเช็กบิลได้หรือไม่ (เช็กทั้งโต๊ะ)
+        Query params:
+            - session_id
+        """
+        session_id = request.query_params.get('session_id')
+        if not session_id:
+            return Response({
+                'can_request_bill': False,
+                'error': 'session_id is required',
+                'message': 'ไม่พบ Session ID'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        session_orders = DineInOrder.objects.filter(
+            session_id=session_id,
+            payment_status='unpaid',
+            current_status__in=['pending', 'confirmed', 'served']
+        ).select_related('table')
+
+        if not session_orders.exists():
+            return Response({
+                'can_request_bill': False,
+                'error': 'No unpaid orders found for this session',
+                'message': 'ไม่พบออเดอร์ค้างชำระในเซสชันนี้'
+            }, status=status.HTTP_404_NOT_FOUND)
+
+        table = session_orders.first().table
+        if not table:
+            return Response({
+                'can_request_bill': False,
+                'error': 'Table not found for this session',
+                'message': 'ไม่พบข้อมูลโต๊ะ'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        table_orders = DineInOrder.objects.filter(
+            table=table,
+            payment_status='unpaid',
+            current_status__in=['pending', 'confirmed', 'served']
+        )
+
+        has_unserved_items = DineInOrderDetail.objects.filter(
+            order__in=table_orders,
+            is_served=False
+        ).exists()
+
+        has_orders_without_details_not_served = table_orders.filter(
+            order_details__isnull=True
+        ).exclude(
+            current_status='served'
+        ).exists()
+
+        can_request = not (has_unserved_items or has_orders_without_details_not_served)
+        return Response({
+            'can_request_bill': can_request,
+            'table_number': table.table_number,
+            'message': (
+                'สามารถเช็กบิลได้'
+                if can_request
+                else 'ยังไม่สามารถเช็กบิลได้ เนื่องจากในโต๊ะยังมีรายการที่ยังไม่เสิร์ฟ'
+            )
+        }, status=status.HTTP_200_OK)
+    
+    @action(detail=True, methods=['post'], url_path='dismiss-bill-request')
+    def dismiss_bill_request(self, request, pk=None):
+        """
+        ร้านอาหารล้างสถานะการร้องขอเช็กบิล (เฉพาะปิดคำขอ ไม่ชำระเงิน)
+        ใช้เมื่อกดผิด หรือลูกค้ายังไม่พร้อมจ่าย
+        """
+        order = self.get_object()
+        session_id = order.session_id
+        
+        # อัปเดตทุก order ใน session - เฉพาะล้าง bill_requested
+        updated_orders = DineInOrder.objects.filter(
+            session_id=session_id,
+            bill_requested=True
+        )
+        
+        updated_count = updated_orders.update(
+            bill_requested=False,
+            bill_requested_at=None
+        )
+        
+        logger.info(f"🔕 Dismissed bill request for {updated_count} orders in session: {session_id}")
+        
+        order_serializer = self.get_serializer(order)
+        return Response({
+            'message': 'Bill request dismissed',
+            'order': order_serializer.data,
+            'orders_updated': updated_count
+        }, status=status.HTTP_200_OK)
+    
+    @action(detail=True, methods=['post'], url_path='complete-bill')
+    def complete_bill(self, request, pk=None):
+        """
+        ร้านอาหารเช็กบิลเสร็จแล้ว (ลูกค้าชำระเงินเรียบร้อย)
+        - Mark orders ทั้งหมดในโต๊ะเดียวกันเป็น paid (ไม่ใช่แค่ session เดียว)
+        - ล้าง bill_requested
+        - ส่ง WebSocket แจ้งลูกค้า (ให้ history หาย)
+        """
+        order = self.get_object()
+        table = order.table
+        table_number = table.table_number if table else None
+        
+        # อัปเดตทุก order ในโต๊ะเดียวกันที่ยังไม่ชำระเงิน (ไม่ใช่แค่ session เดียว)
+        updated_orders = DineInOrder.objects.filter(
+            table=table,
+            payment_status='unpaid',
+            current_status__in=['pending', 'confirmed', 'served']
+        )
+        
+        # เก็บ session_ids ทั้งหมดที่เกี่ยวข้องเพื่อส่ง WebSocket notification
+        affected_session_ids = set()
+        
+        updated_count = 0
+        for order_item in updated_orders:
+            order_item.bill_requested = False
+            order_item.bill_requested_at = None
+            order_item.payment_status = 'paid'
+            # อัปเดต status เป็น served ถ้ายังไม่ใช่ (served เป็นสถานะสุดท้าย)
+            if order_item.current_status not in ['served', 'cancelled']:
+                order_item.current_status = 'served'
+            order_item.save()
+            affected_session_ids.add(order_item.session_id)
+            updated_count += 1
+        
+        logger.info(f"✅ Bill completed: Marked {updated_count} orders as paid for table {table_number} (sessions: {len(affected_session_ids)})")
+        
+        # ส่ง WebSocket notification ไปยังลูกค้าทุก session ที่เกี่ยวข้อง
+        try:
+            channel_layer = get_channel_layer()
+            for session_id in affected_session_ids:
+                group_name = f"dine_in_session_{session_id}"
+                try:
+                    async_to_sync(channel_layer.group_send)(
+                        group_name,
+                        {
+                            'type': 'bill_check_completed',
+                            'session_id': session_id,
+                            'order_id': order.dine_in_order_id,
+                            'table_number': table_number,
+                            'message': 'ร้านเช็กบิลเสร็จแล้ว',
+                            'orders_count': updated_count,
+                            'timestamp': timezone.now().isoformat()
+                        }
+                    )
+                    logger.info(f"📢 Bill check completed notification sent for session: {session_id}")
+                except Exception as e:
+                    logger.error(f"❌ Error sending notification to session {session_id}: {str(e)}")
+        except Exception as e:
+            logger.error(f"❌ Error sending bill check completed notification: {str(e)}")
+        
+        order_serializer = self.get_serializer(order)
+        return Response({
+            'message': 'Bill completed and paid',
+            'order': order_serializer.data,
+            'orders_updated': updated_count,
+            'table_number': table_number,
+            'sessions_affected': len(affected_session_ids)
+        }, status=status.HTTP_200_OK)
+
+
+class DineInOrderDetailViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet สำหรับจัดการรายละเอียดออเดอร์ Dine-in
+    ใช้สำหรับ mark ว่าเมนูไหนเสิร์ฟแล้ว
+    """
+    queryset = DineInOrderDetail.objects.all()
+    serializer_class = DineInOrderDetailSerializer
+    permission_classes = [IsAuthenticated]
+    
+    def get_queryset(self):
+        """
+        ร้านอาหารเห็น order details ของออเดอร์ของตัวเองเท่านั้น
+        """
+        user = self.request.user
+        
+        if user.role == 'admin':
+            return DineInOrderDetail.objects.all()
+        elif user.role in ['special_restaurant', 'general_restaurant']:
+            if hasattr(user, 'restaurant'):
+                return DineInOrderDetail.objects.filter(order__restaurant=user.restaurant)
+        
+        return DineInOrderDetail.objects.none()
+    
+    @action(detail=True, methods=['post'], url_path='mark-served')
+    def mark_served(self, request, pk=None):
+        """
+        Mark order detail item ว่าเสิร์ฟแล้ว
+        Body: {} (empty body ก็ได้)
+        """
+        order_detail = self.get_object()
+        
+        # ตรวจสอบว่า user มีสิทธิ์เข้าถึง order นี้
+        user = request.user
+        if user.role in ['special_restaurant', 'general_restaurant']:
+            if hasattr(user, 'restaurant'):
+                if order_detail.order.restaurant != user.restaurant:
+                    return Response({
+                        'error': 'You do not have permission to modify this order detail'
+                    }, status=status.HTTP_403_FORBIDDEN)
+        
+        # อัพเดตสถานะ
+        order_detail.is_served = True
+        order_detail.served_at = timezone.now()
+        order_detail.served_by = user
+        order_detail.save()
+        
+        # ส่ง WebSocket notification ไปยังลูกค้า
+        try:
+            channel_layer = get_channel_layer()
+            session_group = f"dine_in_session_{order_detail.order.session_id}"
+            
+            async_to_sync(channel_layer.group_send)(
+                session_group,
+                {
+                    'type': 'order_detail_served',
+                    'order_id': order_detail.order.dine_in_order_id,
+                    'order_detail_id': order_detail.order_detail_id,
+                    'product_name': order_detail.dine_in_product.product_name,
+                    'timestamp': timezone.now().isoformat()
+                }
+            )
+        except Exception as e:
+            logger.error(f"Failed to send WebSocket notification: {e}")
+        
+        serializer = self.get_serializer(order_detail)
+        return Response({
+            'message': 'Order detail marked as served',
+            'order_detail': serializer.data
+        }, status=status.HTTP_200_OK)
+    
+    @action(detail=True, methods=['post'], url_path='mark-unserved')
+    def mark_unserved(self, request, pk=None):
+        """
+        Mark order detail item ว่ายังไม่เสิร์ฟ (ยกเลิกการ mark served)
+        Body: {} (empty body ก็ได้)
+        """
+        order_detail = self.get_object()
+        
+        # ตรวจสอบว่า user มีสิทธิ์เข้าถึง order นี้
+        user = request.user
+        if user.role in ['special_restaurant', 'general_restaurant']:
+            if hasattr(user, 'restaurant'):
+                if order_detail.order.restaurant != user.restaurant:
+                    return Response({
+                        'error': 'You do not have permission to modify this order detail'
+                    }, status=status.HTTP_403_FORBIDDEN)
+        
+        # อัพเดตสถานะ
+        order_detail.is_served = False
+        order_detail.served_at = None
+        order_detail.served_by = None
+        order_detail.save()
+        
+        serializer = self.get_serializer(order_detail)
+        return Response({
+            'message': 'Order detail marked as unserved',
+            'order_detail': serializer.data
+        }, status=status.HTTP_200_OK)
+
+
+# ===== Entertainment Venues ViewSets =====
+
+class VenueCategoryViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing venue categories
+    """
+    queryset = VenueCategory.objects.all()
+    serializer_class = VenueCategorySerializer
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter, DjangoFilterBackend]
+    search_fields = ['category_name', 'description']
+    ordering_fields = ['sort_order', 'category_name', 'created_at']
+    ordering = ['sort_order', 'category_name']
+    filterset_fields = ['is_active']
+    
+    def get_permissions(self):
+        """Allow anyone to view, require authentication for create/update/delete"""
+        if self.action in ['list', 'retrieve']:
+            permission_classes = [AllowAny]
+        else:
+            permission_classes = [IsAuthenticated]
+        return [permission() for permission in permission_classes]
+    
+    def get_serializer_context(self):
+        """Send context to serializer"""
+        context = super().get_serializer_context()
+        context['request'] = self.request
+        return context
+
+
+class EntertainmentVenueViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing entertainment venues
+    """
+    queryset = EntertainmentVenue.objects.select_related('category').prefetch_related('images')
+    serializer_class = EntertainmentVenueSerializer
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter, DjangoFilterBackend]
+    search_fields = ['venue_name', 'description', 'address', 'venue_type', 'category__category_name']
+    ordering_fields = ['average_rating', 'created_at', 'venue_name']
+    ordering = ['-average_rating']
+    filterset_fields = ['status', 'category', 'venue_type']
+    parser_classes = [JSONParser, MultiPartParser, FormParser]
+    
+    def get_permissions(self):
+        """Allow anyone to view, require authentication for create/update/delete"""
+        if self.action in ['list', 'retrieve', 'images', 'map', 'nearby']:
+            permission_classes = [AllowAny]
+        else:
+            permission_classes = [IsAuthenticated]
+        return [permission() for permission in permission_classes]
+    
+    def get_serializer_class(self):
+        """Use lightweight serializer for list view"""
+        if self.action == 'list':
+            return EntertainmentVenueListSerializer
+        return EntertainmentVenueSerializer
+    
+    def get_serializer_context(self):
+        """Send context to serializer"""
+        context = super().get_serializer_context()
+        context['request'] = self.request
+        return context
+    
+    @action(detail=True, methods=['get'], permission_classes=[AllowAny])
+    def images(self, request, pk=None):
+        """Get all images for a venue"""
+        venue = self.get_object()
+        images = venue.images.all().order_by('sort_order', 'created_at')
+        serializer = VenueImageSerializer(images, many=True, context={'request': request})
+        return Response(serializer.data)
+    
+    @action(detail=True, methods=['get'], permission_classes=[AllowAny])
+    def map(self, request, pk=None):
+        """Get venue location for map display"""
+        venue = self.get_object()
+        return Response({
+            'venue_id': venue.venue_id,
+            'venue_name': venue.venue_name,
+            'address': venue.address,
+            'latitude': str(venue.latitude) if venue.latitude else None,
+            'longitude': str(venue.longitude) if venue.longitude else None,
+        })
+    
+    @action(detail=False, methods=['get'], permission_classes=[AllowAny])
+    def nearby(self, request):
+        """
+        Get venues near a location
+        Query params: latitude, longitude, radius (in km, default 10)
+        """
+        latitude = request.query_params.get('latitude')
+        longitude = request.query_params.get('longitude')
+        radius = float(request.query_params.get('radius', 10))  # Default 10km
+        
+        if not latitude or not longitude:
+            return Response({'error': 'latitude and longitude are required'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            lat = float(latitude)
+            lng = float(longitude)
+        except ValueError:
+            return Response({'error': 'Invalid latitude or longitude'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Simple distance calculation (Haversine formula would be better for production)
+        # For now, just return all open venues
+        queryset = EntertainmentVenue.objects.filter(status='open')
+        
+        # TODO: Implement proper distance calculation using geopy or PostGIS
+        # For now, filter by approximate bounding box
+        # Rough approximation: 1 degree ≈ 111 km
+        lat_range = radius / 111.0
+        lng_range = radius / (111.0 * abs(math.cos(math.radians(lat))))
+        
+        queryset = queryset.filter(
+            latitude__gte=lat - lat_range,
+            latitude__lte=lat + lat_range,
+            longitude__gte=lng - lng_range,
+            longitude__lte=lng + lng_range
+        )
+        
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+    
+    @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated])
+    def upload_image(self, request, pk=None):
+        """Upload an image for a venue"""
+        venue = self.get_object()
+        
+        # Check permissions (admin only for now)
+        if request.user.role != 'admin':
+            return Response({'error': 'Only admins can upload venue images'}, status=status.HTTP_403_FORBIDDEN)
+        
+        if 'image' not in request.FILES:
+            return Response({'error': 'Please select an image file'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        image_file = request.FILES['image']
+        
+        # Check file type
+        allowed_types = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif']
+        if image_file.content_type not in allowed_types:
+            return Response({'error': 'Only JPG, PNG and GIF files are supported'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Check file size (limit to 10MB)
+        if image_file.size > 10 * 1024 * 1024:
+            return Response({'error': 'File size must not exceed 10MB'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Get sort_order and caption from request
+        sort_order = int(request.data.get('sort_order', venue.images.count() + 1))
+        caption = request.data.get('caption', '')
+        is_primary = request.data.get('is_primary', 'false').lower() == 'true'
+        
+        # If this is set as primary, unset other primary images
+        if is_primary:
+            venue.images.filter(is_primary=True).update(is_primary=False)
+        
+        # Create VenueImage
+        venue_image = VenueImage.objects.create(
+            venue=venue,
+            image=image_file,
+            caption=caption,
+            sort_order=sort_order,
+            is_primary=is_primary
+        )
+        
+        serializer = VenueImageSerializer(venue_image, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+    
+    @action(detail=True, methods=['patch', 'put'], url_path='images/(?P<image_id>[^/.]+)', permission_classes=[IsAuthenticated])
+    def update_image(self, request, pk=None, image_id=None):
+        """Update a venue image (caption, sort_order, is_primary)"""
+        venue = self.get_object()
+        
+        # Check permissions (admin only for now)
+        if request.user.role != 'admin':
+            return Response({'error': 'Only admins can update venue images'}, status=status.HTTP_403_FORBIDDEN)
+        
+        try:
+            venue_image = venue.images.get(image_id=image_id)
+            
+            # Update fields
+            if 'caption' in request.data:
+                venue_image.caption = request.data['caption']
+            if 'sort_order' in request.data:
+                venue_image.sort_order = int(request.data['sort_order'])
+            if 'is_primary' in request.data:
+                is_primary = request.data['is_primary']
+                if is_primary:
+                    # Unset other primary images
+                    venue.images.filter(is_primary=True).exclude(image_id=image_id).update(is_primary=False)
+                venue_image.is_primary = is_primary
+            
+            venue_image.save()
+            serializer = VenueImageSerializer(venue_image, context={'request': request})
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except VenueImage.DoesNotExist:
+            return Response({'error': 'Image not found'}, status=status.HTTP_404_NOT_FOUND)
+    
+    @action(detail=True, methods=['delete'], url_path='images/(?P<image_id>[^/.]+)', permission_classes=[IsAuthenticated])
+    def delete_image(self, request, pk=None, image_id=None):
+        """Delete a venue image"""
+        venue = self.get_object()
+        
+        # Check permissions (admin only for now)
+        if request.user.role != 'admin':
+            return Response({'error': 'Only admins can delete venue images'}, status=status.HTTP_403_FORBIDDEN)
+        
+        try:
+            venue_image = venue.images.get(image_id=image_id)
+            venue_image.delete()
+            return Response({'message': 'Image deleted successfully'}, status=status.HTTP_200_OK)
+        except VenueImage.DoesNotExist:
+            return Response({'error': 'Image not found'}, status=status.HTTP_404_NOT_FOUND)
+    
+    @action(detail=True, methods=['post'], url_path='images/batch-update', permission_classes=[IsAuthenticated])
+    def batch_update_images(self, request, pk=None):
+        """Batch update images (caption, sort_order)"""
+        venue = self.get_object()
+        
+        # Check permissions (admin only for now)
+        if request.user.role != 'admin':
+            return Response({'error': 'Only admins can update venue images'}, status=status.HTTP_403_FORBIDDEN)
+        
+        images_data = request.data.get('images', [])
+        updated_images = []
+        
+        for img_data in images_data:
+            try:
+                image_id = img_data.get('image_id')
+                venue_image = venue.images.get(image_id=image_id)
+                
+                if 'caption' in img_data:
+                    venue_image.caption = img_data['caption']
+                if 'sort_order' in img_data:
+                    venue_image.sort_order = int(img_data['sort_order'])
+                if 'is_primary' in img_data:
+                    is_primary = img_data['is_primary']
+                    if is_primary:
+                        venue.images.filter(is_primary=True).exclude(image_id=image_id).update(is_primary=False)
+                    venue_image.is_primary = is_primary
+                
+                venue_image.save()
+                serializer = VenueImageSerializer(venue_image, context={'request': request})
+                updated_images.append(serializer.data)
+            except VenueImage.DoesNotExist:
+                continue
+        
+        return Response({'images': updated_images}, status=status.HTTP_200_OK)
+
+
+class VenueReviewViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing venue reviews
+    """
+    queryset = VenueReview.objects.select_related('venue', 'user').all()
+    serializer_class = VenueReviewSerializer
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter, DjangoFilterBackend]
+    search_fields = ['comment', 'venue__venue_name', 'user__username']
+    ordering_fields = ['review_date', 'rating', 'updated_at']
+    ordering = ['-review_date']
+    filterset_fields = ['venue', 'user', 'rating']
+    
+    def get_permissions(self):
+        """Allow anyone to view, require authentication for create/update/delete"""
+        if self.action in ['list', 'retrieve']:
+            permission_classes = [AllowAny]
+        else:
+            permission_classes = [IsAuthenticated]
+        return [permission() for permission in permission_classes]
+    
+    def get_queryset(self):
+        """Filter reviews by venue if venue_id is provided"""
+        queryset = super().get_queryset()
+        venue_id = self.request.query_params.get('venue_id')
+        if venue_id:
+            queryset = queryset.filter(venue_id=venue_id)
+        return queryset
+    
+    def perform_create(self, serializer):
+        """Set the user to the current user and check for existing review"""
+        venue = serializer.validated_data['venue']
+        user = self.request.user
+        
+        # Check if user has already reviewed this venue
+        existing_review = VenueReview.objects.filter(venue=venue, user=user).first()
+        if existing_review:
+            raise ValidationError({'error': 'You have already reviewed this venue. You can update your existing review instead.'})
+        
+        serializer.save(user=user)
+    
+    def perform_update(self, serializer):
+        """Only allow user to update their own review"""
+        review = self.get_object()
+        if review.user != self.request.user:
+            raise ValidationError({'error': 'You can only update your own review.'})
+        serializer.save()
+    
+    def perform_destroy(self, instance):
+        """Only allow user to delete their own review"""
+        if instance.user != self.request.user:
+            raise ValidationError({'error': 'You can only delete your own review.'})
+        instance.delete()

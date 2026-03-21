@@ -3,6 +3,7 @@ import { authService } from '../services/api';
 import { ErrorHandler } from '../utils/errorHandler';
 import { parseApiError } from '../hooks/useNotification';
 import { validateAndCleanSession } from '../utils/auth';
+import websocketService from '../services/websocket';
 
 // Initial state
 const initialState = {
@@ -224,6 +225,11 @@ export const AuthProvider = ({ children }) => {
     } catch (error) {
       console.error('Logout error:', error);
     } finally {
+      // Disconnect WebSocket connections before clearing token
+      websocketService.disconnect();
+      websocketService.disconnectGuest();
+      websocketService.disconnectDineIn();
+      
       // Clear localStorage
       localStorage.removeItem('token');
       localStorage.removeItem('user');

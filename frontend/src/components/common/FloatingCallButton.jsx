@@ -1,9 +1,18 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { appSettingsService } from '../../services/api';
 
 const FloatingActionButtons = () => {
+  const location = useLocation();
   const { currentLanguage } = useLanguage();
+  
+  // ซ่อนปุ่มเมื่ออยู่ในหน้า dine-in
+  const isDineInPage = location.pathname.startsWith('/dine-in/');
+  
+  if (isDineInPage) {
+    return null;
+  }
   const [isVisible, setIsVisible] = useState(true);
   const [hideTimeout, setHideTimeout] = useState(null);
   const [appSettings, setAppSettings] = useState(null);
@@ -88,7 +97,7 @@ const FloatingActionButtons = () => {
       {/* ปุ่มลูกศรเล็กๆ เมื่อซ่อนปุ่มหลัก */}
       {!isVisible && (
         <div 
-          className="fixed bottom-20 right-0 z-50 cursor-pointer"
+          className="fixed bottom-20 right-0 z-[1100] cursor-pointer"
           onClick={handleMouseEnter}
           style={{ marginRight: '16px' }}
         >
@@ -108,7 +117,7 @@ const FloatingActionButtons = () => {
 
       {/* ปุ่มหลัก */}
       <div 
-        className={`fixed bottom-20 right-0 z-50 flex flex-col items-end space-y-3 transition-all duration-500 transform ${
+        className={`fixed bottom-20 right-0 z-[1100] flex flex-col items-end space-y-3 transition-all duration-500 transform ${
           isVisible ? 'translate-x-0' : 'translate-x-full'
         }`}
         onMouseEnter={handleMouseEnter}

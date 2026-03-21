@@ -118,6 +118,11 @@ const Header = ({ appSettings: appSettingsProp }) => {
           current: location.pathname === "/products",
         },
         {
+          name: translate("entertainment.venues_short") || translate("entertainment.venues") || "บันเทิง",
+          href: "/entertainment-venues",
+          current: location.pathname.startsWith("/entertainment-venues"),
+        },
+        {
           name: translate("nav.orders"),
           href: "/guest-orders",
           current: location.pathname === "/guest-orders",
@@ -150,6 +155,11 @@ const Header = ({ appSettings: appSettingsProp }) => {
           current: location.pathname === "/products",
         },
         {
+          name: translate("entertainment.venues_short") || translate("entertainment.venues") || "บันเทิง",
+          href: "/entertainment-venues",
+          current: location.pathname.startsWith("/entertainment-venues"),
+        },
+        {
           name: translate("nav.orders"),
           href: "/orders",
           current: location.pathname === "/orders",
@@ -175,11 +185,10 @@ const Header = ({ appSettings: appSettingsProp }) => {
       user.role === "general_restaurant"
     ) {
       return [
-        ...baseItems,
         {
-          name: translate("restaurant.menu"),
-          href: "/restaurant/products",
-          current: location.pathname === "/restaurant/products",
+          name: "My restaurant",
+          href: "/restaurant",
+          current: location.pathname.startsWith("/restaurant"),
         },
         {
           name: translate("restaurant.orders"),
@@ -223,15 +232,21 @@ const Header = ({ appSettings: appSettingsProp }) => {
   };
 
   const itemCount = getItemCount();
+  
+  // ซ่อน cart icon เมื่ออยู่ในหน้า dine-in (เพราะมี cart summary bar ด้านล่างแล้ว)
+  const isDineInPage = location.pathname.startsWith('/dine-in/');
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 bg-white shadow-lg border-b border-secondary-200">
+    <header className="fixed top-0 left-0 right-0 z-[1100] bg-white shadow-lg border-b border-secondary-200">
       <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 w-full">
           {/* Logo and Navigation */}
           <div className="flex items-center">
             <div className="flex-shrink-0 flex items-center">
-              <Link to="/" className="hidden md:flex items-center space-x-3">
+              <Link 
+                to={user?.role === "special_restaurant" || user?.role === "general_restaurant" ? "/restaurant" : "/"} 
+                className="hidden md:flex items-center space-x-3"
+              >
                 {/* Logo */}
                 {appSettings?.logo_url ? (
                   <img
@@ -276,8 +291,8 @@ const Header = ({ appSettings: appSettingsProp }) => {
 
             {isAuthenticated ? (
               <div className="flex items-center space-x-4">
-                {/* Customer specific icons */}
-                {user?.role === "customer" && (
+                {/* Customer specific icons - ซ่อนเมื่ออยู่ในหน้า dine-in */}
+                {user?.role === "customer" && !isDineInPage && (
                   <>
                     <Link
                       to="/cart"
@@ -352,6 +367,8 @@ const Header = ({ appSettings: appSettingsProp }) => {
               </div>
             ) : (
               <div className="hidden md:flex items-center space-x-4">
+                {/* ซ่อน guest cart icon เมื่ออยู่ในหน้า dine-in */}
+                {!isDineInPage && (
                 <Link
                   to="/guest-cart"
                   className="text-secondary-700 hover:text-secondary-900 px-3 py-2 rounded-md text-sm font-medium relative"
@@ -363,6 +380,7 @@ const Header = ({ appSettings: appSettingsProp }) => {
                     </span>
                   )}
                 </Link>
+                )}
                 <Link
                   to="/login"
                   className="text-secondary-700 hover:text-secondary-900 px-3 py-2 rounded-md text-sm font-medium"
@@ -384,7 +402,8 @@ const Header = ({ appSettings: appSettingsProp }) => {
             </div>
             {/* )} */}
 
-            {/* Mobile menu button - Hidden on mobile (using bottom navigation instead) */}
+            {/* Mobile menu button - Hidden on mobile (using bottom navigation instead) และซ่อนในหน้า dine-in */}
+            {!isDineInPage && (
             <div className="md:hidden flex items-center space-x-2">
               {/* Cart icon เฉพาะมือถือ ขยับมาชิดขวา */}
               {/* {user?.role === "customer" && (
@@ -436,11 +455,12 @@ const Header = ({ appSettings: appSettingsProp }) => {
                 )}
               </button>
             </div>
+            )}
           </div>
         </div>
 
-        {/* Mobile menu */}
-        {isMobileMenuOpen && (
+        {/* Mobile menu - ซ่อนในหน้า dine-in */}
+        {isMobileMenuOpen && !isDineInPage && (
           <div className="md:hidden">
             <div className="pt-2 pb-3 space-y-1">
               {menuItems.map((item) => (

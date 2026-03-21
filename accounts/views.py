@@ -847,7 +847,9 @@ class UserViewSet(viewsets.ModelViewSet):
                 
                 return Response({
                     'success': True,
-                    'message': f'User {user.username} created successfully with API token',
+                    'message': f'User {user.username} created successfully with API token',  # Frontend will translate using admin.user_created_success
+                    'translation_key': 'admin.user_created_success',
+                    'translation_params': {'username': user.username},
                     'user': UserSerializer(user).data,
                     'token': token.key,
                     'note': 'Users created by admin will have an automatic token and do not need to verify email'

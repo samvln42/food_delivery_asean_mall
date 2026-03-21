@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { restaurantService, userService } from '../../services/api';
+import { FiSearch } from "react-icons/fi";
 
 const AdminRestaurants = () => {
   const [restaurants, setRestaurants] = useState([]);
@@ -176,10 +177,11 @@ const AdminRestaurants = () => {
     try {
       await restaurantService.partialUpdate(restaurantId, { status: newStatus });
       fetchRestaurants(); // Refresh data
-      alert(`อัปเดตสถานะร้านอาหารเป็น ${newStatus === 'open' ? 'เปิด' : 'ปิด'} เรียบร้อยแล้ว`);
+      const statusText = newStatus === 'open' ? translate('common.open') : translate('common.closed');
+      alert(translate('admin.status_update_success', { status: statusText }));
     } catch (err) {
       console.error('Error updating restaurant status:', err);
-      alert('ไม่สามารถอัปเดตสถานะได้');
+      alert(translate('admin.status_update_failed'));
     }
   };
 
@@ -192,7 +194,7 @@ const AdminRestaurants = () => {
         : translate('admin.special_status_unset_success'));
     } catch (err) {
       console.error('Error updating special status:', err);
-      alert('ไม่สามารถอัปเดตสถานะพิเศษได้');
+      alert(translate('admin.special_status_update_failed'));
     }
   };
 
@@ -200,7 +202,7 @@ const AdminRestaurants = () => {
     try {
       // ยืนยันการลบ
       const confirmation = window.confirm(
-        `คุณแน่ใจหรือไม่ที่จะลบร้านอาหาร "${restaurantName}"?\n\nการดำเนินการนี้จะลบข้อมูลทั้งหมดของร้าน รวมถึงสินค้า และรีวิว\nการดำเนินการนี้ไม่สามารถกู้คืนได้`
+        translate('admin.delete_restaurant_confirm', { name: restaurantName })
       );
       
       if (!confirmation) {
@@ -210,16 +212,16 @@ const AdminRestaurants = () => {
       console.log(`🗑️ Deleting restaurant ${restaurantId} (${restaurantName})`);
       await restaurantService.delete(restaurantId);
       fetchRestaurants(); // Refresh data
-      alert(`ลบร้านอาหาร "${restaurantName}" เรียบร้อยแล้ว`);
+      alert(translate('admin.delete_restaurant_success', { name: restaurantName }));
     } catch (err) {
       console.error('❌ Error deleting restaurant:', err);
       console.error('Response:', err.response?.data);
       
-      let errorMessage = 'ไม่สามารถลบร้านอาหารได้';
+      let errorMessage = translate('admin.delete_restaurant_failed');
       if (err.response?.status === 403) {
-        errorMessage = 'คุณไม่มีสิทธิ์ลบร้านอาหารนี้';
+        errorMessage = translate('admin.delete_restaurant_no_permission');
       } else if (err.response?.status === 404) {
-        errorMessage = 'ไม่พบร้านอาหารที่ต้องการลบ';
+        errorMessage = translate('admin.delete_restaurant_not_found');
       } else if (err.response?.data?.detail) {
         errorMessage = err.response.data.detail;
       }
@@ -679,11 +681,11 @@ const RestaurantModal = ({ restaurant, type, onClose, onUpdate, availableUsers }
         
         
         if (!formData.restaurant_name || !formData.restaurant_name.trim()) {
-          alert('กรุณาใส่ชื่อร้านอาหาร');
+          alert(translate('admin.restaurant_modal.name_required'));
           return;
         }
         if (!formData.user || formData.user === '') { 
-          alert('กรุณาเลือกเจ้าของร้าน');
+          alert(translate('admin.restaurant_modal.owner_required'));
           return;
         }
 
@@ -732,7 +734,7 @@ const RestaurantModal = ({ restaurant, type, onClose, onUpdate, availableUsers }
         const createResponse = await restaurantService.create(createData);
         const newRestaurant = createResponse.data;
         
-        alert('สร้างร้านอาหารใหม่เรียบร้อยแล้ว');
+        alert(translate('admin.restaurant_modal.create_success'));
       } else {
         // อัปเดตร้านที่มีอยู่
         // ถ้ามีไฟล์รูปภาพใหม่ ให้ใช้ FormData
@@ -762,7 +764,7 @@ const RestaurantModal = ({ restaurant, type, onClose, onUpdate, availableUsers }
         }
         
         await restaurantService.partialUpdate(restaurant.restaurant_id, updateData);
-        alert('อัปเดตข้อมูลร้านอาหารเรียบร้อยแล้ว');
+        alert(translate('admin.restaurant_modal.update_success'));
       }
       
       onUpdate();
@@ -775,8 +777,8 @@ const RestaurantModal = ({ restaurant, type, onClose, onUpdate, availableUsers }
       console.error('❌ Error headers:', err.response?.headers);
       
       const errorMessage = type === 'create' 
-        ? 'ไม่สามารถสร้างร้านอาหารได้'
-        : 'ไม่สามารถอัปเดตข้อมูลได้';
+        ? translate('admin.restaurant_modal.create_failed')
+        : translate('admin.restaurant_modal.update_failed');
       
       // แสดงข้อผิดพลาดที่เฉพาะเจาะจงจาก server
       if (err.response?.data) {
@@ -796,9 +798,9 @@ const RestaurantModal = ({ restaurant, type, onClose, onUpdate, availableUsers }
         }
         
         if (errorMessages.length > 0) {
-          alert(`${errorMessage}\n\nรายละเอียด:\n${errorMessages.join('\n')}`);
+          alert(`${errorMessage}\n\n${translate('admin.details')}:\n${errorMessages.join('\n')}`);
         } else {
-          alert(`${errorMessage}\n\nServer response: ${JSON.stringify(errors)}`);
+          alert(`${errorMessage}\n\n${translate('admin.server_response')}: ${JSON.stringify(errors)}`);
         }
       } else {
         alert(errorMessage);
@@ -814,13 +816,13 @@ const RestaurantModal = ({ restaurant, type, onClose, onUpdate, availableUsers }
       // ตรวจสอบประเภทไฟล์
       const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif'];
       if (!allowedTypes.includes(file.type)) {
-        alert('รองรับเฉพาะไฟล์ JPG, PNG และ GIF');
+        alert(translate('admin.restaurant_modal.invalid_file_type'));
         return;
       }
 
       // ตรวจสอบขนาดไฟล์ (จำกัดที่ 10MB)
       if (file.size > 10 * 1024 * 1024) {
-        alert('ขนาดไฟล์ต้องไม่เกิน 10MB');
+        alert(translate('admin.restaurant_modal.file_size_limit'));
         return;
       }
 
@@ -837,12 +839,12 @@ const RestaurantModal = ({ restaurant, type, onClose, onUpdate, availableUsers }
 
   const handleImageUpload = async () => {
     if (!selectedFile) {
-      alert('กรุณาเลือกไฟล์รูปภาพ');
+      alert(translate('admin.restaurant_modal.select_image_first'));
       return;
     }
 
     if (isCreateMode) {
-      alert('กรุณาสร้างร้านก่อน จากนั้นค่อยอัปโหลดรูปภาพ');
+      alert(translate('admin.restaurant_modal.create_first_then_upload'));
       return;
     }
 
@@ -855,7 +857,7 @@ const RestaurantModal = ({ restaurant, type, onClose, onUpdate, availableUsers }
       // ใช้ restaurantService.uploadImage() แทน fetch โดยตรง
       const response = await restaurantService.uploadImage(restaurant.restaurant_id, formDataUpload);
       
-      alert('อัปโหลดรูปภาพสำเร็จ!');
+      alert(translate('admin.restaurant_modal.upload_success'));
       setSelectedFile(null);
       setImagePreview(response.data.restaurant.image_display_url);
       onUpdate(); // อัปเดตรายการร้าน
@@ -1085,7 +1087,7 @@ const RestaurantModal = ({ restaurant, type, onClose, onUpdate, availableUsers }
                   type="button"
                   onClick={async () => {
                     if (!formData.address) {
-                      alert('กรุณากรอกที่อยู่ก่อน');
+                      alert(translate('admin.restaurant_modal.address_required_for_geocode'));
                       return;
                     }
                     try {
@@ -1096,22 +1098,23 @@ const RestaurantModal = ({ restaurant, type, onClose, onUpdate, availableUsers }
                         latitude: result.lat.toString(),
                         longitude: result.lng.toString()
                       });
-                      alert('ค้นหาพิกัดสำเร็จ');
+                      alert(translate('admin.restaurant_modal.geocode_success'));
                     } catch (error) {
-                      console.error('Geocoding error:', error);
-                      alert('ไม่สามารถค้นหาพิกัดได้ กรุณากรอกพิกัดด้วยตนเอง');
+                      // แสดงข้อความ error ที่ชัดเจนขึ้น
+                      const errorMessage = error.message || translate('admin.restaurant_modal.geocode_failed');
+                      alert(errorMessage + '\n\n' + translate('admin.restaurant_modal.enter_coordinates_manually'));
                     }
                   }}
-                  className="mt-2 px-3 py-1 text-sm bg-primary-500 text-white rounded hover:bg-primary-600"
+                  className="mt-2 px-3 py-1 text-sm bg-primary-500 text-white rounded hover:bg-primary-600 flex items-center gap-1"
                 >
-                  🔍 ค้นหาพิกัดจากที่อยู่
+                  <FiSearch className="w-4 h-4" /> {translate('admin.restaurant_modal.find_coordinates')}
                 </button>
               )}
             </div>
 
             <div>
               <label className="block text-sm font-medium text-secondary-700 mb-2">
-                Latitude (พิกัดละติจูด)
+                {translate('admin.restaurant_modal.latitude')}
               </label>
               <input
                 type="number"
@@ -1123,13 +1126,13 @@ const RestaurantModal = ({ restaurant, type, onClose, onUpdate, availableUsers }
                 className="w-full p-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent disabled:bg-secondary-50"
               />
               <p className="mt-1 text-xs text-secondary-500">
-                พิกัดละติจูด (Latitude) เช่น 17.9668552
+                {translate('admin.restaurant_modal.latitude_hint')}
               </p>
             </div>
 
             <div>
               <label className="block text-sm font-medium text-secondary-700 mb-2">
-                Longitude (พิกัดลองจิจูด)
+                {translate('admin.restaurant_modal.longitude')}
               </label>
               <input
                 type="number"
@@ -1141,7 +1144,7 @@ const RestaurantModal = ({ restaurant, type, onClose, onUpdate, availableUsers }
                 className="w-full p-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent disabled:bg-secondary-50"
               />
               <p className="mt-1 text-xs text-secondary-500">
-                พิกัดลองจิจูด (Longitude) เช่น 102.6427002
+                {translate('admin.restaurant_modal.longitude_hint')}
               </p>
             </div>
 

@@ -21,10 +21,22 @@ router.register(r'app-settings', views.AppSettingsViewSet, basename='app-setting
 router.register(r'languages', views.LanguageViewSet)
 router.register(r'translations', views.TranslationViewSet)
 router.register(r'advertisements', views.AdvertisementViewSet)
+# Dine-In QR Code System
+router.register(r'dine-in-products', views.DineInProductViewSet, basename='dine-in-product')
+router.register(r'restaurant-tables', views.RestaurantTableViewSet, basename='restaurant-table')
+router.register(r'dine-in-carts', views.DineInCartViewSet, basename='dine-in-cart')
+router.register(r'dine-in-orders', views.DineInOrderViewSet, basename='dine-in-order')
+router.register(r'dine-in-order-details', views.DineInOrderDetailViewSet, basename='dine-in-order-detail')
+# Entertainment Venues
+router.register(r'entertainment-venues', views.EntertainmentVenueViewSet, basename='entertainment-venue')
+router.register(r'venue-categories', views.VenueCategoryViewSet, basename='venue-category')
+router.register(r'venue-reviews', views.VenueReviewViewSet, basename='venue-review')
 
 urlpatterns = [
     # Health check endpoint for ALB/ELB
     path('health/', views.health_check, name='health-check'),
+    path('geocode/reverse/', views.reverse_geocode_proxy, name='geocode-reverse'),
+    path('geocode/search/', views.geocode_search_proxy, name='geocode-search'),
     path('', include(router.urls)),
     path('search/', views.SearchViewSet.as_view({'get': 'search'}), name='search'),
     path('search/popular/', views.SearchViewSet.as_view({'get': 'popular'}), name='popular-searches'),

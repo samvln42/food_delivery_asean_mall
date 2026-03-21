@@ -8,6 +8,12 @@ import { useAuth } from "../../contexts/AuthContext";
 import { useLanguage } from "../../contexts/LanguageContext";
 import { getTranslatedName, getTranslatedDescription } from "../../utils/translationUtils";
 import { formatPrice } from "../../utils/formatPrice";
+import RestaurantReviews from "../../components/restaurant/RestaurantReviews";
+import { FaStar, FaMapMarkerAlt, FaPhone, FaClock, FaUtensils } from 'react-icons/fa';
+import { StarIcon } from '@heroicons/react/24/solid';
+import { StarIcon as StarOutlineIcon } from '@heroicons/react/24/outline';
+import { ExclamationTriangleIcon, BuildingStorefrontIcon } from '@heroicons/react/24/outline';
+import { CheckCircleIcon, XCircleIcon } from '@heroicons/react/24/solid';
 
 const RestaurantDetail = () => {
 
@@ -106,7 +112,7 @@ const RestaurantDetail = () => {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <div className="text-red-500 text-xl mb-4">⚠️</div>
+          <ExclamationTriangleIcon className="w-8 h-8 text-red-500 mx-auto mb-4" />
           <p className="text-secondary-600 mb-4">{error}</p>
           <Link
             to="/restaurants"
@@ -123,7 +129,7 @@ const RestaurantDetail = () => {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <div className="text-secondary-400 text-xl mb-4">🏪</div>
+          <BuildingStorefrontIcon className="w-8 h-8 text-secondary-400 mx-auto mb-4" />
           <p className="text-secondary-600 mb-4">{translate('common.no_restaurant_found')}</p>
           <Link
             to="/restaurants"
@@ -183,12 +189,12 @@ const RestaurantDetail = () => {
                     restaurant.image_display_url ? "hidden" : ""
                   }`}
                 >
-                  <div className="text-6xl opacity-30">🏪</div>
+                  <BuildingStorefrontIcon className="w-16 h-16 sm:w-24 sm:h-24 opacity-30 text-secondary-400" />
                 </div>
                 {restaurant.is_special && (
                   <div className="absolute top-4 right-4">
                     <span className="bg-yellow-400 text-yellow-900 px-3 py-1 rounded-full text-sm font-semibold">
-                      ⭐ {translate('common.special_restaurant')}
+                      <FaStar className="inline mr-1" /> {translate('common.special_restaurant')}
                     </span>
                   </div>
                 )}
@@ -200,7 +206,19 @@ const RestaurantDetail = () => {
                         : "bg-red-100 text-red-800"
                     }`}
                   >
-                    {restaurant.status === "open" ? "🟢 " + translate('common.open') : "🔴 " + translate('common.closed')}
+                    <span className="flex items-center gap-1">
+                      {restaurant.status === "open" ? (
+                        <>
+                          <CheckCircleIcon className="w-4 h-4" />
+                          <span>{translate('common.open')}</span>
+                        </>
+                      ) : (
+                        <>
+                          <XCircleIcon className="w-4 h-4" />
+                          <span>{translate('common.closed')}</span>
+                        </>
+                      )}
+                    </span>
                   </span>
                 </div>
               </div>
@@ -218,7 +236,7 @@ const RestaurantDetail = () => {
               {/* Rating and Reviews */}
               <div className="flex items-center mb-4">
                 <div className="flex items-center mr-6">
-                  <span className="text-yellow-400 text-xl mr-1">⭐</span>
+                  <FaStar className="text-yellow-400 text-xl mr-1" />
                   <span className="text-lg font-semibold text-secondary-800">
                     {Number(restaurant.average_rating || 0).toFixed(1)}
                   </span>
@@ -231,14 +249,14 @@ const RestaurantDetail = () => {
               {/* Restaurant Details */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                 <div className="flex items-center">
-                  <span className="text-secondary-500 mr-2">📍</span>
+                  <FaMapMarkerAlt className="text-secondary-500 mr-2 flex-shrink-0" />
                   <span className="text-secondary-700">
                     {restaurant.address}
                   </span>
                 </div>
                 {restaurant.phone_number && (
                   <div className="flex items-center">
-                    <span className="text-secondary-500 mr-2">📞</span>
+                    <FaPhone className="text-secondary-500 mr-2 flex-shrink-0" />
                     <span className="text-secondary-700">
                       {restaurant.phone_number}
                     </span>
@@ -246,18 +264,18 @@ const RestaurantDetail = () => {
                 )}
                 {restaurant.opening_hours && (
                   <div className="flex items-center">
-                    <span className="text-secondary-500 mr-2">⏰</span>
+                    <FaClock className="text-secondary-500 mr-2 flex-shrink-0" />
                     <span className="text-secondary-700">
                       {restaurant.opening_hours}
                     </span>
                   </div>
                 )}
-                <div className="flex items-center">
+                {/* <div className="flex items-center">
                   <span className="text-secondary-500 mr-2">🚚</span>
                   <span className="text-secondary-700">
                     {translate('cart.delivery_fee')} {appSettings ? formatPrice(appSettings.multi_restaurant_base_fee || 0) : '...'}
                   </span>
-                </div>
+                </div> */}
               </div>
             </div>
           </div>
@@ -362,7 +380,9 @@ const RestaurantDetail = () => {
               </>
             ) : (
               <div className="text-center py-12">
-                <div className="text-6xl mb-4 opacity-30">🍽️</div>
+                <div className="mb-4 opacity-30 flex justify-center">
+                  <FaUtensils className="w-16 h-16 sm:w-24 sm:h-24 text-secondary-400" />
+                </div>
                 <p className="text-secondary-500">{translate('common.no_menu')}</p>
               </div>
             )}
@@ -371,21 +391,7 @@ const RestaurantDetail = () => {
 
         {activeTab === "reviews" && (
           <div>
-            <h2 className="text-2xl font-bold text-secondary-900 mb-6">
-              {translate('common.reviews')}
-            </h2>
-            {reviews.length > 0 ? (
-              <div className="space-y-6">
-                {reviews.map((review) => (
-                  <ReviewCard key={review.review_id} review={review} />
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-12">
-                <div className="text-6xl mb-4 opacity-30">💬</div>
-                <p className="text-secondary-500">{translate('common.no_reviews')}</p>
-              </div>
-            )}
+            <RestaurantReviews restaurantId={id} />
           </div>
         )}
       </div>
@@ -448,7 +454,7 @@ const ProductCard = ({ product, restaurant, onAddToCart, translate, currentLangu
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
-            <div className="text-4xl opacity-30">🍽️</div>
+            <FaUtensils className="w-10 h-10 sm:w-12 sm:h-12 opacity-30 text-secondary-400" />
           </div>
         )}
         {!product.is_available && (
@@ -513,19 +519,21 @@ const ReviewCard = ({ review }) => (
           </p>
         </div>
       </div>
-      <div className="flex items-center">
-        {[...Array(5)].map((_, i) => (
-          <span
-            key={i}
-            className={`text-lg ${
-              i < review.rating_restaurant
-                ? "text-yellow-400"
-                : "text-secondary-300"
-            }`}
-          >
-            ⭐
-          </span>
-        ))}
+      <div className="flex items-center gap-1">
+        {[...Array(5)].map((_, i) => {
+          const isActive = i < review.rating_restaurant;
+          const StarComponent = isActive ? StarIcon : StarOutlineIcon;
+          return (
+            <StarComponent
+              key={i}
+              className={`w-5 h-5 ${
+                isActive
+                  ? "text-yellow-400"
+                  : "text-secondary-300"
+              }`}
+            />
+          );
+        })}
       </div>
     </div>
     {review.comment_restaurant && (

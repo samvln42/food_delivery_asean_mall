@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { GrLocationPin } from 'react-icons/gr';
 import { reverseGeocode, getGoogleMapsApiKey } from '../../utils/googleMaps';
 import { loadGoogleMaps, isGoogleMapsLoaded } from '../../utils/googleMapsLoader';
 
@@ -14,13 +15,11 @@ const MapPicker = ({
   height = '400px'
 }) => {
   const [map, setMap] = useState(null);
-  const [marker, setMarker] = useState(null);
   const [currentLocation, setCurrentLocation] = useState(initialCenter);
   const [address, setAddress] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [mapsLoaded, setMapsLoaded] = useState(false);
   const mapRef = useRef(null);
-  const markerRef = useRef(null);
   const apiKey = getGoogleMapsApiKey();
 
   useEffect(() => {
@@ -41,6 +40,7 @@ const MapPicker = ({
       });
   }, [apiKey]);
 
+
   const initializeMap = () => {
     if (!mapRef.current || !isGoogleMapsLoaded() || !window.google?.maps) {
       return;
@@ -55,36 +55,23 @@ const MapPicker = ({
         fullscreenControl: true
       });
 
-      // Create marker
-      const googleMarker = new window.google.maps.Marker({
-        position: currentLocation,
-        map: googleMap,
-        draggable: true,
-        title: 'ลากเพื่อเลือกตำแหน่ง'
-      });
+      // อัพเดทตำแหน่งเมื่อแผนที่เลื่อนหรือซูม
+      const updateCenterLocation = async () => {
+        const center = googleMap.getCenter();
+        if (center) {
+          const newLocation = {
+            lat: center.lat(),
+            lng: center.lng()
+          };
+          await updateLocation(newLocation);
+        }
+      };
 
-      // Get address when marker is moved
-      googleMarker.addListener('dragend', async (e) => {
-        const newLocation = {
-          lat: e.latLng.lat(),
-          lng: e.latLng.lng()
-        };
-        await updateLocation(newLocation);
-      });
-
-      // Get address when map is clicked
-      googleMap.addListener('click', async (e) => {
-        const newLocation = {
-          lat: e.latLng.lat(),
-          lng: e.latLng.lng()
-        };
-        googleMarker.setPosition(newLocation);
-        await updateLocation(newLocation);
-      });
+      googleMap.addListener('center_changed', updateCenterLocation);
+      googleMap.addListener('dragend', updateCenterLocation);
+      googleMap.addListener('zoom_changed', updateCenterLocation);
 
       setMap(googleMap);
-      setMarker(googleMarker);
-      markerRef.current = googleMarker;
 
       // Get initial address (ไม่ต้องรอ reverse geocode)
       const fallbackAddress = `ตำแหน่ง: ${currentLocation.lat.toFixed(6)}, ${currentLocation.lng.toFixed(6)}`;
@@ -175,12 +162,10 @@ const MapPicker = ({
             lng: position.coords.longitude
           };
           
-          if (markerRef.current && map) {
-            markerRef.current.setPosition(location);
+          if (map) {
             map.setCenter(location);
+            // updateLocation จะถูกเรียกอัตโนมัติจาก center_changed event
           }
-          
-          updateLocation(location);
         },
         (error) => {
           console.error('Geolocation error:', error);
@@ -207,10 +192,29 @@ const MapPicker = ({
       </div>
       
       <div
-        ref={mapRef}
         style={{ height: height }}
-        className="w-full rounded-lg border border-secondary-300"
-      />
+        className="w-full rounded-lg border border-secondary-300 overflow-hidden relative"
+      >
+        {/* Fixed center pin */}
+        <div style={{
+          position: 'absolute',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -100%)',
+          zIndex: 1000,
+          pointerEvents: 'none',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          filter: 'drop-shadow(0 4px 6px rgba(249, 115, 22, 0.35))'
+        }}>
+          <GrLocationPin size={40} color="#f97316" />
+        </div>
+        <div
+          ref={mapRef}
+          style={{ height: '100%', width: '100%' }}
+        />
+      </div>
       
       {address && (
         <div className="mt-2 p-2 bg-secondary-50 rounded text-sm">

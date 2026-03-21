@@ -6,33 +6,6 @@ import { getTranslatedName, getTranslatedDescription } from "../../utils/transla
 import { formatPrice } from "../../utils/formatPrice";
 import websocketService from "../../services/websocket";
 
-// Reusable Toast component
-const Toast = ({ icon = '🔔', title, message, color = 'emerald', onClose, position = 'top-right', offset = 0 }) => {
-  const colorMap = {
-    emerald: { bg: 'bg-emerald-50', border: 'border-emerald-200', title: 'text-emerald-800', text: 'text-emerald-700', ring: 'ring-emerald-200' },
-    blue: { bg: 'bg-blue-50', border: 'border-blue-200', title: 'text-blue-800', text: 'text-blue-700', ring: 'ring-blue-200' },
-    yellow: { bg: 'bg-yellow-50', border: 'border-yellow-200', title: 'text-yellow-800', text: 'text-yellow-700', ring: 'ring-yellow-200' },
-    red: { bg: 'bg-red-50', border: 'border-red-200', title: 'text-red-800', text: 'text-red-700', ring: 'ring-red-200' }
-  }[color] || { bg: 'bg-secondary-50', border: 'border-secondary-200', title: 'text-secondary-800', text: 'text-secondary-700', ring: 'ring-secondary-200' };
-
-  const posClass = position === 'top-left' ? 'left-4' : 'right-4';
-  const topPx = 16 + offset * 72; // 16px base + 72px per stacked toast
-
-  return (
-    <div className={`fixed z-50 max-w-md w-[92vw] sm:w-auto rounded-xl border shadow-lg ${colorMap.bg} ${colorMap.border} animate-in slide-in-from-top-2 ${posClass}`}
-         style={{ top: `${topPx}px` }}>
-      <div className="px-5 py-4 flex items-start gap-3">
-        <div className={`flex-shrink-0 w-9 h-9 rounded-full bg-white ${colorMap.ring} ring-4 flex items-center justify-center text-base`}>{icon}</div>
-        <div className="flex-1 min-w-0">
-          <p className={`font-semibold ${colorMap.title} truncate`}>{title}</p>
-          <p className={`text-sm ${colorMap.text} mt-0.5 break-words`}>{message}</p>
-        </div>
-        <button onClick={onClose} className="ml-2 text-secondary-400 hover:text-secondary-600">✕</button>
-      </div>
-    </div>
-  );
-};
-
 // Order Status Tracker Component
 const OrderStatusTracker = ({ currentStatus, orderDate, translate }) => {
   const { currentLanguage } = useLanguage();
@@ -311,22 +284,8 @@ const Orders = () => {
       
       // Refresh orders list
       fetchOrdersQuietly();
-        
-      // Show UI notification popup
-      const translatedStatus = translate(`order.status.${data.payload?.new_status || data.new_status}`);
-      setStatusUpdateNotification({
-        orderId: data.payload?.order_id || data.order_id,
-        statusLabel: translatedStatus,
-        oldStatus: data.payload?.old_status || data.old_status,
-        newStatus: data.payload?.new_status || data.new_status,
-      });
 
-      // Auto-hide notification after 5 seconds
-      setTimeout(() => {
-        setStatusUpdateNotification(null);
-      }, 5000);
-
-      // Removed Browser notification
+      // ไม่แสดง popup แจ้งเตือนอัปเดตสถานะฝั่งลูกค้า (รายการออเดอร์ยังอัปเดตตามปกติ)
     };
     
     websocketService.on('order_status_update', handleOrderStatusUpdate);
@@ -571,23 +530,6 @@ const Orders = () => {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      
-      {/* Status Update Notification */}
-      {statusUpdateNotification && (
-        <Toast
-          icon="🔔"
-          color="emerald"
-          title={translate('order.status_updated')}
-          message={translate('order.status_change_notification', {
-            orderId: statusUpdateNotification.orderId,
-            status: translate(statusUpdateNotification.statusLabel),
-          })}
-          onClose={() => setStatusUpdateNotification(null)}
-          position="top-right"
-          offset={0}
-        />
-      )}
-
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-3xl font-bold text-secondary-800">

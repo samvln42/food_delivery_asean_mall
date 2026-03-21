@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useGuestCart } from "../../contexts/GuestCartContext";
 import api, { appSettingsService } from "../../services/api";
@@ -9,7 +9,19 @@ import { getTranslatedName, getTranslatedDescription } from "../../utils/transla
 import { formatCurrency } from "../../utils/formatPrice";
 import AddressPickerLeaflet from "../../components/maps/AddressPickerLeaflet";
 import MapPickerLeaflet from "../../components/maps/MapPickerLeaflet";
-import { LuMapPin } from "react-icons/lu";
+import {
+  LuMapPin,
+  LuCheck,
+  LuStore,
+  LuTriangleAlert,
+  LuUtensilsCrossed,
+  LuTrash2,
+  LuLandmark,
+  LuCamera,
+  LuPackage,
+  LuShoppingCart,
+} from "react-icons/lu";
+import { reverseGeocode } from "../../utils/nominatim";
 
 const GuestCart = () => {
   const { translate, currentLanguage } = useLanguage();
@@ -20,6 +32,7 @@ const GuestCart = () => {
     subtotal,
     itemCount,
     deliveryFee,
+    deliveryFeeLoading,
     deliveryLocation,
     updateQuantity,
     removeItem,
@@ -27,6 +40,8 @@ const GuestCart = () => {
     getItemsByRestaurant,
     getRestaurantCount,
     setDeliveryLocation,
+    recalculateDeliveryFeeNow,
+    deliveryValidation,
   } = useGuestCart();
   
   const cartItems = Array.isArray(rawCartItems) ? rawCartItems : [];
@@ -34,12 +49,15 @@ const GuestCart = () => {
   const [loading, setLoading] = useState(false);
   const [deliveryAddress, setDeliveryAddress] = useState("");
   const [deliveryAddressDetail, setDeliveryAddressDetail] = useState("");
-  const [showMapPicker, setShowMapPicker] = useState(false);
+  const [showMapPicker, setShowMapPicker] = useState(true);
   const [specialInstructions, setSpecialInstructions] = useState("");
   const [restaurantStatuses, setRestaurantStatuses] = useState({});
   const [paymentInfo, setPaymentInfo] = useState(null);
+  const [freeDeliveryMinimum, setFreeDeliveryMinimum] = useState(null);
   const [proofOfPayment, setProofOfPayment] = useState(null);
   const [paymentMethod, setPaymentMethod] = useState("bank_transfer");
+  const [showLocationPermissionModal, setShowLocationPermissionModal] = useState(false);
+  const mapPickerRef = useRef(null);
   
   // ข้อมูลลูกค้าแบบไม่ต้องล็อกอิน
   const [customerName, setCustomerName] = useState("");
@@ -53,6 +71,86 @@ const GuestCart = () => {
     }
   }, [deliveryLocation]);
 
+  // ดึงตำแหน่งปัจจุบันอัตโนมัติเมื่อยังไม่มี deliveryLocation
+  useEffect(() => {
+    if (!deliveryLocation && navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          const location = {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude
+          };
+          
+          try {
+            const address = await reverseGeocode(location.lat, location.lng);
+            const locationWithAddress = {
+              ...location,
+              address: address
+            };
+            setDeliveryLocation(locationWithAddress);
+            setDeliveryAddress(address);
+          } catch (error) {
+            console.warn('Reverse geocoding failed, using coordinates:', error);
+            const fallbackAddress = `ตำแหน่ง: ${location.lat.toFixed(6)}, ${location.lng.toFixed(6)}`;
+            const locationWithAddress = {
+              ...location,
+              address: fallbackAddress
+            };
+            setDeliveryLocation(locationWithAddress);
+            setDeliveryAddress(fallbackAddress);
+          }
+        },
+        (error) => {
+          console.log('Geolocation not available or denied:', error);
+          // แสดง popup เมื่อผู้ใช้ปฏิเสธการแชร์ตำแหน่ง
+          if (error.code === 1) { // PERMISSION_DENIED
+            setShowLocationPermissionModal(true);
+          }
+        }
+      );
+    }
+  }, [deliveryLocation, setDeliveryLocation]); // เช็คเมื่อ deliveryLocation เปลี่ยน
+
+  // ดึงตำแหน่งปัจจุบันเมื่อเปิด map picker และยังไม่มี deliveryLocation
+  useEffect(() => {
+    if (showMapPicker && !deliveryLocation && navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          const location = {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude
+          };
+          
+          try {
+            const address = await reverseGeocode(location.lat, location.lng);
+            const locationWithAddress = {
+              ...location,
+              address: address
+            };
+            setDeliveryLocation(locationWithAddress);
+            setDeliveryAddress(address);
+          } catch (error) {
+            console.warn('Reverse geocoding failed, using coordinates:', error);
+            const fallbackAddress = `ตำแหน่ง: ${location.lat.toFixed(6)}, ${location.lng.toFixed(6)}`;
+            const locationWithAddress = {
+              ...location,
+              address: fallbackAddress
+            };
+            setDeliveryLocation(locationWithAddress);
+            setDeliveryAddress(fallbackAddress);
+          }
+        },
+        (error) => {
+          console.log('Geolocation not available or denied:', error);
+          // แสดง popup เมื่อผู้ใช้ปฏิเสธการแชร์ตำแหน่ง
+          if (error.code === 1) { // PERMISSION_DENIED
+            setShowLocationPermissionModal(true);
+          }
+        }
+      );
+    }
+  }, [showMapPicker, deliveryLocation]);
+
   // โหลดข้อมูลการชำระเงิน
   useEffect(() => {
     const fetchPaymentInfo = async () => {
@@ -65,9 +163,19 @@ const GuestCart = () => {
             bank_account_name: response.data.bank_account_name,
             qr_code_url: response.data.qr_code_url,
           });
+          const minimumRaw =
+            response.data.free_delivery_minimum_amount ??
+            response.data.free_delivery_minimum;
+          const minimumValue = Number(minimumRaw);
+          setFreeDeliveryMinimum(
+            Number.isFinite(minimumValue) && minimumValue > 0
+              ? minimumValue
+              : null
+          );
         }
       } catch (error) {
         console.error("Error fetching payment info:", error);
+        setFreeDeliveryMinimum(null);
       }
     };
 
@@ -114,6 +222,38 @@ const GuestCart = () => {
     typeof getRestaurantCount === "function"
       ? getRestaurantCount()
       : 0;
+  const hasFreeDeliveryMinimum =
+    Number.isFinite(freeDeliveryMinimum) && freeDeliveryMinimum > 0;
+  const remainingForFreeDelivery = hasFreeDeliveryMinimum
+    ? Math.max(Number(freeDeliveryMinimum) - Number(subtotal), 0)
+    : 0;
+  const isFreeDeliveryReached =
+    hasFreeDeliveryMinimum && Number(subtotal) >= Number(freeDeliveryMinimum);
+  const formattedMaxDistanceKm =
+    deliveryValidation?.maxDistanceKm !== null &&
+    deliveryValidation?.maxDistanceKm !== undefined
+      ? Number(deliveryValidation.maxDistanceKm).toFixed(2)
+      : null;
+  const formattedDistanceKm =
+    deliveryValidation?.distanceKm !== null &&
+    deliveryValidation?.distanceKm !== undefined
+      ? Number(deliveryValidation.distanceKm).toFixed(2)
+      : null;
+  const outOfRangeMessage = formattedMaxDistanceKm
+    ? translate("cart.delivery_out_of_range_max", {
+        max_distance: formattedMaxDistanceKm,
+      })
+    : translate("cart.delivery_out_of_range");
+  const outOfRangeDetailMessage = formattedMaxDistanceKm
+    ? formattedDistanceKm
+      ? translate("cart.delivery_out_of_range_detail_full", {
+          max_distance: formattedMaxDistanceKm,
+          distance: formattedDistanceKm,
+        })
+      : translate("cart.delivery_out_of_range_detail_max", {
+          max_distance: formattedMaxDistanceKm,
+        })
+    : null;
 
   // จัดการการอัปโหลดหลักฐานการโอน
   const handleProofOfPaymentChange = (e) => {
@@ -129,6 +269,11 @@ const GuestCart = () => {
 
     if (!deliveryAddress.trim() || !deliveryLocation) {
       toast.warning("Please enter delivery address and select location");
+      return;
+    }
+
+    if (deliveryValidation?.isOutOfRange) {
+      toast.warning(outOfRangeMessage);
       return;
     }
 
@@ -258,13 +403,7 @@ const GuestCart = () => {
       guestOrders.push(newGuestOrder);
       localStorage.setItem('guest_orders', JSON.stringify(guestOrders));
 
-      // สร้างข้อความแจ้งเตือนความสำเร็จ
-      let successMessage = `Order successful!\nTemporary ID: ${orderResult.temporary_id}\nTotal: ${formatCurrency(total)}`;
-      successMessage += `\n\nPlease save your Temporary ID to track your order.`;
-
-      toast.success(successMessage);
-      
-      // ไปหน้า guest orders
+      // ไปหน้า guest orders (ไม่แสดง Toast แจ้งเตือน)
       navigate(`/guest-orders?temporary_id=${orderResult.temporary_id}`);
       
     } catch (error) {
@@ -293,7 +432,7 @@ const GuestCart = () => {
 
   if (loading) {
     return (
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-2 py-5 sm:px-4 sm:py-8">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500 mx-auto"></div>
           <p className="mt-4 text-secondary-600">Processing order...</p>
@@ -303,22 +442,33 @@ const GuestCart = () => {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold text-secondary-800 mb-6">
-        {translate("cart.cart")}
-      </h1>
+    <div className="container mx-auto px-2 py-5 sm:px-4 sm:py-8">
+      <div className="flex items-center justify-between mb-4 sm:mb-6">
+        <h1 className="text-3xl font-bold text-secondary-800">
+          {translate("cart.cart")}
+        </h1>
+        {cartItems.length > 0 && (
+          <button
+            onClick={clearCart}
+            className="inline-flex items-center gap-2 text-secondary-500 hover:text-red-600 text-sm font-medium py-1 px-2 rounded hover:bg-secondary-100 transition-colors"
+          >
+            <LuTrash2 className="w-4 h-4" />
+            {translate("cart.clear_all")}
+          </button>
+        )}
+      </div>
 
       {cartItems.length > 0 ? (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8">
           {/* Cart Items แยกตามร้าน */}
           <div className="lg:col-span-2">
-            <div className="space-y-6">
+            <div className="space-y-4 sm:space-y-6">
               {/* Multi-Restaurant Info */}
               {restaurantCount > 1 && (
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-4 mb-4 sm:mb-6">
                   <div className="flex items-center">
-                    <div className="flex-shrink-0">
-                      <span className="text-2xl">🏪</span>
+                    <div className="flex-shrink-0 p-2 bg-blue-100 rounded-full">
+                      <LuStore className="w-5 h-5 text-blue-600" />
                     </div>
                     <div className="ml-3">
                       <h3 className="text-blue-800 font-semibold">
@@ -339,10 +489,10 @@ const GuestCart = () => {
               {Object.values(restaurantStatuses).some(
                 (status) => status.status !== "open"
               ) && (
-                <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3 sm:p-4 mb-4 sm:mb-6">
                   <div className="flex items-center">
-                    <div className="flex-shrink-0">
-                      <span className="text-2xl">⚠️</span>
+                    <div className="flex-shrink-0 p-2 bg-red-100 rounded-full">
+                      <LuTriangleAlert className="w-5 h-5 text-red-600" />
                     </div>
                     <div className="ml-3">
                       <h3 className="text-red-800 font-semibold">
@@ -373,12 +523,14 @@ const GuestCart = () => {
                 ([restaurantId, restaurantData]) => (
                   <div
                     key={restaurantId}
-                    className="bg-white rounded-lg shadow-md p-6"
+                    className="bg-white rounded-lg shadow-md p-4 sm:p-6"
                   >
                     {/* Restaurant Header */}
                     <div className="flex items-center justify-between mb-4 pb-4 border-b">
                       <div className="flex items-center">
-                        <span className="text-2xl mr-3">🏪</span>
+                        <div className="flex-shrink-0 p-2 bg-primary-50 rounded-lg mr-3">
+                          <LuStore className="w-5 h-5 text-primary-600" />
+                        </div>
                         <div>
                           <h2 className="text-xl font-semibold text-secondary-700">
                             {restaurantData.restaurant.name}
@@ -391,7 +543,7 @@ const GuestCart = () => {
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className="text-lg font-semibold text-primary-600">
+                        <p className="text-base font-medium text-secondary-700">
                           {formatCurrency(restaurantData.subtotal)}
                         </p>
                         <p className="text-sm text-secondary-500">
@@ -420,7 +572,7 @@ const GuestCart = () => {
                                   }}
                                 />
                               ) : (
-                                <span className="text-lg sm:text-2xl">🍽️</span>
+                                <LuUtensilsCrossed className="w-6 h-6 sm:w-8 sm:h-8 text-secondary-400" />
                               )}
                             </div>
 
@@ -434,7 +586,7 @@ const GuestCart = () => {
                                   {item.special_instructions}
                                 </p>
                               )}
-                              <p className="text-primary-600 font-semibold text-sm sm:text-base">
+                              <p className="text-secondary-600 font-medium text-sm sm:text-base">
                                 {formatCurrency(item.price)}
                               </p>
                             </div>
@@ -463,10 +615,10 @@ const GuestCart = () => {
 
                             <button
                               onClick={() => removeItem(item.id)}
-                              className="text-red-500 hover:text-red-700 p-1 sm:p-2 flex-shrink-0"
+                              className="text-secondary-400 hover:text-red-500 p-2 flex-shrink-0 rounded-lg hover:bg-secondary-100 transition-colors"
                               title="ลบสินค้า"
                             >
-                              <span className="text-sm sm:text-base">🗑️</span>
+                              <LuTrash2 className="w-4 h-4 sm:w-5 sm:h-5" />
                             </button>
                           </div>
                         </div>
@@ -475,20 +627,10 @@ const GuestCart = () => {
                   </div>
                 )
               )}
-
-              {/* Clear Cart Button */}
-              <div className="text-center">
-                <button
-                  onClick={clearCart}
-                  className="text-red-500 hover:text-red-700 text-sm underline"
-                >
-                  🗑️ {translate("cart.clear_all")}
-                </button>
-              </div>
             </div>
 
             {/* Customer Information */}
-            <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+            <div className="bg-white rounded-lg shadow-md p-4 sm:p-6 mb-4 sm:mb-6 mt-6 sm:mt-8">
               <h3 className="text-lg font-semibold text-secondary-700 mb-4">
                 {translate("cart.customer_information")}
               </h3>
@@ -541,14 +683,14 @@ const GuestCart = () => {
             </div>
 
             {/* Delivery Address */}
-            <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+            <div className="bg-white rounded-lg shadow-md p-4 sm:p-6 mb-4 sm:mb-6 mt-6 sm:mt-8">
               <h3 className="text-lg font-semibold text-secondary-700 mb-4">
                 {translate("cart.delivery_address")}
               </h3>
               
-              {/* Address Picker with Google Maps Autocomplete */}
-              <div className="mb-4 flex flex-col gap-2 md:flex-row md:items-stretch">
-                <AddressPickerLeaflet
+              {/* Address Picker + Map Toggle + Confirm */}
+              <div className="mb-4 flex flex-col gap-2 md:flex-row md:items-center md:gap-3">
+                {/* <AddressPickerLeaflet
                   className="w-full md:w-72 lg:w-80"
                   value={deliveryAddress}
                   onChange={(address) => {
@@ -560,7 +702,7 @@ const GuestCart = () => {
                   }}
                 required
                 readOnly
-                />
+                /> */}
                 <button
                   type="button"
                   onClick={() => setShowMapPicker(!showMapPicker)}
@@ -571,12 +713,47 @@ const GuestCart = () => {
                     ? translate("cart.hide_map_picker")
                     : translate("cart.show_map_picker")}
                 </button>
+                {showMapPicker && (
+                  <button
+                    type="button"
+                    disabled={deliveryFeeLoading}
+                    onClick={async () => {
+                      if (mapPickerRef.current) {
+                        const loc = await mapPickerRef.current.confirmCurrentLocation();
+                        if (loc) recalculateDeliveryFeeNow(loc);
+                      }
+                    }}
+                    className={`px-4 py-2 rounded-lg transition-colors flex items-center justify-center gap-2 md:w-auto min-w-[140px] ${
+                      deliveryFeeLoading
+                        ? "bg-secondary-300 text-secondary-500 cursor-wait"
+                        : deliveryLocation?.lat && deliveryLocation?.lng
+                          ? "bg-green-500 text-white hover:bg-green-600"
+                          : "bg-primary-500 text-white hover:bg-primary-600"
+                    }`}
+                  >
+                    {deliveryFeeLoading ? (
+                      <>
+                        <span className="animate-spin inline-block w-4 h-4 border-2 border-current border-t-transparent rounded-full" />
+                        <span>{translate("cart.loading") || "กำลังโหลด..."}</span>
+                      </>
+                    ) : deliveryLocation?.lat && deliveryLocation?.lng ? (
+                      <>
+                        <LuCheck className="w-5 h-5 flex-shrink-0" />
+                        <span>{translate("cart.select_this_location") || "เลือกตำแหน่งนี้"}</span>
+                      </>
+                    ) : (
+                      translate("cart.select_this_location") || "เลือกตำแหน่งนี้"
+                    )}
+                  </button>
+                )}
               </div>
 
               {/* Map Picker */}
               {showMapPicker && (
                 <div className="mb-4">
                   <MapPickerLeaflet
+                    ref={mapPickerRef}
+                    deferSelection
                     initialCenter={deliveryLocation ? { lat: deliveryLocation.lat, lng: deliveryLocation.lng } : { lat: 13.7563, lng: 100.5018 }}
                     onLocationSelect={(location) => {
                       setDeliveryLocation(location);
@@ -622,7 +799,7 @@ const GuestCart = () => {
 
             {/* Payment Information */}
             {paymentInfo && (
-              <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+              <div className="bg-white rounded-lg shadow-md p-4 sm:p-6 mb-4 sm:mb-6">
                 <h3 className="text-lg font-semibold text-secondary-700 mb-4">
                   {translate("cart.payment_information")}
                 </h3>
@@ -666,7 +843,9 @@ const GuestCart = () => {
                 {paymentMethod === "bank_transfer" && (
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
                     <div className="flex items-start">
-                      <span className="text-blue-500 mr-3 mt-1">🏦</span>
+                      <div className="flex-shrink-0 p-2 bg-blue-100 rounded-lg mr-3 mt-0.5">
+                        <LuLandmark className="w-5 h-5 text-blue-600" />
+                      </div>
                       <div className="flex-1">
                         <h4 className="font-semibold text-blue-800 mb-2">
                           {translate("cart.bank_account_information")}
@@ -739,7 +918,11 @@ const GuestCart = () => {
                     >
                       {proofOfPayment ? (
                         <div className="text-green-600">
-                          <span className="text-2xl block mb-2">✅</span>
+                          <div className="flex justify-center mb-2">
+                            <div className="p-2 bg-green-100 rounded-full">
+                              <LuCheck className="w-6 h-6" />
+                            </div>
+                          </div>
                           <p className="text-sm font-medium break-all overflow-hidden">
                             {proofOfPayment.name}
                           </p>
@@ -749,7 +932,9 @@ const GuestCart = () => {
                         </div>
                       ) : (
                         <div className="text-secondary-500">
-                          <span className="text-2xl block mb-2">📷</span>
+                          <div className="flex justify-center mb-2">
+                            <LuCamera className="w-10 h-10 text-secondary-400" />
+                          </div>
                           <p className="text-sm font-medium">
                             {translate("cart.click_to_attach_proof_of_payment")}
                           </p>
@@ -764,7 +949,7 @@ const GuestCart = () => {
 
                 <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
                   <div className="flex items-start">
-                    <span className="text-yellow-500 mr-2 mt-0.5">⚠️</span>
+                    <LuTriangleAlert className="w-5 h-5 text-yellow-600 flex-shrink-0 mr-2 mt-0.5" />
                     <div className="text-sm text-yellow-800">
                       <strong>{translate("cart.note")}:</strong>{" "}
                       {translate("cart.attach_proof")}
@@ -772,13 +957,24 @@ const GuestCart = () => {
                     </div>
                   </div>
                 </div>
+
+                {deliveryValidation?.isOutOfRange && (
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700">
+                    {outOfRangeMessage}
+                    {outOfRangeDetailMessage && (
+                      <div className="mt-1 text-xs text-red-600">
+                        {outOfRangeDetailMessage}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </div>
 
           {/* Order Summary */}
           <div className="lg:col-span-1">
-            <div className="bg-white rounded-lg shadow-md p-6 sticky top-8">
+            <div className="bg-white rounded-lg shadow-md p-4 sm:p-6 sticky top-8">
               <h2 className="text-xl font-semibold text-secondary-700 mb-4">
                 {translate("cart.order_summary")}
               </h2>
@@ -796,14 +992,36 @@ const GuestCart = () => {
 
                 {/* Delivery Fee Details */}
                 <div className="space-y-1">
-                  <div className="flex justify-between">
+                  <div className="flex justify-between items-center">
                     <span className="text-secondary-600">
                       {translate("cart.delivery_fee")}
                     </span>
-                    <span className="text-secondary-800">
-                      {formatCurrency(deliveryFee)}
-                    </span>
+                    {deliveryFeeLoading ? (
+                      <span className="text-secondary-500 text-sm animate-pulse">
+                        ...
+                      </span>
+                    ) : (
+                      <span className="text-secondary-800">
+                        {formatCurrency(deliveryFee)}
+                      </span>
+                    )}
                   </div>
+                  {hasFreeDeliveryMinimum && (
+                    <div
+                      className={`text-xs pl-2 ${
+                        isFreeDeliveryReached ? "text-green-600" : "text-secondary-500"
+                      }`}
+                    >
+                      {isFreeDeliveryReached
+                        ? translate("cart.free_delivery_unlocked", {
+                            minimum: formatCurrency(freeDeliveryMinimum),
+                          })
+                        : translate("cart.free_delivery_from_minimum", {
+                            minimum: formatCurrency(freeDeliveryMinimum),
+                            remaining: formatCurrency(remainingForFreeDelivery),
+                          })}
+                    </div>
+                  )}
                   {restaurantCount > 1 && (() => {
                     try {
                       const breakdownData = localStorage.getItem('guest_delivery_fee_breakdown');
@@ -846,9 +1064,12 @@ const GuestCart = () => {
                 </div>
 
                 {/* Restaurant Count Info */}
-                <div className="text-center text-sm text-secondary-500 pt-2 border-t">
-                  🏪 {restaurantCount} {translate("common.restaurants")} • 📦{" "}
-                  {itemCount} {translate("order.items_count")}
+                <div className="flex items-center justify-center gap-2 text-sm text-secondary-500 pt-2 border-t">
+                  <LuStore className="w-4 h-4" />
+                  <span>{restaurantCount} {translate("common.restaurants")}</span>
+                  <span className="text-secondary-300">•</span>
+                  <LuPackage className="w-4 h-4" />
+                  <span>{itemCount} {translate("order.items_count")}</span>
                 </div>
               </div>
 
@@ -858,6 +1079,7 @@ const GuestCart = () => {
                 disabled={
                   loading ||
                   !deliveryAddress.trim() || !deliveryLocation ||
+                  deliveryValidation?.isOutOfRange ||
                   !customerName.trim() ||
                   !customerPhone.trim() ||
                   // !customerEmail.trim() ||
@@ -869,6 +1091,7 @@ const GuestCart = () => {
                 className={`w-full py-3 px-4 rounded-lg font-semibold transition-colors ${
                   loading ||
                   !deliveryAddress.trim() || !deliveryLocation ||
+                  deliveryValidation?.isOutOfRange ||
                   !customerName.trim() ||
                   !customerPhone.trim() ||
                   // !customerEmail.trim() ||
@@ -888,6 +1111,8 @@ const GuestCart = () => {
                   ? translate("cart.cannot_order_closed_restaurants")
                   : !deliveryAddress.trim() || !deliveryLocation
                   ? translate("cart.please_enter_the_delivery_address")
+                  : deliveryValidation?.isOutOfRange
+                  ? outOfRangeMessage
                   : !customerName.trim()
                   ? translate("cart.please_enter_your_name")
                   : !customerPhone.trim()
@@ -911,8 +1136,12 @@ const GuestCart = () => {
           </div>
         </div>
       ) : (
-        <div className="bg-white rounded-lg shadow-md p-8 text-center">
-          <div className="text-6xl mb-4 opacity-30">🛒</div>
+        <div className="bg-white rounded-lg shadow-md p-6 sm:p-8 text-center">
+          <div className="flex justify-center mb-4">
+            <div className="p-4 bg-secondary-100 rounded-full">
+              <LuShoppingCart className="w-16 h-16 text-secondary-400" />
+            </div>
+          </div>
           <h2 className="text-xl font-semibold text-secondary-700 mb-2">
             {translate("cart.empty")}
           </h2>
@@ -932,6 +1161,88 @@ const GuestCart = () => {
             >
               {translate("common.order_now")}
             </Link>
+          </div>
+        </div>
+      )}
+
+      {/* Location Permission Modal */}
+      {showLocationPermissionModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[1100]">
+          <div className="bg-white rounded-lg max-w-md w-full p-6 shadow-xl">
+            <div className="text-center mb-4">
+              <div className="flex justify-center mb-4">
+                <div className="p-3 bg-primary-100 rounded-full">
+                  <LuMapPin className="w-12 h-12 text-primary-600" />
+                </div>
+              </div>
+              <h3 className="text-xl font-semibold text-secondary-900 mb-2">
+                {translate('cart.location_permission_title')}
+              </h3>
+              <p className="text-secondary-600 text-sm mb-4">
+                {translate('cart.location_permission_message')}
+              </p>
+            </div>
+            
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+              <p className="text-sm text-blue-800 font-medium mb-2">
+                {translate('cart.location_permission_instructions_title')}
+              </p>
+              <div className="text-xs text-blue-700 space-y-1">
+                <p><strong>Android:</strong> {translate('cart.location_permission_android')}</p>
+                <p><strong>iOS:</strong> {translate('cart.location_permission_ios')}</p>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowLocationPermissionModal(false)}
+                className="flex-1 px-4 py-2 text-sm font-medium text-secondary-700 bg-white border border-secondary-300 rounded-lg hover:bg-secondary-50 transition-colors"
+              >
+                {translate('common.cancel')}
+              </button>
+              <button
+                onClick={() => {
+                  setShowLocationPermissionModal(false);
+                  // ลองเรียก geolocation อีกครั้ง
+                  if (navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition(
+                      async (position) => {
+                        const location = {
+                          lat: position.coords.latitude,
+                          lng: position.coords.longitude
+                        };
+                        try {
+                          const address = await reverseGeocode(location.lat, location.lng);
+                          const locationWithAddress = {
+                            ...location,
+                            address: address
+                          };
+                          setDeliveryLocation(locationWithAddress);
+                          setDeliveryAddress(address);
+                        } catch (error) {
+                          console.warn('Reverse geocoding failed:', error);
+                          const fallbackAddress = `ตำแหน่ง: ${location.lat.toFixed(6)}, ${location.lng.toFixed(6)}`;
+                          const locationWithAddress = {
+                            ...location,
+                            address: fallbackAddress
+                          };
+                          setDeliveryLocation(locationWithAddress);
+                          setDeliveryAddress(fallbackAddress);
+                        }
+                      },
+                      (error) => {
+                        if (error.code === 1) {
+                          setShowLocationPermissionModal(true);
+                        }
+                      }
+                    );
+                  }
+                }}
+                className="flex-1 px-4 py-2 text-sm font-medium text-white bg-primary-500 rounded-lg hover:bg-primary-600 transition-colors"
+              >
+                {translate('cart.try_again')}
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -12,10 +12,11 @@ import { useAuth } from "../contexts/AuthContext";
 import websocketService from "../services/websocket";
 import AdminNotificationBridge from "../components/admin/AdminNotificationBridge";
 import { useLocation } from "react-router-dom";
-import { FaBars, FaTimes, FaChartBar, FaUsers, FaStore, FaFolder, FaCog, FaBullhorn } from "react-icons/fa";
+import { FaBars, FaTimes, FaChartBar, FaUsers, FaStore, FaFolder, FaCog, FaBullhorn, FaTags, FaTheaterMasks } from "react-icons/fa";
 import { FaUserCheck, FaUserXmark } from "react-icons/fa6";
 import { IoIosCreate  } from "react-icons/io";
 import { BiSolidPhoneCall } from "react-icons/bi";
+import { Squares2X2Icon } from "@heroicons/react/24/outline";
 import { useLanguage } from "../contexts/LanguageContext";
 
 // Create context for notification count
@@ -367,6 +368,28 @@ const AdminLayout = ({ children }) => {
                   className="flex items-center px-4 py-2 text-secondary-700 rounded-lg hover:bg-primary-50 hover:text-primary-600 transition-colors"
                 >
                   <FaBullhorn className="h-6 w-6 mr-2" /> {translate('admin.manage_advertisements')}
+                </Link>
+                <Link
+                  to="/admin/entertainment-venues"
+                  onClick={() => setSidebarOpen(false)}
+                  className={`flex items-center px-4 py-2 rounded-lg transition-colors ${
+                    location.pathname === '/admin/entertainment-venues'
+                      ? 'bg-primary-50 text-primary-600'
+                      : 'text-secondary-700 hover:bg-primary-50 hover:text-primary-600'
+                  }`}
+                >
+                  <FaTheaterMasks className="h-6 w-6 mr-2" /> {translate('admin.entertainment_venues') || 'สถานที่บันเทิง'}
+                </Link>
+                <Link
+                  to="/admin/venue-categories"
+                  onClick={() => setSidebarOpen(false)}
+                  className={`flex items-center px-4 py-2 rounded-lg transition-colors ${
+                    location.pathname === '/admin/venue-categories'
+                      ? 'bg-primary-50 text-primary-600'
+                      : 'text-secondary-700 hover:bg-primary-50 hover:text-primary-600'
+                  }`}
+                >
+                  <Squares2X2Icon className="h-6 w-6 mr-2" /> {translate('admin.venue_categories') || 'หมวดหมู่สถานที่'}
                 </Link>
                 
                 {/* <Link

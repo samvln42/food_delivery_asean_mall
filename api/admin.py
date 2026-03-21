@@ -7,7 +7,9 @@ from .models import (
     SearchHistory, PopularSearch, UserFavorite, AnalyticsDaily,
     RestaurantAnalytics, ProductAnalytics, AppSettings, Language, Translation,
     CategoryTranslation, ProductTranslation, GuestOrder, GuestOrderDetail, GuestDeliveryStatusLog,
-    Advertisement
+    Advertisement, RestaurantTable, DineInCart, DineInCartItem, DineInOrder,
+    DineInOrderDetail, DineInStatusLog, DineInProduct,
+    EntertainmentVenue, VenueImage, VenueCategory
 )
 
 
@@ -274,4 +276,262 @@ class AdvertisementAdmin(admin.ModelAdmin):
                 obj.image.url
             )
         return 'ยังไม่ได้อัปโหลดรูปภาพ'
+    image_preview.short_description = 'ตัวอย่างรูปภาพ'
+
+
+# ===== Dine-In QR Code System Admin =====
+
+@admin.register(DineInProduct)
+class DineInProductAdmin(admin.ModelAdmin):
+    list_display = ['product_name', 'restaurant', 'category', 'price', 'is_available', 'sort_order']
+    list_filter = ['is_available', 'is_recommended', 'restaurant', 'category']
+    search_fields = ['product_name', 'description', 'restaurant__restaurant_name']
+    list_editable = ['price', 'is_available', 'sort_order']
+    ordering = ['restaurant', 'sort_order', 'product_name']
+    readonly_fields = ['dine_in_product_id', 'created_at', 'updated_at']
+
+
+@admin.register(RestaurantTable)
+class RestaurantTableAdmin(admin.ModelAdmin):
+    list_display = ['table_number', 'restaurant', 'seats', 'is_active', 'qr_code_thumbnail', 'created_at']
+    list_filter = ['is_active', 'restaurant', 'created_at']
+    search_fields = ['table_number', 'restaurant__restaurant_name']
+    readonly_fields = ['table_id', 'qr_code_data', 'created_at', 'updated_at', 'qr_code_preview']
+    ordering = ['restaurant', 'table_number']
+    
+    fieldsets = (
+        ('ข้อมูลโต๊ะ', {
+            'fields': ('restaurant', 'table_number', 'seats', 'is_active')
+        }),
+        ('QR Code', {
+            'fields': ('qr_code_data', 'qr_code_image', 'qr_code_image_url', 'qr_code_preview')
+        }),
+        ('ข้อมูลระบบ', {
+            'fields': ('table_id', 'created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+    
+    def qr_code_thumbnail(self, obj):
+        """แสดง QR Code ขนาดเล็ก"""
+        if obj.qr_code_image:
+            return format_html(
+                '<img src="{}" style="max-width: 50px; max-height: 50px;"/>',
+                obj.qr_code_image.url
+            )
+        return '-'
+    qr_code_thumbnail.short_description = 'QR Code'
+    
+    def qr_code_preview(self, obj):
+        """แสดงตัวอย่าง QR Code"""
+        if obj.qr_code_image:
+            return format_html(
+                '<img src="{}" style="max-width: 300px; max-height: 300px;"/>',
+                obj.qr_code_image.url
+            )
+        return 'ยังไม่ได้สร้าง QR Code'
+    qr_code_preview.short_description = 'ตัวอย่าง QR Code'
+
+
+class DineInCartItemInline(admin.TabularInline):
+    model = DineInCartItem
+    extra = 0
+    readonly_fields = ['cart_item_id', 'subtotal']
+
+
+@admin.register(DineInCart)
+class DineInCartAdmin(admin.ModelAdmin):
+    list_display = ['cart_id', 'table', 'session_id', 'customer_name', 'is_active', 'created_at']
+    list_filter = ['is_active', 'created_at', 'table__restaurant']
+    search_fields = ['session_id', 'customer_name', 'table__table_number']
+    readonly_fields = ['cart_id', 'created_at', 'updated_at']
+    inlines = [DineInCartItemInline]
+
+
+class DineInOrderDetailInline(admin.TabularInline):
+    model = DineInOrderDetail
+    extra = 0
+    readonly_fields = ['order_detail_id', 'subtotal']
+
+
+class DineInStatusLogInline(admin.TabularInline):
+    model = DineInStatusLog
+    extra = 0
+    readonly_fields = ['log_id', 'timestamp']
+
+
+@admin.register(DineInOrder)
+class DineInOrderAdmin(admin.ModelAdmin):
+    list_display = ['dine_in_order_id', 'table', 'restaurant', 'customer_name', 
+                   'total_amount', 'current_status', 'payment_status', 'order_date']
+    list_filter = ['current_status', 'payment_status', 'order_date', 'restaurant']
+    search_fields = ['dine_in_order_id', 'customer_name', 'table__table_number', 
+                    'restaurant__restaurant_name', 'session_id']
+    readonly_fields = ['dine_in_order_id', 'order_date', 'paid_at', 'completed_at']
+    inlines = [DineInOrderDetailInline, DineInStatusLogInline]
+    
+    fieldsets = (
+        ('ข้อมูลออเดอร์', {
+            'fields': ('dine_in_order_id', 'table', 'restaurant', 'session_id', 'order_date')
+        }),
+        ('ข้อมูลลูกค้า', {
+            'fields': ('customer_name', 'customer_count', 'special_instructions')
+        }),
+        ('การชำระเงิน', {
+            'fields': ('total_amount', 'payment_status', 'payment_method', 'paid_at')
+        }),
+        ('สถานะ', {
+            'fields': ('current_status', 'completed_at')
+        }),
+    )
+
+
+@admin.register(DineInOrderDetail)
+class DineInOrderDetailAdmin(admin.ModelAdmin):
+    list_display = ['order_detail_id', 'order', 'dine_in_product', 'quantity', 
+                   'price_at_order', 'subtotal']
+    list_filter = ['order__current_status', 'order__restaurant']
+    search_fields = ['order__dine_in_order_id', 'dine_in_product__product_name']
+    readonly_fields = ['order_detail_id', 'subtotal']
+
+
+@admin.register(DineInStatusLog)
+class DineInStatusLogAdmin(admin.ModelAdmin):
+    list_display = ['log_id', 'order', 'status', 'timestamp', 'updated_by_user']
+    list_filter = ['status', 'timestamp']
+    search_fields = ['order__dine_in_order_id', 'note']
+    readonly_fields = ['log_id', 'timestamp']
+
+
+# ===== Entertainment Venues Admin =====
+
+class VenueImageInline(admin.TabularInline):
+    """Inline admin for venue images"""
+    model = VenueImage
+    extra = 0
+    fields = ['image', 'image_url', 'caption', 'sort_order', 'is_primary']
+    readonly_fields = ['image_id', 'created_at', 'updated_at']
+
+
+@admin.register(VenueCategory)
+class VenueCategoryAdmin(admin.ModelAdmin):
+    list_display = ['category_name', 'sort_order', 'is_active', 'venues_count', 'created_at']
+    list_filter = ['is_active', 'created_at']
+    search_fields = ['category_name', 'description']
+    list_editable = ['sort_order', 'is_active']
+    ordering = ['sort_order', 'category_name']
+    readonly_fields = ['category_id', 'created_at', 'updated_at', 'icon_preview']
+    
+    fieldsets = (
+        ('ข้อมูลหมวดหมู่', {
+            'fields': ('category_name', 'description', 'icon', 'icon_url', 'icon_preview')
+        }),
+        ('การตั้งค่า', {
+            'fields': ('sort_order', 'is_active')
+        }),
+        ('ข้อมูลระบบ', {
+            'fields': ('category_id', 'created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+    
+    def venues_count(self, obj):
+        """แสดงจำนวนสถานที่ในหมวดหมู่นี้"""
+        return obj.venues.count()
+    venues_count.short_description = 'จำนวนสถานที่'
+    
+    def icon_preview(self, obj):
+        """แสดงตัวอย่าง icon"""
+        if obj.icon:
+            return format_html(
+                '<img src="{}" style="max-width: 100px; max-height: 100px;"/>',
+                obj.icon.url
+            )
+        elif obj.icon_url:
+            return format_html(
+                '<img src="{}" style="max-width: 100px; max-height: 100px;"/>',
+                obj.icon_url
+            )
+        return 'ยังไม่มี icon'
+    icon_preview.short_description = 'ตัวอย่าง Icon'
+
+
+@admin.register(EntertainmentVenue)
+class EntertainmentVenueAdmin(admin.ModelAdmin):
+    list_display = ['venue_name', 'category', 'status', 'average_rating', 'total_reviews', 'created_at']
+    list_filter = ['status', 'category', 'created_at']
+    search_fields = ['venue_name', 'description', 'address', 'venue_type']
+    readonly_fields = ['venue_id', 'average_rating', 'total_reviews', 'created_at', 'updated_at', 'image_preview']
+    inlines = [VenueImageInline]
+    
+    fieldsets = (
+        ('ข้อมูลสถานที่', {
+            'fields': ('venue_name', 'description', 'category', 'venue_type', 'status')
+        }),
+        ('ข้อมูลติดต่อ', {
+            'fields': ('address', 'latitude', 'longitude', 'phone_number', 'opening_hours')
+        }),
+        ('รูปภาพหลัก', {
+            'fields': ('image', 'image_url', 'image_preview')
+        }),
+        ('สถิติ', {
+            'fields': ('average_rating', 'total_reviews')
+        }),
+        ('ข้อมูลระบบ', {
+            'fields': ('venue_id', 'created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+    
+    def image_preview(self, obj):
+        """แสดงตัวอย่างรูปภาพ"""
+        if obj.image:
+            return format_html(
+                '<img src="{}" style="max-width: 300px; max-height: 200px;"/>',
+                obj.image.url
+            )
+        elif obj.image_url:
+            return format_html(
+                '<img src="{}" style="max-width: 300px; max-height: 200px;"/>',
+                obj.image_url
+            )
+        return 'ยังไม่มีรูปภาพ'
+    image_preview.short_description = 'ตัวอย่างรูปภาพ'
+
+
+@admin.register(VenueImage)
+class VenueImageAdmin(admin.ModelAdmin):
+    list_display = ['image_id', 'venue', 'caption', 'sort_order', 'is_primary', 'created_at']
+    list_filter = ['is_primary', 'created_at', 'venue']
+    search_fields = ['venue__venue_name', 'caption']
+    list_editable = ['sort_order', 'is_primary']
+    readonly_fields = ['image_id', 'created_at', 'updated_at', 'image_preview']
+    ordering = ['venue', 'sort_order', 'created_at']
+    
+    fieldsets = (
+        ('ข้อมูลรูปภาพ', {
+            'fields': ('venue', 'image', 'image_url', 'image_preview', 'caption')
+        }),
+        ('การตั้งค่า', {
+            'fields': ('sort_order', 'is_primary')
+        }),
+        ('ข้อมูลระบบ', {
+            'fields': ('image_id', 'created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+    
+    def image_preview(self, obj):
+        """แสดงตัวอย่างรูปภาพ"""
+        if obj.image:
+            return format_html(
+                '<img src="{}" style="max-width: 300px; max-height: 200px;"/>',
+                obj.image.url
+            )
+        elif obj.image_url:
+            return format_html(
+                '<img src="{}" style="max-width: 300px; max-height: 200px;"/>',
+                obj.image_url
+            )
+        return 'ยังไม่มีรูปภาพ'
     image_preview.short_description = 'ตัวอย่างรูปภาพ'

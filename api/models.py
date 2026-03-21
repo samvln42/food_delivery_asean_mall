@@ -145,6 +145,181 @@ class Product(models.Model):
         return self.product_name
 
 
+# ===== Entertainment Venues Models =====
+
+def venue_image_upload_path(instance, filename):
+    """Generate upload path for venue images"""
+    import os
+    from django.utils.text import slugify
+    
+    # Get file extension
+    ext = filename.split('.')[-1]
+    # Create filename using venue name
+    filename = f"{slugify(instance.venue.venue_name)}_{instance.image_id or 'new'}.{ext}"
+    return os.path.join('entertainment_venues', str(instance.venue.venue_id), filename)
+
+
+def venue_category_icon_upload_path(instance, filename):
+    """Generate upload path for venue category icons"""
+    import os
+    from django.utils.text import slugify
+    
+    # Get file extension
+    ext = filename.split('.')[-1]
+    # Create filename using category name
+    filename = f"{slugify(instance.category_name)}_icon.{ext}"
+    return os.path.join('venue_categories', filename)
+
+
+class VenueCategory(models.Model):
+    """
+    หมวดหมู่สถานที่บันเทิง (เช่น คาราโอเกะ, บาร์, โรงภาพยนตร์)
+    """
+    category_id = models.AutoField(primary_key=True)
+    category_name = models.CharField(max_length=100, unique=True)
+    description = models.TextField(blank=True, null=True)
+    icon = models.ImageField(upload_to=venue_category_icon_upload_path, blank=True, null=True, help_text="Icon for category")
+    icon_url = models.CharField(max_length=255, blank=True, null=True, help_text="Icon URL (alternative to icon)")
+    sort_order = models.PositiveIntegerField(default=0, help_text="Order for sorting categories")
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'venue_categories'
+        ordering = ['sort_order', 'category_name']
+        indexes = [
+            models.Index(fields=['category_name']),
+            models.Index(fields=['sort_order']),
+            models.Index(fields=['is_active']),
+        ]
+    
+    def get_icon_url(self):
+        """Get category icon URL - prioritize uploaded icon over icon_url"""
+        if self.icon:
+            return self.icon.url
+        elif self.icon_url:
+            return self.icon_url
+        return None
+    
+    def __str__(self):
+        return self.category_name
+
+
+class EntertainmentVenue(models.Model):
+    """
+    สถานที่บันเทิง (เช่น คาราโอเกะ, บาร์, โรงภาพยนตร์)
+    """
+    STATUS_CHOICES = [
+        ('open', 'Open'),
+        ('closed', 'Closed'),
+    ]
+    
+    venue_id = models.AutoField(primary_key=True)
+    venue_name = models.CharField(max_length=200)
+    description = models.TextField(blank=True, null=True)
+    address = models.CharField(max_length=500)
+    latitude = models.DecimalField(max_digits=20, decimal_places=12, null=True, blank=True, help_text='Venue latitude')
+    longitude = models.DecimalField(max_digits=20, decimal_places=12, null=True, blank=True, help_text='Venue longitude')
+    phone_number = models.CharField(max_length=20, blank=True, null=True)
+    opening_hours = models.CharField(max_length=200, blank=True, null=True, help_text="Opening hours (e.g., '18:00 - 02:00')")
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='open')
+    venue_type = models.CharField(max_length=100, blank=True, null=True, help_text="Type of venue (deprecated, use category)")
+    category = models.ForeignKey(VenueCategory, on_delete=models.SET_NULL, null=True, blank=True, related_name='venues', help_text="Venue category")
+    image = models.ImageField(upload_to='entertainment_venues/', blank=True, null=True, help_text="Main venue image")
+    image_url = models.CharField(max_length=255, blank=True, null=True, help_text="Main venue image URL (alternative to image)")
+    average_rating = models.DecimalField(max_digits=3, decimal_places=2, default=0.00)
+    total_reviews = models.IntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'entertainment_venues'
+        indexes = [
+            models.Index(fields=['venue_name']),
+            models.Index(fields=['-average_rating']),
+            models.Index(fields=['status']),
+            models.Index(fields=['category']),
+            models.Index(fields=['latitude', 'longitude']),
+        ]
+    
+    def get_image_url(self):
+        """Get venue image URL - prioritize uploaded image over image_url"""
+        if self.image:
+            return self.image.url
+        elif self.image_url:
+            return self.image_url
+        return None
+    
+    def __str__(self):
+        return self.venue_name
+
+
+class VenueImage(models.Model):
+    """
+    รูปภาพของสถานที่บันเทิง (Gallery)
+    """
+    image_id = models.AutoField(primary_key=True)
+    venue = models.ForeignKey(EntertainmentVenue, on_delete=models.CASCADE, related_name='images')
+    image = models.ImageField(upload_to=venue_image_upload_path, blank=True, null=True, help_text="Venue image")
+    image_url = models.CharField(max_length=255, blank=True, null=True, help_text="Venue image URL (alternative to image)")
+    caption = models.CharField(max_length=255, blank=True, null=True, help_text="Image caption")
+    sort_order = models.PositiveIntegerField(default=0, help_text="Order for sorting images")
+    is_primary = models.BooleanField(default=False, help_text="Is this the primary image?")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'venue_images'
+        ordering = ['sort_order', 'created_at']
+        indexes = [
+            models.Index(fields=['venue', 'sort_order']),
+            models.Index(fields=['is_primary']),
+        ]
+    
+    def get_image_url(self):
+        """Get image URL - prioritize uploaded image over image_url"""
+        if self.image:
+            return self.image.url
+        elif self.image_url:
+            return self.image_url
+        return None
+    
+    def __str__(self):
+        return f"Image {self.image_id} for {self.venue.venue_name}"
+
+
+class VenueReview(models.Model):
+    """
+    รีวิวสถานที่บันเทิง
+    """
+    review_id = models.AutoField(primary_key=True)
+    venue = models.ForeignKey(EntertainmentVenue, on_delete=models.CASCADE, related_name='venue_reviews')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='venue_reviews')
+    rating = models.IntegerField(help_text="Rating from 1 to 5")
+    comment = models.TextField(blank=True, null=True, help_text="Review comment")
+    review_date = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'venue_reviews'
+        unique_together = [['venue', 'user']]  # One review per user per venue
+        indexes = [
+            models.Index(fields=['venue', '-review_date']),
+            models.Index(fields=['user']),
+            models.Index(fields=['rating']),
+        ]
+        constraints = [
+            models.CheckConstraint(
+                check=models.Q(rating__gte=1) & models.Q(rating__lte=5),
+                name='venue_rating_range'
+            )
+        ]
+    
+    def __str__(self):
+        return f"Review for {self.venue.venue_name} by {self.user.username}"
+
+
 class Order(models.Model):
     STATUS_CHOICES = [
         ('pending', 'Pending'),
@@ -242,7 +417,7 @@ class Payment(models.Model):
 class Review(models.Model):
     review_id = models.AutoField(primary_key=True)
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='reviews')
-    order = models.OneToOneField(Order, on_delete=models.CASCADE, related_name='review')
+    order = models.OneToOneField(Order, on_delete=models.CASCADE, related_name='review', null=True, blank=True)
     restaurant = models.ForeignKey(Restaurant, on_delete=models.CASCADE, related_name='reviews')
     rating_restaurant = models.IntegerField()
     comment_restaurant = models.TextField(blank=True, null=True)
@@ -250,6 +425,7 @@ class Review(models.Model):
     
     class Meta:
         db_table = 'reviews'
+        unique_together = [['restaurant', 'user']]  # One review per user per restaurant (when order is null)
         constraints = [
             models.CheckConstraint(
                 check=models.Q(rating_restaurant__gte=1) & models.Q(rating_restaurant__lte=5),
@@ -513,6 +689,39 @@ def update_restaurant_rating_on_delete(sender, instance, **kwargs):
     restaurant.save()
 
 
+# Signals for updating venue ratings
+@receiver(post_save, sender=VenueReview)
+def update_venue_rating_on_save(sender, instance, **kwargs):
+    venue = instance.venue
+    reviews = VenueReview.objects.filter(venue=venue)
+    
+    if reviews.exists():
+        avg_rating = reviews.aggregate(models.Avg('rating'))['rating__avg']
+        venue.average_rating = Decimal(str(round(avg_rating, 2)))
+        venue.total_reviews = reviews.count()
+    else:
+        venue.average_rating = Decimal('0.00')
+        venue.total_reviews = 0
+    
+    venue.save()
+
+
+@receiver(post_delete, sender=VenueReview)
+def update_venue_rating_on_delete(sender, instance, **kwargs):
+    venue = instance.venue
+    reviews = VenueReview.objects.filter(venue=venue)
+    
+    if reviews.exists():
+        avg_rating = reviews.aggregate(models.Avg('rating'))['rating__avg']
+        venue.average_rating = Decimal(str(round(avg_rating, 2)))
+        venue.total_reviews = reviews.count()
+    else:
+        venue.average_rating = Decimal('0.00')
+        venue.total_reviews = 0
+    
+    venue.save()
+
+
 class AppSettings(models.Model):
     # Basic Information
     app_name = models.CharField(max_length=100, default='Food Delivery')
@@ -597,7 +806,16 @@ class AppSettings(models.Model):
     
     @classmethod
     def get_settings(cls):
-        return cls.objects.first()
+        settings = cls.objects.first()
+        if settings:
+            return settings
+
+        # Auto-create singleton settings with model defaults on first access.
+        try:
+            return cls.objects.create()
+        except ValidationError:
+            # Handle race conditions where another request created it first.
+            return cls.objects.first()
     
     def get_logo_url(self):
         if self.app_logo:
@@ -895,3 +1113,288 @@ class Advertisement(models.Model):
     
     def __str__(self):
         return f"Advertisement #{self.advertisement_id} (Order: {self.sort_order})"
+
+
+# Dine-In QR Code System Models
+class RestaurantTable(models.Model):
+    """
+    โมเดลสำหรับจัดการโต๊ะของร้านอาหาร
+    ใช้สำหรับระบบสั่งอาหารกินในร้านผ่าน QR Code
+    """
+    table_id = models.AutoField(primary_key=True)
+    restaurant = models.ForeignKey(Restaurant, on_delete=models.CASCADE, related_name='tables')
+    table_number = models.CharField(max_length=20, help_text="หมายเลขโต๊ะ (เช่น A1, B2, 101)")
+    qr_code_data = models.CharField(max_length=255, unique=True, help_text="ข้อมูลใน QR Code (unique token)")
+    qr_code_image = models.ImageField(upload_to='tables/qr_codes/', blank=True, null=True, help_text="รูป QR Code")
+    qr_code_image_url = models.CharField(max_length=500, blank=True, null=True, help_text="URL ของ QR Code")
+    is_active = models.BooleanField(default=True, help_text="โต๊ะเปิดใช้งานหรือไม่")
+    seats = models.PositiveIntegerField(default=4, help_text="จำนวนที่นั่ง")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'restaurant_tables'
+        unique_together = ['restaurant', 'table_number']
+        ordering = ['restaurant', 'table_number']
+        indexes = [
+            models.Index(fields=['restaurant', 'is_active']),
+            models.Index(fields=['qr_code_data']),
+        ]
+    
+    def __str__(self):
+        return f"{self.restaurant.restaurant_name} - Table {self.table_number}"
+    
+    def save(self, *args, **kwargs):
+        # สร้าง QR code data ถ้ายังไม่มี
+        if not self.qr_code_data:
+            import uuid
+            unique_token = uuid.uuid4().hex
+            self.qr_code_data = f"DINE-{self.restaurant.restaurant_id}-{self.table_number}-{unique_token}"
+        super().save(*args, **kwargs)
+
+
+class DineInCart(models.Model):
+    """
+    ตะกร้าสินค้าสำหรับระบบสั่งอาหารกินในร้าน (แยกจากตะกร้าหลักสำหรับ delivery)
+    """
+    cart_id = models.AutoField(primary_key=True)
+    table = models.ForeignKey(RestaurantTable, on_delete=models.CASCADE, related_name='carts')
+    session_id = models.CharField(max_length=100, help_text="Session ID สำหรับแยกแต่ละการสั่ง")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    is_active = models.BooleanField(default=True, help_text="ตะกร้ายังใช้งานอยู่หรือไม่")
+    
+    # Optional: เก็บข้อมูลลูกค้าถ้าต้องการ
+    customer_name = models.CharField(max_length=100, blank=True, null=True)
+    
+    class Meta:
+        db_table = 'dine_in_carts'
+        ordering = ['-created_at']
+        unique_together = [('table', 'session_id', 'is_active')]
+        indexes = [
+            models.Index(fields=['table', 'is_active']),
+            models.Index(fields=['session_id']),
+        ]
+    
+    def __str__(self):
+        return f"Cart for {self.table} - Session {self.session_id[:8]}"
+    
+    def get_total(self):
+        """คำนวณยอดรวมในตะกร้า"""
+        total = sum(item.subtotal for item in self.items.all())
+        return total
+
+
+class DineInCartItem(models.Model):
+    """
+    รายการสินค้าในตะกร้าสำหรับ Dine-in
+    ใช้ DineInProduct แทน Product
+    """
+    cart_item_id = models.AutoField(primary_key=True)
+    cart = models.ForeignKey(DineInCart, on_delete=models.CASCADE, related_name='items')
+    dine_in_product = models.ForeignKey('DineInProduct', on_delete=models.CASCADE)
+    quantity = models.PositiveIntegerField(default=1)
+    price_at_add = models.DecimalField(max_digits=15, decimal_places=2, help_text="ราคาขณะเพิ่มลงตะกร้า")
+    subtotal = models.DecimalField(max_digits=15, decimal_places=2)
+    special_instructions = models.TextField(blank=True, null=True, help_text="คำขอพิเศษสำหรับรายการนี้")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'dine_in_cart_items'
+        ordering = ['-created_at']
+    
+    def save(self, *args, **kwargs):
+        self.subtotal = self.quantity * self.price_at_add
+        super().save(*args, **kwargs)
+    
+    def __str__(self):
+        return f"{self.dine_in_product.product_name} x{self.quantity}"
+
+
+class DineInOrder(models.Model):
+    """
+    ออเดอร์สำหรับการสั่งอาหารกินในร้าน
+    แยกจาก Order หลักที่ใช้สำหรับ delivery
+    """
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('confirmed', 'Confirmed'),
+        ('served', 'Served'),
+        ('completed', 'Completed'),
+        ('cancelled', 'Cancelled'),
+    ]
+    
+    PAYMENT_STATUS_CHOICES = [
+        ('unpaid', 'Unpaid'),
+        ('paid', 'Paid'),
+    ]
+    
+    dine_in_order_id = models.AutoField(primary_key=True)
+    table = models.ForeignKey(RestaurantTable, on_delete=models.CASCADE, related_name='orders')
+    restaurant = models.ForeignKey(Restaurant, on_delete=models.CASCADE, related_name='dine_in_orders')
+    session_id = models.CharField(max_length=100, help_text="Session ID ที่สร้างออเดอร์")
+    
+    order_date = models.DateTimeField(auto_now_add=True)
+    total_amount = models.DecimalField(max_digits=20, decimal_places=2)
+    current_status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    payment_status = models.CharField(max_length=20, choices=PAYMENT_STATUS_CHOICES, default='unpaid')
+    
+    # ข้อมูลลูกค้า (optional)
+    customer_name = models.CharField(max_length=100, blank=True, null=True)
+    customer_count = models.PositiveIntegerField(default=1, help_text="จำนวนลูกค้าที่โต๊ะ")
+    special_instructions = models.TextField(blank=True, null=True)
+    
+    # ข้อมูลการชำระเงิน
+    payment_method = models.CharField(max_length=20, blank=True, null=True)
+    paid_at = models.DateTimeField(blank=True, null=True)
+    
+    completed_at = models.DateTimeField(blank=True, null=True)
+    
+    # ข้อมูลการร้องขอเช็กบิล
+    bill_requested = models.BooleanField(default=False, help_text="ลูกค้าร้องขอเช็กบิล")
+    bill_requested_at = models.DateTimeField(blank=True, null=True, help_text="เวลาที่ร้องขอเช็กบิล")
+    
+    class Meta:
+        db_table = 'dine_in_orders'
+        ordering = ['-order_date']
+        indexes = [
+            models.Index(fields=['restaurant', '-order_date']),
+            models.Index(fields=['table', '-order_date']),
+            models.Index(fields=['current_status']),
+            models.Index(fields=['session_id']),
+        ]
+    
+    def __str__(self):
+        return f"Dine-in Order #{self.dine_in_order_id} - Table {self.table.table_number}"
+
+
+class DineInOrderDetail(models.Model):
+    """
+    รายละเอียดออเดอร์สำหรับ Dine-in
+    ใช้ DineInProduct แทน Product
+    """
+    order_detail_id = models.AutoField(primary_key=True)
+    order = models.ForeignKey(DineInOrder, on_delete=models.CASCADE, related_name='order_details')
+    dine_in_product = models.ForeignKey('DineInProduct', on_delete=models.CASCADE)
+    quantity = models.PositiveIntegerField()
+    price_at_order = models.DecimalField(max_digits=15, decimal_places=2)
+    subtotal = models.DecimalField(max_digits=15, decimal_places=2)
+    special_instructions = models.TextField(blank=True, null=True)
+    
+    # สถานะการเสิร์ฟแต่ละรายการ
+    is_served = models.BooleanField(default=False, help_text="Has this item been served?")
+    served_at = models.DateTimeField(blank=True, null=True, help_text="Time when this item was served")
+    served_by = models.ForeignKey(User, on_delete=models.SET_NULL, blank=True, null=True, related_name='served_order_details', help_text="พนักงานที่เสิร์ฟ")
+    
+    class Meta:
+        db_table = 'dine_in_order_details'
+    
+    def save(self, *args, **kwargs):
+        self.subtotal = self.quantity * self.price_at_order
+        super().save(*args, **kwargs)
+    
+    def __str__(self):
+        return f"Dine-in Order #{self.order.dine_in_order_id} - {self.dine_in_product.product_name}"
+
+
+class DineInStatusLog(models.Model):
+    """
+    บันทึกการเปลี่ยนสถานะของ Dine-in Order
+    """
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('confirmed', 'Confirmed'),
+        ('served', 'Served'),
+        ('completed', 'Completed'),
+        ('cancelled', 'Cancelled'),
+    ]
+    
+    log_id = models.AutoField(primary_key=True)
+    order = models.ForeignKey(DineInOrder, on_delete=models.CASCADE, related_name='status_logs')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES)
+    timestamp = models.DateTimeField(auto_now_add=True)
+    note = models.CharField(max_length=255, blank=True, null=True)
+    updated_by_user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    
+    class Meta:
+        db_table = 'dine_in_status_log'
+        ordering = ['-timestamp']
+    
+    def __str__(self):
+        return f"Status Log for Dine-in Order #{self.order.dine_in_order_id}"
+
+
+def dine_in_product_image_upload_path(instance, filename):
+    """Generate upload path for dine-in product images"""
+    import os
+    from django.utils.text import slugify
+    
+    # Get file extension
+    ext = filename.split('.')[-1]
+    # Create filename using restaurant and product name
+    filename = f"{slugify(instance.restaurant.restaurant_name)}_{slugify(instance.product_name)}_dinein.{ext}"
+    return os.path.join('dine_in_products', str(instance.restaurant.restaurant_id), filename)
+
+
+class DineInProduct(models.Model):
+    """
+    สินค้าสำหรับขายในร้าน (Dine-in)
+    แยกจาก Product ของระบบ Delivery
+    ร้านอาหารจัดการเอง แอดมินไม่เกี่ยวข้อง
+    """
+    dine_in_product_id = models.AutoField(primary_key=True)
+    restaurant = models.ForeignKey(Restaurant, on_delete=models.CASCADE, related_name='dine_in_products')
+    category = models.ForeignKey(Category, on_delete=models.CASCADE, related_name='dine_in_products')
+    product_name = models.CharField(max_length=100)
+    description = models.TextField(blank=True, null=True)
+    price = models.DecimalField(max_digits=15, decimal_places=2, help_text="ราคาสำหรับขายในร้าน")
+    image_url = models.CharField(max_length=255, blank=True, null=True)
+    image = models.ImageField(upload_to=dine_in_product_image_upload_path, blank=True, null=True, help_text="รูปสินค้า Dine-in")
+    is_available = models.BooleanField(default=True, help_text="พร้อมขายหรือไม่")
+    sort_order = models.PositiveIntegerField(default=0, help_text="ลำดับการแสดงในเมนู")
+    is_recommended = models.BooleanField(default=False, help_text="เมนูแนะนำ")
+    preparation_time = models.PositiveIntegerField(null=True, blank=True, help_text="เวลาในการเตรียม (นาที)")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'dine_in_products'
+        ordering = ['sort_order', 'product_name']
+        indexes = [
+            models.Index(fields=['restaurant', 'is_available']),
+            models.Index(fields=['category']),
+            models.Index(fields=['sort_order']),
+        ]
+    
+    def get_image_url(self):
+        """Get image URL - prioritize uploaded image over image_url"""
+        if self.image:
+            return self.image.url
+        elif self.image_url:
+            return self.image_url
+        return None
+    
+    def __str__(self):
+        return f"{self.product_name} (Dine-in - {self.restaurant.restaurant_name})"
+
+
+class DineInProductTranslation(models.Model):
+    """Translations for dine-in product name/description by language."""
+    dine_in_product = models.ForeignKey(DineInProduct, on_delete=models.CASCADE, related_name='translations')
+    language = models.ForeignKey(Language, on_delete=models.CASCADE, related_name='dine_in_product_translations')
+    translated_name = models.CharField(max_length=150)
+    translated_description = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'dine_in_product_translations'
+        unique_together = ['dine_in_product', 'language']
+        indexes = [
+            models.Index(fields=['dine_in_product']),
+            models.Index(fields=['language']),
+        ]
+
+    def __str__(self):
+        return f"{self.dine_in_product.product_name} - {self.language.code}: {self.translated_name}"

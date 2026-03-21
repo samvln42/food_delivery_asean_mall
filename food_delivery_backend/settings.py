@@ -26,12 +26,22 @@ ALLOWED_HOSTS = _env_hosts.split(',') if _env_hosts else ['*']
 # CORS configuration
 CORS_ALLOWED_ORIGINS = [
     'http://localhost:3000',
+    'http://localhost:3030',
+    'http://localhost:5173',
+    'http://127.0.0.1:3000',
+    'http://127.0.0.1:3030',
+    'http://127.0.0.1:5173',
     'https://matjyp.com',
 ]
 
 # CSRF configuration for API
 CSRF_TRUSTED_ORIGINS = [
     'http://localhost:3000',
+    'http://localhost:3030',
+    'http://localhost:5173',
+    'http://127.0.0.1:3000',
+    'http://127.0.0.1:3030',
+    'http://127.0.0.1:5173',
     'http://localhost:8000',
     'https://matjyp.com',
 ]
@@ -141,7 +151,7 @@ else:
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.mysql',
+        'ENGINE': 'django.db.backends.mysql',  # Using mysql-connector-python instead of mysqlclient
         'NAME': os.environ.get('DB_NAME'),
         'USER': os.environ.get('DB_USER'),
         'PASSWORD': os.environ.get('DB_PASSWORD'),
@@ -149,6 +159,7 @@ DATABASES = {
         'PORT': os.environ.get('DB_PORT'),
         'OPTIONS': {
             'charset': 'utf8mb4',
+            'use_unicode': True,
         },
     }
 }
@@ -257,7 +268,27 @@ DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL')
 FRONTEND_URL = os.environ.get('FRONTEND_URL', 'http://localhost:3000')
 
 # Base URL for API responses (used for image URLs)
-BASE_URL = os.environ.get('BASE_URL', 'https://matjyp.com')
+BASE_URL = os.environ.get('BASE_URL')
+
+# Routing distance provider (used for real road distance delivery fee calculation)
+ROUTING_OSRM_BASE_URL = os.environ.get('ROUTING_OSRM_BASE_URL', 'https://router.project-osrm.org')
+ROUTING_OSRM_TIMEOUT_SECONDS = int(os.environ.get('ROUTING_OSRM_TIMEOUT_SECONDS', 8))
+ROUTING_DISTANCE_CACHE_TTL_SECONDS = int(os.environ.get('ROUTING_DISTANCE_CACHE_TTL_SECONDS', 1800))
+ROUTING_COORD_PRECISION = int(os.environ.get('ROUTING_COORD_PRECISION', 5))
+
+# Nominatim geocoding proxy tuning
+NOMINATIM_BASE_URL = os.environ.get('NOMINATIM_BASE_URL', 'https://nominatim.openstreetmap.org')
+NOMINATIM_TIMEOUT_SECONDS = int(os.environ.get('NOMINATIM_TIMEOUT_SECONDS', 8))
+NOMINATIM_CACHE_TTL_SECONDS = int(os.environ.get('NOMINATIM_CACHE_TTL_SECONDS', 86400))
+NOMINATIM_USER_AGENT = os.environ.get(
+    'NOMINATIM_USER_AGENT',
+    'FoodDeliveryAseanMall/1.0 (local geocoding proxy)'
+)
+NOMINATIM_MIN_INTERVAL_SECONDS = float(os.environ.get('NOMINATIM_MIN_INTERVAL_SECONDS', 1.1))
+NOMINATIM_RETRY_BACKOFF_SECONDS = float(os.environ.get('NOMINATIM_RETRY_BACKOFF_SECONDS', 2.0))
+NOMINATIM_RETRY_ATTEMPTS = int(os.environ.get('NOMINATIM_RETRY_ATTEMPTS', 1))
+NOMINATIM_REVERSE_CACHE_PRECISION = int(os.environ.get('NOMINATIM_REVERSE_CACHE_PRECISION', 4))
+NOMINATIM_RATE_LIMIT_COOLDOWN_SECONDS = int(os.environ.get('NOMINATIM_RATE_LIMIT_COOLDOWN_SECONDS', 30))
 
 # Google OAuth configuration
 GOOGLE_OAUTH2_CLIENT_ID = os.environ.get('GOOGLE_OAUTH2_CLIENT_ID')

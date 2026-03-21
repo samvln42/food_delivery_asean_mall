@@ -1,6 +1,10 @@
 from django.db.models import Count, Sum, Avg, Q
 from django.utils import timezone
+from django.conf import settings
+from django.core.cache import cache
 from datetime import datetime, timedelta
+import logging
+import requests
 from .models import (
     Order, Restaurant, Product, AnalyticsDaily, 
     RestaurantAnalytics, ProductAnalytics
@@ -124,28 +128,123 @@ def update_product_analytics(product_id, date=None):
 
 import math
 
-def calculate_distance_km(lat1, lon1, lat2, lon2):
-    """
-    คำนวณระยะทางระหว่าง 2 จุด (เป็นกิโลเมตร)
-    ใช้ Haversine formula
-    """
-    # แปลงเป็น radians
-    lat1_rad = math.radians(float(lat1))
-    lon1_rad = math.radians(float(lon1))
-    lat2_rad = math.radians(float(lat2))
-    lon2_rad = math.radians(float(lon2))
-    
-    # Haversine formula
+logger = logging.getLogger(__name__)
+
+ROUTING_OSRM_BASE_URL = getattr(settings, 'ROUTING_OSRM_BASE_URL', 'https://router.project-osrm.org').rstrip('/')
+ROUTING_OSRM_TIMEOUT_SECONDS = int(getattr(settings, 'ROUTING_OSRM_TIMEOUT_SECONDS', 8))
+ROUTING_DISTANCE_CACHE_TTL_SECONDS = int(getattr(settings, 'ROUTING_DISTANCE_CACHE_TTL_SECONDS', 1800))
+ROUTING_COORD_PRECISION = int(getattr(settings, 'ROUTING_COORD_PRECISION', 5))
+
+
+def _to_float_coord(value):
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _haversine_distance_km(lat1, lon1, lat2, lon2):
+    lat1_f = _to_float_coord(lat1)
+    lon1_f = _to_float_coord(lon1)
+    lat2_f = _to_float_coord(lat2)
+    lon2_f = _to_float_coord(lon2)
+
+    if None in (lat1_f, lon1_f, lat2_f, lon2_f):
+        return 0.0
+
+    lat1_rad = math.radians(lat1_f)
+    lon1_rad = math.radians(lon1_f)
+    lat2_rad = math.radians(lat2_f)
+    lon2_rad = math.radians(lon2_f)
+
     dlat = lat2_rad - lat1_rad
     dlon = lon2_rad - lon1_rad
-    
-    a = math.sin(dlat/2)**2 + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(dlon/2)**2
+
+    a = math.sin(dlat / 2) ** 2 + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(dlon / 2) ** 2
     c = 2 * math.asin(math.sqrt(a))
-    
-    # รัศมีโลก (กิโลเมตร)
-    R = 6371
-    
-    return R * c
+
+    return 6371 * c
+
+
+def _build_route_cache_key(lat1, lon1, lat2, lon2):
+    p1 = (round(lat1, ROUTING_COORD_PRECISION), round(lon1, ROUTING_COORD_PRECISION))
+    p2 = (round(lat2, ROUTING_COORD_PRECISION), round(lon2, ROUTING_COORD_PRECISION))
+    a, b = sorted([p1, p2])
+    return f"route_km:{a[0]}:{a[1]}:{b[0]}:{b[1]}"
+
+
+def calculate_route_distance_km(lat1, lon1, lat2, lon2):
+    """
+    Calculate driving distance (km) from OSRM.
+    Returns None when provider cannot be used.
+    """
+    lat1_f = _to_float_coord(lat1)
+    lon1_f = _to_float_coord(lon1)
+    lat2_f = _to_float_coord(lat2)
+    lon2_f = _to_float_coord(lon2)
+
+    if None in (lat1_f, lon1_f, lat2_f, lon2_f):
+        return None
+
+    cache_key = _build_route_cache_key(lat1_f, lon1_f, lat2_f, lon2_f)
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    url = (
+        f"{ROUTING_OSRM_BASE_URL}/route/v1/driving/"
+        f"{lon1_f:.7f},{lat1_f:.7f};{lon2_f:.7f},{lat2_f:.7f}"
+    )
+
+    try:
+        response = requests.get(
+            url,
+            params={
+                'overview': 'false',
+                'alternatives': 'false',
+                'steps': 'false',
+            },
+            timeout=ROUTING_OSRM_TIMEOUT_SECONDS,
+            headers={'User-Agent': 'FoodDeliveryAseanMall/1.0 (routing-distance)'},
+        )
+        response.raise_for_status()
+        data = response.json()
+    except (requests.RequestException, ValueError) as exc:
+        logger.warning("Routing distance request failed: %s", exc)
+        return None
+
+    if data.get('code') != 'Ok':
+        logger.warning("Routing provider returned non-OK code: %s", data.get('code'))
+        return None
+
+    routes = data.get('routes') or []
+    if not routes:
+        logger.warning("Routing provider returned no routes")
+        return None
+
+    distance_meters = routes[0].get('distance')
+    try:
+        distance_km = float(distance_meters) / 1000.0
+    except (TypeError, ValueError):
+        logger.warning("Routing provider returned invalid distance")
+        return None
+
+    if distance_km <= 0:
+        return None
+
+    cache.set(cache_key, distance_km, ROUTING_DISTANCE_CACHE_TTL_SECONDS)
+    return distance_km
+
+def calculate_distance_km(lat1, lon1, lat2, lon2):
+    """
+    Calculate distance in kilometers.
+    Prefer driving route distance, then fallback to straight-line distance.
+    """
+    route_distance = calculate_route_distance_km(lat1, lon1, lat2, lon2)
+    if route_distance is not None:
+        return route_distance
+
+    return _haversine_distance_km(lat1, lon1, lat2, lon2)
 
 
 def calculate_delivery_fee(distance_km, settings=None):
@@ -175,22 +274,22 @@ def calculate_delivery_fee_by_distance(
     settings=None
 ):
     """
-    คำนวณค่าจัดส่งตามระยะทางจากร้านไปยังที่อยู่จัดส่ง
+    Calculate delivery fee by distance between restaurant and delivery location.
     """
     if not all([restaurant_lat, restaurant_lon, delivery_lat, delivery_lon]):
         return 0.0
     
-    # คำนวณระยะทาง
+    # Calculate distance
     distance_km = calculate_distance_km(
         restaurant_lat, restaurant_lon,
         delivery_lat, delivery_lon
     )
     
-    # คำนวณค่าจัดส่ง
+    # Calculate fee
     return calculate_delivery_fee(distance_km, settings)
 
 
-# ไม่ใช้ค่าจัดส่งแบบหลายร้านแล้ว ใช้เฉพาะค่าจัดส่งตามระยะทาง
+# Multi-restaurant fee now uses the same distance-based flow.
 
 
 def estimate_delivery_time(restaurant_id, current_orders_count=None):
@@ -228,3 +327,4 @@ def send_notification(user, title, message, notification_type='system', related_
     # This is just creating database record
     
     return notification 
+

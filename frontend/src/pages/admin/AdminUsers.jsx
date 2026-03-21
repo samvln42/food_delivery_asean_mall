@@ -576,8 +576,10 @@ const UserModal = ({ user, type, onClose, onUpdate }) => {
         }
 
         // สร้างผู้ใช้ใหม่
-        await userService.create(formData);
-        alert('สร้างผู้ใช้ใหม่เรียบร้อยแล้ว');
+        const response = await userService.create(formData);
+        // ใช้ translation key แทน hardcoded message
+        const successMessage = translate('admin.user_created_success', { username: formData.username });
+        alert(successMessage);
       } else {
         // อัปเดตผู้ใช้ที่มีอยู่
         const updateData = { ...formData };

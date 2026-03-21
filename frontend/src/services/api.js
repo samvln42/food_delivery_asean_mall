@@ -142,6 +142,32 @@ api.interceptors.response.use(
         // Other 403 errors - unauthorized access
         console.warn('🚫 Access denied:', errorData);
         const currentPath = window.location.pathname;
+        
+        // Get user role from localStorage to redirect to appropriate dashboard
+        try {
+          const userStr = localStorage.getItem('user');
+          if (userStr) {
+            const user = JSON.parse(userStr);
+            if (user && user.role) {
+              // Redirect to user's dashboard instead of unauthorized page
+              const dashboardRoutes = {
+                'admin': '/admin',
+                'general_restaurant': '/restaurant',
+                'special_restaurant': '/restaurant',
+                'customer': '/'
+              };
+              const dashboardRoute = dashboardRoutes[user.role] || '/';
+              if (!['/unauthorized', '/login', dashboardRoute].includes(currentPath)) {
+                window.location.href = dashboardRoute;
+                return Promise.reject(error);
+              }
+            }
+          }
+        } catch (e) {
+          console.error('Error parsing user data:', e);
+        }
+        
+        // Fallback to unauthorized page if user data not available
         if (!['/unauthorized', '/login'].includes(currentPath)) {
           window.location.href = '/unauthorized';
         }
@@ -327,7 +353,9 @@ export const reviewService = {
   getById: (id) => api.get(`/reviews/${id}/`),
   create: (data) => api.post('/reviews/', data),
   update: (id, data) => api.put(`/reviews/${id}/`, data),
+  partialUpdate: (id, data) => api.patch(`/reviews/${id}/`, data),
   delete: (id) => api.delete(`/reviews/${id}/`),
+  getByRestaurant: (restaurantId, params = {}) => api.get('/reviews/', { params: { restaurant_id: restaurantId, ...params } }),
 };
 
 // Product review services
@@ -405,9 +433,15 @@ export const dashboardService = {
 // Delivery Fee Calculation Service
 export const deliveryFeeService = {
   // Calculate delivery fee for single restaurant
-  calculate: (data) => api.post('/calculate-delivery-fee/', data),
+  calculate: (data, config = {}) => api.post('/calculate-delivery-fee/', data, {
+    timeout: API_CONFIG.DELIVERY_FEE_TIMEOUT || API_CONFIG.TIMEOUT,
+    ...config,
+  }),
   // Calculate delivery fee for multi-restaurant order
-  calculateMulti: (data) => api.post('/calculate-multi-restaurant-delivery-fee/', data),
+  calculateMulti: (data, config = {}) => api.post('/calculate-multi-restaurant-delivery-fee/', data, {
+    timeout: API_CONFIG.DELIVERY_FEE_TIMEOUT || API_CONFIG.TIMEOUT,
+    ...config,
+  }),
 };
 
 // App Settings Service
@@ -465,6 +499,168 @@ export const appSettingsService = {
 };
 
 // Advertisement Service
+// Dine-in services
+export const dineInOrderService = {
+  getAll: (params = {}) => api.get('/dine-in-orders/', { params }),
+  getById: (id) => api.get(`/dine-in-orders/${id}/`),
+  getBySession: (sessionId, params = {}) => {
+    return api.get('/dine-in-orders/', { 
+      params: { session_id: sessionId, ...params } 
+    });
+  },
+  cancelItem: (sessionId, orderId, orderDetailId) => api.post('/dine-in-orders/cancel-item/', {
+    session_id: sessionId,
+    order_id: orderId,
+    order_detail_id: orderDetailId
+  }),
+  canRequestBill: (sessionId) => api.get('/dine-in-orders/can-request-bill/', { params: { session_id: sessionId } }),
+  updateStatus: (id, status, note = '') => api.post(`/dine-in-orders/${id}/update-status/`, { status, note }),
+  updatePaymentStatus: (id, payment_status, payment_method = '') => api.post(`/dine-in-orders/${id}/update-payment-status/`, { payment_status, payment_method }),
+  requestBill: (sessionId) => api.post('/dine-in-orders/request-bill/', { session_id: sessionId }),
+  dismissBillRequest: (id) => api.post(`/dine-in-orders/${id}/dismiss-bill-request/`),
+  completeBill: (id) => api.post(`/dine-in-orders/${id}/complete-bill/`),
+};
+
+// Dine-in order detail services
+export const dineInOrderDetailService = {
+  markServed: (orderDetailId) => api.post(`/dine-in-order-details/${orderDetailId}/mark-served/`),
+  markUnserved: (orderDetailId) => api.post(`/dine-in-order-details/${orderDetailId}/mark-unserved/`),
+};
+
+// Entertainment Venue services
+export const entertainmentVenueService = {
+  getAll: (params = {}) => api.get('/entertainment-venues/', { params }),
+  getById: (id) => api.get(`/entertainment-venues/${id}/`),
+  getImages: (id) => api.get(`/entertainment-venues/${id}/images/`),
+  getNearby: (params = {}) => api.get('/entertainment-venues/nearby/', { params }),
+  search: (query, params = {}) => api.get('/entertainment-venues/', { params: { search: query, ...params } }),
+  create: (data) => {
+    const formData = new FormData();
+    Object.keys(data).forEach(key => {
+      if (data[key] !== null && data[key] !== undefined && data[key] !== '') {
+        if (key === 'image' && data[key] instanceof File) {
+          formData.append(key, data[key]);
+        } else if (key === 'category' && data[key] === null) {
+          // Skip null category
+        } else if (key !== 'image') {
+          // Convert to string for FormData
+          const value = data[key];
+          if (value !== null && value !== undefined) {
+            formData.append(key, value.toString());
+          }
+        }
+      }
+    });
+    return api.post('/entertainment-venues/', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
+  update: (id, data) => {
+    const formData = new FormData();
+    Object.keys(data).forEach(key => {
+      if (data[key] !== null && data[key] !== undefined) {
+        if (key === 'image' && data[key] instanceof File) {
+          formData.append(key, data[key]);
+        } else if (key !== 'image') {
+          formData.append(key, data[key]);
+        }
+      }
+    });
+    return api.put(`/entertainment-venues/${id}/`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
+  partialUpdate: (id, data) => {
+    const formData = new FormData();
+    Object.keys(data).forEach(key => {
+      if (data[key] !== null && data[key] !== undefined && data[key] !== '') {
+        if (key === 'image' && data[key] instanceof File) {
+          formData.append(key, data[key]);
+        } else if (key === 'category' && data[key] === null) {
+          // Skip null category for PATCH
+        } else if (key !== 'image') {
+          // Convert to string for FormData
+          const value = data[key];
+          if (value !== null && value !== undefined) {
+            formData.append(key, value.toString());
+          }
+        }
+      }
+    });
+    return api.patch(`/entertainment-venues/${id}/`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
+  delete: (id) => api.delete(`/entertainment-venues/${id}/`),
+  uploadImage: (id, formData) => api.post(`/entertainment-venues/${id}/upload_image/`, formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
+  updateImage: (venueId, imageId, data) => api.patch(`/entertainment-venues/${venueId}/images/${imageId}/`, data),
+  deleteImage: (venueId, imageId) => api.delete(`/entertainment-venues/${venueId}/images/${imageId}/`),
+  batchUpdateImages: (venueId, imagesData) => api.post(`/entertainment-venues/${venueId}/images/batch-update/`, { images: imagesData }),
+};
+
+// Venue Review services
+export const venueReviewService = {
+  getAll: (params = {}) => api.get('/venue-reviews/', { params }),
+  getById: (id) => api.get(`/venue-reviews/${id}/`),
+  create: (data) => api.post('/venue-reviews/', data),
+  update: (id, data) => api.put(`/venue-reviews/${id}/`, data),
+  partialUpdate: (id, data) => api.patch(`/venue-reviews/${id}/`, data),
+  delete: (id) => api.delete(`/venue-reviews/${id}/`),
+  getByVenue: (venueId) => api.get('/venue-reviews/', { params: { venue_id: venueId } }),
+};
+
+// Venue Category services
+export const venueCategoryService = {
+  getAll: (params = {}) => api.get('/venue-categories/', { params }),
+  getById: (id) => api.get(`/venue-categories/${id}/`),
+  create: (data) => {
+    const formData = new FormData();
+    Object.keys(data).forEach(key => {
+      if (data[key] !== null && data[key] !== undefined) {
+        if (key === 'icon' && data[key] instanceof File) {
+          formData.append(key, data[key]);
+        } else if (key !== 'icon') {
+          formData.append(key, data[key]);
+        }
+      }
+    });
+    return api.post('/venue-categories/', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
+  update: (id, data) => {
+    const formData = new FormData();
+    Object.keys(data).forEach(key => {
+      if (data[key] !== null && data[key] !== undefined) {
+        if (key === 'icon' && data[key] instanceof File) {
+          formData.append(key, data[key]);
+        } else if (key !== 'icon') {
+          formData.append(key, data[key]);
+        }
+      }
+    });
+    return api.put(`/venue-categories/${id}/`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
+  partialUpdate: (id, data) => {
+    const formData = new FormData();
+    Object.keys(data).forEach(key => {
+      if (data[key] !== null && data[key] !== undefined) {
+        if (key === 'icon' && data[key] instanceof File) {
+          formData.append(key, data[key]);
+        } else if (key !== 'icon') {
+          formData.append(key, data[key]);
+        }
+      }
+    });
+    return api.patch(`/venue-categories/${id}/`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
+  delete: (id) => api.delete(`/venue-categories/${id}/`),
+};
+
 export const advertisementService = {
   // Get all advertisements (admin only)
   getAll: (params = {}) => {

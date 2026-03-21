@@ -6,7 +6,6 @@ import { useGuestCart } from "../../contexts/GuestCartContext";
 import { useLanguage } from "../../contexts/LanguageContext";
 import {
   HomeIcon,
-  BuildingStorefrontIcon,
   Squares2X2Icon,
   ShoppingBagIcon,
   UserIcon,
@@ -16,6 +15,7 @@ import {
   InformationCircleIcon,
   Cog6ToothIcon,
 } from "@heroicons/react/24/outline";
+import { FaTheaterMasks } from 'react-icons/fa';
 
 const BottomNavigation = () => {
   const { user, isAuthenticated } = useAuth();
@@ -34,6 +34,14 @@ const BottomNavigation = () => {
   };
 
   const itemCount = getItemCount();
+  
+  // ซ่อน bottom navigation เมื่ออยู่ในหน้า dine-in (เพราะมี cart summary bar ด้านล่างแล้ว)
+  const isDineInPage = location.pathname.startsWith('/dine-in/');
+  
+  // ถ้าอยู่ในหน้า dine-in ให้ return null (ซ่อน bottom navigation)
+  if (isDineInPage) {
+    return null;
+  }
 
   const getCustomerNavItems = () => [
     {
@@ -53,6 +61,12 @@ const BottomNavigation = () => {
       href: "/products",
       icon: ShoppingBagIcon,
       current: location.pathname === "/products",
+    },
+    {
+      name: translate("entertainment.venues_short") || translate("entertainment.venues") || "บันเทิง",
+      href: "/entertainment-venues",
+      icon: FaTheaterMasks,
+      current: location.pathname.startsWith("/entertainment-venues"),
     },
     {
       name: translate("cart.cart"),
@@ -104,6 +118,12 @@ const BottomNavigation = () => {
       current: location.pathname === "/products",
     },
     {
+      name: translate("entertainment.venues_short") || translate("entertainment.venues") || "บันเทิง",
+      href: "/entertainment-venues",
+      icon: FaTheaterMasks,
+      current: location.pathname.startsWith("/entertainment-venues"),
+    },
+    {
       name: translate("cart.cart"),
       href: "/guest-cart",
       icon: ShoppingCartIcon,
@@ -140,7 +160,7 @@ const BottomNavigation = () => {
   const navItems = getNavItems();
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-secondary-200 md:hidden">
+    <div className="fixed bottom-0 left-0 right-0 z-[1000] bg-white border-t border-secondary-200 md:hidden">
       <div className="flex justify-around">
         {navItems.map((item) => {
           const Icon = item.icon;

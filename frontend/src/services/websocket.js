@@ -1,18 +1,26 @@
-import { useLanguage } from '../contexts/LanguageContext';
+import { API_CONFIG } from '../config/api';
 
 class WebSocketService {
   constructor() {
     this.ws = null;
     this.guestWs = null;
+    this.dineInWs = null;
     this.listeners = new Map();
     this.reconnectAttempts = 0;
     this.maxReconnectAttempts = 5;
     this.reconnectInterval = 3000; // 3 seconds
     this.translate = null; // จะถูกกำหนดค่าเมื่อเรียก setTranslateFunction
     this.guestTemporaryId = null; // เก็บ temporary_id สำหรับ guest orders
+    this.dineInSessionId = null; // เก็บ session_id สำหรับ dine-in
+    this.dineInRestaurantId = null; // เก็บ restaurant_id สำหรับ realtime dine-in products
     
-    // กำหนดค่า baseUrl จาก environment variable
-    this.baseUrl = import.meta.env.VITE_API_URL;
+    // กำหนดค่า baseUrl จาก config (รองรับ fallback เมื่อไม่กำหนด VITE_API_URL)
+    this.baseUrl = API_CONFIG.BASE_URL;
+    
+    // Error logging throttling - ป้องกันการ log ซ้ำๆ
+    this.lastErrorLogTime = 0;
+    this.errorLogThrottle = 5000; // Log error ทุก 5 วินาที
+    this.lastErrorType = null;
   }
 
   setTranslateFunction(translateFn) {
@@ -41,26 +49,86 @@ class WebSocketService {
     }
   }
 
-  connect(token) {
+  // ตั้งค่า session_id สำหรับ dine-in (ไม่ต้องใช้ token)
+  setDineInSessionId(sessionId) {
+    this.dineInSessionId = sessionId;
+    if (sessionId) {
+      if (this.dineInWs && this.dineInWs.readyState === WebSocket.OPEN) {
+        this.subscribeToDineInSession(sessionId);
+      } else {
+        this.connectDineIn();
+      }
+    }
+  }
+
+  setDineInRestaurantId(restaurantId) {
+    this.dineInRestaurantId = restaurantId;
+    if (restaurantId) {
+      if (this.dineInWs && this.dineInWs.readyState === WebSocket.OPEN) {
+        this.subscribeToDineInRestaurant(restaurantId);
+      } else {
+        this.connectDineIn();
+      }
+    }
+  }
+
+  connect(token, forceReconnect = false) {
     try {
+      // ถ้ามี connection อยู่แล้วและยังเปิดอยู่ และไม่ใช่ force reconnect
+      if (!forceReconnect && this.ws && this.ws.readyState === WebSocket.OPEN) {
+        console.log('ℹ️ WebSocket already connected, skipping new connection');
+        return;
+      }
+
+      // ถ้ามี connection อยู่แต่ยังกำลังเชื่อมต่อ และไม่ใช่ force reconnect
+      if (!forceReconnect && this.ws && this.ws.readyState === WebSocket.CONNECTING) {
+        console.log('ℹ️ WebSocket connection in progress, skipping new connection');
+        return;
+      }
+
+      // ถ้า force reconnect หรือ connection เก่ามีปัญหา ให้ปิด connection เก่าก่อน
+      if (forceReconnect && this.ws) {
+        console.log('🔄 Force reconnecting WebSocket, closing old connection...');
+        try {
+          this.ws.close();
+        } catch {
+          // Ignore close errors
+        }
+        this.ws = null;
+        this.reconnectAttempts = 0; // Reset reconnect attempts
+      }
+
       // Get base URL from environment variable
-      const baseUrl = import.meta.env.VITE_API_URL;
+      const baseUrl = API_CONFIG.BASE_URL;
       
       let wsUrl;
       // Convert HTTP/HTTPS to WS/WSS
-      if (baseUrl.startsWith('https://')) {
+      if (baseUrl && baseUrl.startsWith('https://')) {
         // Replace https:// with wss:// and /api or /api/ with /ws/orders/
         wsUrl = baseUrl.replace('https://', 'wss://').replace(/\/api\/?$/, '/ws/orders/');
-      } else if (baseUrl.startsWith('http://')) {
+      } else if (baseUrl && baseUrl.startsWith('http://')) {
         // Replace http:// with ws:// and /api or /api/ with /ws/orders/
         wsUrl = baseUrl.replace('http://', 'ws://').replace(/\/api\/?$/, '/ws/orders/');
       } else {
-        // Fallback for localhost development
-        wsUrl = 'ws://127.0.0.1:8000/ws/orders/';
+        // Fallback: ใช้ hostname ปัจจุบัน
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const hostname = window.location.hostname;
+        wsUrl = `${protocol}//${hostname}:8000/ws/orders/`;
+        console.warn('⚠️ Using fallback WebSocket URL:', wsUrl);
       }
       
       const fullWsUrl = `${wsUrl}?token=${token}`;
       
+      // ปิด connection เก่าก่อน (ถ้ามี)
+      if (this.ws) {
+        try {
+          this.ws.close();
+        } catch {
+          // Ignore close errors
+        }
+      }
+      
+      console.log('🔗 Connecting to WebSocket:', wsUrl.replace(/\?token=.*$/, '?token=***'));
       this.ws = new WebSocket(fullWsUrl);
       
       this.ws.onopen = () => {
@@ -85,16 +153,31 @@ class WebSocketService {
       
       this.ws.onclose = (event) => {
         if (event.code !== 1000) { // 1000 = normal closure
+          console.log(`🔌 WebSocket closed with code ${event.code}, attempting reconnect...`);
           this.reconnect(token);
         }
       };
       
       this.ws.onerror = (error) => {
-        console.error('WebSocket error:', error);
+        // Throttle error logging เพื่อไม่ให้ log ซ้ำๆ
+        const now = Date.now();
+        if (now - this.lastErrorLogTime > this.errorLogThrottle || this.lastErrorType !== 'main_ws_error') {
+          console.error('❌ WebSocket error:', error);
+          this.lastErrorLogTime = now;
+          this.lastErrorType = 'main_ws_error';
+        }
+        // เมื่อเกิด error ให้รอให้ onclose ถูกเรียกก่อนเพื่อทำ reconnect
+        // (onclose จะถูกเรียกหลังจาก onerror ตาม WebSocket spec)
       };
       
     } catch (error) {
-      console.error('Error connecting to WebSocket:', error);
+      // Throttle error logging เพื่อไม่ให้ log ซ้ำๆ
+      const now = Date.now();
+      if (now - this.lastErrorLogTime > this.errorLogThrottle || this.lastErrorType !== 'main_ws_connect_error') {
+        console.error('Error connecting to WebSocket:', error);
+        this.lastErrorLogTime = now;
+        this.lastErrorType = 'main_ws_connect_error';
+      }
     }
   }
 
@@ -116,7 +199,7 @@ class WebSocketService {
       this.reconnectAttempts = 0;
 
       // สร้าง WebSocket URL
-      const baseUrl = import.meta.env.VITE_API_URL;
+      const baseUrl = API_CONFIG.BASE_URL;
 
       // URL ที่อนุมานจาก VITE_API_URL เท่านั้น (ไม่ hardcode fallback)
       const fallbackUrls = [
@@ -151,7 +234,13 @@ class WebSocketService {
 
           ws.onerror = (error) => {
             clearTimeout(connectionTimeout);
-            console.error(`❌ WebSocket connection error: ${wsUrl}`, error);
+            // Throttle error logging เพื่อไม่ให้ log ซ้ำๆ
+            const now = Date.now();
+            if (now - this.lastErrorLogTime > this.errorLogThrottle || this.lastErrorType !== 'guest_ws_connect_error') {
+              console.error(`❌ WebSocket connection error: ${wsUrl}`, error);
+              this.lastErrorLogTime = now;
+              this.lastErrorType = 'guest_ws_connect_error';
+            }
             ws.close();
             reject(error);
           };
@@ -203,13 +292,190 @@ class WebSocketService {
           }
         })
         .catch((error) => {
-          console.error('❌ Failed to connect to WebSocket:', error);
+          // Throttle error logging เพื่อไม่ให้ log ซ้ำๆ
+          const now = Date.now();
+          if (now - this.lastErrorLogTime > this.errorLogThrottle || this.lastErrorType !== 'guest_ws_failed') {
+            console.error('❌ Failed to connect to WebSocket:', error);
+            this.lastErrorLogTime = now;
+            this.lastErrorType = 'guest_ws_failed';
+          }
           this.reconnectGuest();
         });
 
     } catch (error) {
-      console.error('Error connecting to Guest WebSocket:', error);
+      // Throttle error logging เพื่อไม่ให้ log ซ้ำๆ
+      const now = Date.now();
+      if (now - this.lastErrorLogTime > this.errorLogThrottle || this.lastErrorType !== 'guest_ws_init_error') {
+        console.error('Error connecting to Guest WebSocket:', error);
+        this.lastErrorLogTime = now;
+        this.lastErrorType = 'guest_ws_init_error';
+      }
     }
+  }
+
+  // WebSocket สำหรับ dine-in (ไม่ต้องใช้ token) ใช้ subscribe ด้วย session_id
+  connectDineIn() {
+    try {
+      // ถ้ามี connection อยู่แล้วและยังเปิดอยู่ ให้ไม่เชื่อมต่อใหม่
+      if (this.dineInWs && this.dineInWs.readyState === WebSocket.OPEN) {
+        console.log('ℹ️ Dine-in WebSocket already connected, skipping new connection');
+        // ถ้ามี sessionId รออยู่ ให้ subscribe ทันที
+        if (this.dineInSessionId) {
+          this.subscribeToDineInSession(this.dineInSessionId);
+        }
+        if (this.dineInRestaurantId) {
+          this.subscribeToDineInRestaurant(this.dineInRestaurantId);
+        }
+        return;
+      }
+
+      // ถ้ามี connection อยู่แต่ยังกำลังเชื่อมต่อ ให้รอ
+      if (this.dineInWs && this.dineInWs.readyState === WebSocket.CONNECTING) {
+        console.log('ℹ️ Dine-in WebSocket connection in progress, skipping new connection');
+        return;
+      }
+
+      // ปิด connection เก่าก่อน (ถ้ามีและปิดแล้ว)
+      if (this.dineInWs && this.dineInWs.readyState === WebSocket.CLOSED) {
+        this.dineInWs = null;
+      }
+
+      const baseUrl = API_CONFIG.BASE_URL;
+      let wsUrl;
+      
+      if (baseUrl && baseUrl.startsWith('https://')) {
+        wsUrl = baseUrl.replace('https://', 'wss://').replace(/\/api\/?$/, '/ws/dine-in-orders/');
+      } else if (baseUrl && baseUrl.startsWith('http://')) {
+        wsUrl = baseUrl.replace('http://', 'ws://').replace(/\/api\/?$/, '/ws/dine-in-orders/');
+      } else {
+        // Fallback: ใช้ hostname ปัจจุบัน
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const hostname = window.location.hostname;
+        wsUrl = `${protocol}//${hostname}:8000/ws/dine-in-orders/`;
+        console.warn('⚠️ Using fallback Dine-in WebSocket URL:', wsUrl);
+      }
+
+      console.log('🔗 Connecting to Dine-in WebSocket:', wsUrl);
+      this.dineInWs = new WebSocket(wsUrl);
+
+      this.dineInWs.onopen = () => {
+        // subscribe ทันทีถ้ามี sessionId
+        if (this.dineInSessionId) {
+          this.subscribeToDineInSession(this.dineInSessionId);
+        }
+        if (this.dineInRestaurantId) {
+          this.subscribeToDineInRestaurant(this.dineInRestaurantId);
+        }
+      };
+
+      this.dineInWs.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          this.handleMessage(data);
+        } catch (error) {
+          console.error('Error parsing dine-in WebSocket message:', error);
+        }
+      };
+
+      this.dineInWs.onclose = () => {
+        // ไม่ทำ reconnect อัตโนมัติแบบ aggressive เพื่อกัน loop; ให้ client setDineInSessionId ใหม่เมื่อจำเป็น
+      };
+
+      this.dineInWs.onerror = (error) => {
+        const now = Date.now();
+        if (now - this.lastErrorLogTime > this.errorLogThrottle || this.lastErrorType !== 'dine_in_ws_error') {
+          console.error('Dine-in WebSocket error:', error);
+          this.lastErrorLogTime = now;
+          this.lastErrorType = 'dine_in_ws_error';
+        }
+      };
+    } catch (error) {
+      const now = Date.now();
+      if (now - this.lastErrorLogTime > this.errorLogThrottle || this.lastErrorType !== 'dine_in_ws_connect_error') {
+        console.error('Error connecting to dine-in WebSocket:', error);
+        this.lastErrorLogTime = now;
+        this.lastErrorType = 'dine_in_ws_connect_error';
+      }
+    }
+  }
+
+  subscribeToDineInSession(sessionId) {
+    if (!sessionId) return;
+    if (this.dineInWs && this.dineInWs.readyState === WebSocket.OPEN) {
+      this.dineInWs.send(JSON.stringify({
+        type: 'subscribe_dine_in_session',
+        payload: { session_id: sessionId },
+      }));
+    }
+  }
+
+  subscribeToDineInRestaurant(restaurantId) {
+    if (!restaurantId) return;
+    if (this.dineInWs && this.dineInWs.readyState === WebSocket.OPEN) {
+      this.dineInWs.send(JSON.stringify({
+        type: 'subscribe_dine_in_restaurant',
+        payload: { restaurant_id: restaurantId },
+      }));
+    }
+  }
+
+  // ส่งคำขอเช็กบิลผ่าน WebSocket
+  requestBill(sessionId) {
+    if (!sessionId) {
+      console.error('requestBill: sessionId is required');
+      return Promise.reject(new Error('sessionId is required'));
+    }
+    
+    return new Promise((resolve, reject) => {
+      if (this.dineInWs && this.dineInWs.readyState === WebSocket.OPEN) {
+        try {
+          this.dineInWs.send(JSON.stringify({
+            type: 'request_bill',
+            payload: { session_id: sessionId },
+          }));
+          console.log(`📤 Bill request sent via WebSocket for session: ${sessionId}`);
+          resolve();
+        } catch (error) {
+          console.error('❌ Error sending bill request:', error);
+          reject(error);
+        }
+      } else {
+        console.warn('⚠️ Dine-in WebSocket not connected, attempting to connect and retry...');
+        
+        // ตั้งค่า sessionId ก่อน
+        this.dineInSessionId = sessionId;
+        
+        // เชื่อมต่อใหม่
+        this.connectDineIn();
+        
+        // รอให้เชื่อมต่อแล้วค่อยส่งคำขอ
+        let retryCount = 0;
+        const maxRetries = 10;
+        const checkInterval = setInterval(() => {
+          retryCount++;
+          
+          if (this.dineInWs && this.dineInWs.readyState === WebSocket.OPEN) {
+            clearInterval(checkInterval);
+            try {
+              this.dineInWs.send(JSON.stringify({
+                type: 'request_bill',
+                payload: { session_id: sessionId },
+              }));
+              console.log(`📤 Bill request sent via WebSocket for session: ${sessionId} (after reconnect)`);
+              resolve();
+            } catch (error) {
+              console.error('❌ Error sending bill request after reconnect:', error);
+              reject(error);
+            }
+          } else if (retryCount >= maxRetries) {
+            clearInterval(checkInterval);
+            const error = new Error('Failed to connect Dine-in WebSocket after multiple attempts');
+            console.error('❌', error.message);
+            reject(error);
+          }
+        }, 300);
+      }
+    });
   }
 
   // เพิ่มฟังก์ชันสำหรับ subscribe ไปยัง guest order specific
@@ -267,6 +533,41 @@ class WebSocketService {
     }
   }
 
+  // เพิ่มฟังก์ชันสำหรับ subscribe หลาย guest orders พร้อมกัน
+  subscribeToMultipleGuestOrders(temporaryIds) {
+    if (!Array.isArray(temporaryIds) || temporaryIds.length === 0) {
+      console.warn('subscribeToMultipleGuestOrders: temporaryIds must be a non-empty array');
+      return;
+    }
+
+    if (this.guestWs && this.guestWs.readyState === WebSocket.OPEN) {
+      console.log(`📡 Subscribing to ${temporaryIds.length} guest orders:`, temporaryIds);
+      // Subscribe ทุก temporary_id
+      temporaryIds.forEach((temporaryId) => {
+        this.subscribeToGuestOrder(temporaryId);
+      });
+    } else {
+      console.log(`⚠️ Cannot subscribe to multiple guest orders: WebSocket not connected`);
+      // ถ้า WebSocket ไม่เชื่อมต่อ ให้เชื่อมต่อใหม่
+      if (!this.guestWs || this.guestWs.readyState === WebSocket.CLOSED) {
+        console.log('🔄 Attempting to connect WebSocket for multiple subscriptions...');
+        this.connectGuest();
+        
+        // รอให้เชื่อมต่อแล้วค่อย subscribe
+        setTimeout(() => {
+          if (this.guestWs && this.guestWs.readyState === WebSocket.OPEN) {
+            console.log(`📡 Retrying subscription to ${temporaryIds.length} guest orders`);
+            temporaryIds.forEach((temporaryId) => {
+              this.subscribeToGuestOrder(temporaryId);
+            });
+          } else {
+            console.log(`❌ Failed to subscribe to multiple guest orders after reconnection`);
+          }
+        }, 1000);
+      }
+    }
+  }
+
   reconnectGuest() {
     console.log('🔄 reconnectGuest() called');
     console.log('🔍 Current state before reconnect:', {
@@ -316,6 +617,21 @@ class WebSocketService {
     }
   }
 
+  // Force reconnect with new token (used when login/logout)
+  forceReconnect(token) {
+    // Reset reconnect attempts
+    this.reconnectAttempts = 0;
+    // Disconnect existing connection
+    if (this.ws) {
+      this.ws.close();
+      this.ws = null;
+    }
+    // Connect with new token
+    if (token) {
+      this.connect(token);
+    }
+  }
+
   handleMessage(data) {
     const { type } = data;
     
@@ -327,8 +643,8 @@ class WebSocketService {
     // console.log(`📨 Handling message type: ${type}`, data);
     // console.log(`📨 Message source: ${this.guestWs ? 'Guest WebSocket' : 'Main WebSocket'}`);
     
-    // แปลสถานะก่อนส่งให้ listeners สำหรับ order_status_update และ guest_order_status_update
-    if (type === 'order_status_update' || type === 'guest_order_status_update') {
+    // แปลสถานะก่อนส่งให้ listeners สำหรับ order_status_update, guest_order_status_update และ dine_in_order_status_update
+    if (type === 'order_status_update' || type === 'guest_order_status_update' || type === 'dine_in_order_status_update') {
       console.log(`📨 Processing ${type} message:`, data);
       
       // เพิ่ม payload wrapper ถ้าไม่มี
@@ -490,6 +806,20 @@ class WebSocketService {
       // console.log('✅ Guest WebSocket disconnected successfully');
     } else {
       console.log('ℹ️ No guest WebSocket to disconnect');
+    }
+  }
+
+  // เพิ่มฟังก์ชันสำหรับ disconnect เฉพาะ dine-in WebSocket
+  disconnectDineIn() {
+    if (this.dineInWs) {
+      // ปิด WebSocket อย่างเหมาะสม
+      if (this.dineInWs.readyState === WebSocket.OPEN || this.dineInWs.readyState === WebSocket.CONNECTING) {
+        this.dineInWs.close(1000, 'Dine-in session ended');
+      }
+      
+      this.dineInWs = null;
+      this.dineInSessionId = null;
+      this.dineInRestaurantId = null;
     }
   }
 

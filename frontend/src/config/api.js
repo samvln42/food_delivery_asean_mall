@@ -8,18 +8,30 @@ const getBaseUrl = () => {
     console.log('🔧 All env vars:', import.meta.env);
   }
   
+  // ✅ Fallback (ช่วยเวลาทดสอบบนมือถือ/เครื่องอื่น)
+  // - ถ้าไม่กำหนด VITE_API_URL จะใช้ host ปัจจุบัน และชี้ไปที่ port 8000 (/api)
+  // - ถ้ากำหนด VITE_API_URL ก็ใช้ตามนั้น (เหมาะกับ prod/docker)
   if (!url) {
-    console.error('❌ VITE_API_URL is not defined in .env file!');
+    if (typeof window !== 'undefined') {
+      const fallback = `${window.location.protocol}//${window.location.hostname}:8000/api`;
+      if (import.meta.env.DEV) {
+        console.warn('⚠️ VITE_API_URL is not set. Falling back to:', fallback);
+      }
+      return fallback;
+    }
+
+    console.error('❌ VITE_API_URL is not defined and window is not available.');
     throw new Error('VITE_API_URL environment variable is required');
   }
-  
+
   const finalUrl = url.endsWith('/') ? url.slice(0, -1) : url;
   return finalUrl;
 };
 
 export const API_CONFIG = {
   BASE_URL: getBaseUrl(),
-  TIMEOUT: 15000, // ลดเหลือ 15 วินาที เพื่อประสิทธิภาพที่ดีขึ้น
+  TIMEOUT: 15000, // default timeout for general requests
+  DELIVERY_FEE_TIMEOUT: 30000, // longer timeout for routing-based delivery fee calls
   HEADERS: {
     'Content-Type': 'application/json',
     'Accept': 'application/json',

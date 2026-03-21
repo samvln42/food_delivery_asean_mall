@@ -1181,7 +1181,9 @@ const AdminSettings = () => {
           </div>
           <div>
             <label className="block text-sm font-medium text-secondary-700 mb-2">
-              {translate('admin.settings.free_delivery_minimum')}
+              {currentLanguage === 'en'
+                ? 'Free delivery minimum amount'
+                : translate('admin.settings.free_delivery_minimum')}
             </label>
             <input
               type="number"
@@ -1192,7 +1194,9 @@ const AdminSettings = () => {
               className="w-full p-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             />
             <p className="mt-1 text-xs text-secondary-500">
-              {translate('admin.settings.free_delivery_minimum_hint')}
+              {currentLanguage === 'en'
+                ? 'Minimum order amount for free delivery (0 = no free delivery)'
+                : translate('admin.settings.free_delivery_minimum_hint')}
             </p>
           </div>
           <div>
