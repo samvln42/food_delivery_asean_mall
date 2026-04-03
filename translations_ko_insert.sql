@@ -635,6 +635,8 @@ INSERT IGNORE INTO translations (language_id, `key`, value, `group`) VALUES
 (2, 'admin.restaurant_modal.geocode_failed', '좌표를 찾을 수 없습니다', 'admin'),
 (2, 'admin.restaurant_modal.enter_coordinates_manually', '좌표를 수동으로 입력하세요', 'admin'),
 (2, 'admin.restaurant_modal.find_coordinates', '주소에서 좌표 찾기', 'admin'),
+(2, 'admin.restaurant_modal.location', '매장 위치', 'admin'),
+(2, 'admin.restaurant_modal.map_hint', '지도를 움직여 매장 위치를 선택하세요', 'admin'),
 (2, 'admin.restaurant_modal.latitude', '위도', 'admin'),
 (2, 'admin.restaurant_modal.longitude', '경도', 'admin'),
 (2, 'admin.restaurant_modal.latitude_hint', '위도 좌표, 예: 17.9668552', 'admin'),

@@ -1,19 +1,26 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '../../../contexts/LanguageContext';
 import Loading from '../../../components/common/Loading';
-import VenueCard from '../../../components/entertainment/VenueCard';
-import { entertainmentVenueService, venueCategoryService } from '../../../services/api';
+import VenuesMap from '../../../components/entertainment/VenuesMap';
+import { entertainmentVenueService, venueCategoryService, restaurantService } from '../../../services/api';
 import { FaTheaterMasks } from 'react-icons/fa';
+import { LuSearch, LuList, LuMapPin, LuUtensilsCrossed } from 'react-icons/lu';
+
+const CATEGORY_RESTAURANTS = 'restaurants';
 
 const EntertainmentVenues = () => {
   const [venues, setVenues] = useState([]);
+  const [restaurants, setRestaurants] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState(null);
-  const [sortBy, setSortBy] = useState('rating'); // name, rating, distance
+  const [sortBy, setSortBy] = useState('rating');
+  const [showListView, setShowListView] = useState(false);
   const { translate } = useLanguage();
+  const navigate = useNavigate();
 
   // Fetch categories
   useEffect(() => {
@@ -24,192 +31,268 @@ const EntertainmentVenues = () => {
         setCategories(Array.isArray(fetchedCategories) ? fetchedCategories : []);
       } catch (err) {
         console.error('Error fetching categories:', err);
-        setCategories([]); // Set empty array on error
+        setCategories([]);
       }
     };
     fetchCategories();
   }, []);
 
-  // Fetch venues
+  // Fetch venues and restaurants
   useEffect(() => {
-    const fetchVenues = async () => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+
+    const fetchData = async () => {
       try {
-        setLoading(true);
-        setError(null);
-        
-        const params = {};
-        
-        // Add search query
-        if (searchQuery) {
-          params.search = searchQuery;
+        if (selectedCategory !== CATEGORY_RESTAURANTS) {
+          const params = {};
+          if (searchQuery) params.search = searchQuery;
+          if (selectedCategory) params.category = selectedCategory;
+          if (sortBy === 'rating') params.ordering = '-average_rating';
+          else if (sortBy === 'name') params.ordering = 'venue_name';
+
+          const response = await entertainmentVenueService.getAll(params);
+          let fetchedVenues = response.data?.results || response.data || [];
+          if (sortBy === 'distance') {
+            fetchedVenues = fetchedVenues.sort((a, b) =>
+              a.venue_name.localeCompare(b.venue_name)
+            );
+          }
+          if (!cancelled) setVenues(fetchedVenues);
+        } else {
+          setVenues([]);
         }
-        
-        // Add category filter
-        if (selectedCategory) {
-          params.category = selectedCategory;
+
+        if (selectedCategory === CATEGORY_RESTAURANTS || selectedCategory === null) {
+          const params = { page_size: 200 };
+          if (searchQuery) params.search = searchQuery;
+          const res = await restaurantService.getAll(params);
+          let fetched = res.data?.results || res.data || [];
+          if (!Array.isArray(fetched)) fetched = [];
+          if (!cancelled) setRestaurants(fetched);
+        } else {
+          if (!cancelled) setRestaurants([]);
         }
-        
-        // Add sorting
-        if (sortBy === 'rating') {
-          params.ordering = '-average_rating';
-        } else if (sortBy === 'name') {
-          params.ordering = 'venue_name';
-        }
-        
-        const response = await entertainmentVenueService.getAll(params);
-        let fetchedVenues = response.data?.results || response.data || [];
-        
-        // Client-side sort for distance (if needed)
-        if (sortBy === 'distance') {
-          // TODO: Implement distance calculation when location is available
-          fetchedVenues = fetchedVenues.sort((a, b) => a.venue_name.localeCompare(b.venue_name));
-        }
-        
-        setVenues(fetchedVenues);
       } catch (err) {
-        console.error('Error fetching venues:', err);
-        setError(err.response?.data?.detail || err.message || 'เกิดข้อผิดพลาดในการโหลดข้อมูล');
+        if (!cancelled) {
+          setError(err.response?.data?.detail || err.message || 'เกิดข้อผิดพลาดในการโหลดข้อมูล');
+          setVenues([]);
+          setRestaurants([]);
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
-    
-    fetchVenues();
+
+    fetchData();
+    return () => { cancelled = true; };
   }, [searchQuery, selectedCategory, sortBy]);
+
+  const isLoading = loading && venues.length === 0 && restaurants.length === 0;
 
   const handleSearch = (e) => {
     e.preventDefault();
-    // Search is handled by useEffect
   };
 
-  const fetchVenues = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      const params = {};
-      if (searchQuery) params.search = searchQuery;
-      if (selectedCategory) params.category = selectedCategory;
-      if (sortBy === 'rating') params.ordering = '-average_rating';
-      else if (sortBy === 'name') params.ordering = 'venue_name';
-      
-      const response = await entertainmentVenueService.getAll(params);
-      setVenues(response.data?.results || response.data || []);
-    } catch (err) {
-      console.error('Error fetching venues:', err);
-      setError(err.response?.data?.detail || err.message || 'เกิดข้อผิดพลาดในการโหลดข้อมูล');
-    } finally {
-      setLoading(false);
+  const displayPlaces = selectedCategory === CATEGORY_RESTAURANTS
+    ? restaurants.map((r) => ({ type: 'restaurant', ...r }))
+    : selectedCategory === null
+      ? [
+          ...venues.map((v) => ({ type: 'venue', ...v })),
+          ...restaurants.map((r) => ({ type: 'restaurant', ...r })),
+        ]
+      : venues.map((v) => ({ type: 'venue', ...v }));
+
+  const handlePlaceClick = (place) => {
+    if (place.type === 'restaurant') {
+      navigate(`/restaurants/${place.restaurant_id}`);
+    } else {
+      navigate(`/entertainment-venues/${place.venue_id}`);
     }
   };
 
-  if (loading && venues.length === 0) {
+  if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <Loading size="large" text={translate('common.loading') || 'Loading...'} />
+        <Loading
+          size="large"
+          text={translate('common.loading') || 'Loading...'}
+        />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-secondary-50">
-      {/* Header */}
-      <div className="bg-white shadow-sm sticky top-16 z-10">
-        <div className="container mx-auto px-3 sm:px-4 py-3 sm:py-4">
-          <h1 className="text-xl sm:text-2xl font-bold text-secondary-800 mb-3 sm:mb-4">
-            <FaTheaterMasks className="h-6 w-6 sm:h-7 sm:w-7 inline-block mr-2 text-primary-600" /> {translate('entertainment.venues') || 'สถานที่บันเทิง'}
-          </h1>
-          
-          {/* Search Bar */}
-          <form onSubmit={handleSearch} className="mb-3 sm:mb-4">
+    <div className="min-h-screen bg-gray-50 flex flex-col">
+      {/* Compact Header - Filter bar */}
+      <div className="bg-white border-b border-gray-200 sticky top-0 z-20 shadow-sm">
+        <div className="px-3 sm:px-4 py-3">
+          <div className="flex items-center justify-between gap-2 mb-3">
+            <h1 className="text-lg sm:text-xl font-semibold text-gray-900 flex items-center gap-2">
+              <FaTheaterMasks className="w-5 h-5 text-primary-600" />
+              {translate('entertainment.venues') || 'สถานที่บันเทิง'}
+            </h1>
+            <button
+              onClick={() => setShowListView(!showListView)}
+              className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-600 transition-colors"
+              title={showListView ? 'แสดงแผนที่' : 'แสดงรายการ'}
+            >
+              {showListView ? (
+                <LuMapPin className="w-5 h-5" />
+              ) : (
+                <LuList className="w-5 h-5" />
+              )}
+            </button>
+          </div>
+
+          <form onSubmit={handleSearch} className="mb-2">
             <div className="relative">
+              <LuSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder={translate('common.search') || 'ค้นหา...'}
-                className="w-full px-3 sm:px-4 py-2 pl-9 sm:pl-10 text-sm sm:text-base border border-secondary-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
               />
-              <span className="absolute left-2.5 sm:left-3 top-2.5 sm:top-2.5 text-secondary-400 text-sm sm:text-base">🔍</span>
             </div>
           </form>
 
-          {/* Category Filter */}
-          <div className="flex gap-1.5 sm:gap-2 overflow-x-auto pb-2 scrollbar-hide -mx-1 px-1">
+          <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-hide -mx-1">
             <button
               onClick={() => setSelectedCategory(null)}
-              className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-medium whitespace-nowrap flex-shrink-0 ${
+              className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap flex-shrink-0 ${
                 selectedCategory === null
                   ? 'bg-primary-500 text-white'
-                  : 'bg-secondary-200 text-secondary-700 hover:bg-secondary-300'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
               {translate('common.all') || 'ทั้งหมด'}
             </button>
-            {Array.isArray(categories) && categories.map((category) => (
-              <button
-                key={category.category_id}
-                onClick={() => setSelectedCategory(category.category_id)}
-                className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-medium whitespace-nowrap flex-shrink-0 ${
-                  selectedCategory === category.category_id
-                    ? 'bg-primary-500 text-white'
-                    : 'bg-secondary-200 text-secondary-700 hover:bg-secondary-300'
-                }`}
-              >
-                {category.icon_display_url ? (
-                  <img src={category.icon_display_url} alt={category.category_name} className="inline w-4 h-4 mr-1" />
-                ) : (
-                  <FaTheaterMasks className="inline w-4 h-4 text-secondary-400" />
-                )} {category.category_name}
-              </button>
-            ))}
-          </div>
-
-          {/* Sort Options */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 mt-3">
-            <span className="text-xs sm:text-sm text-secondary-600 whitespace-nowrap">{translate('common.sort_by') || 'เรียงตาม:'}</span>
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
-              className="w-full sm:w-auto px-3 py-1.5 sm:py-1 border border-secondary-300 rounded-lg text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+            <button
+              onClick={() => setSelectedCategory(CATEGORY_RESTAURANTS)}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap flex-shrink-0 flex items-center gap-1 ${
+                selectedCategory === CATEGORY_RESTAURANTS
+                  ? 'bg-primary-500 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
             >
-              <option value="name">{translate('common.name') || 'ชื่อ'}</option>
-              <option value="rating">{translate('common.rating') || 'เรตติ้ง'}</option>
-              <option value="distance">{translate('common.distance') || 'ระยะทาง'}</option>
-            </select>
+              <LuUtensilsCrossed className="w-3.5 h-3.5" />
+              {translate('common.restaurants') || 'ร้านอาหาร'}
+            </button>
+            {Array.isArray(categories) &&
+              categories.map((category) => (
+                <button
+                  key={category.category_id}
+                  onClick={() => setSelectedCategory(category.category_id)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap flex-shrink-0 ${
+                    selectedCategory === category.category_id
+                      ? 'bg-primary-500 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  {category.icon_display_url ? (
+                    <img
+                      src={category.icon_display_url}
+                      alt={category.category_name}
+                      className="inline w-3.5 h-3.5 mr-1"
+                    />
+                  ) : (
+                    <FaTheaterMasks className="inline w-3.5 h-3.5 text-gray-400 mr-1" />
+                  )}
+                  {category.category_name}
+                </button>
+              ))}
           </div>
         </div>
       </div>
 
-      {/* Content */}
-      <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-6">
+      {/* Main Content - Map or List */}
+      <div className="flex-1 min-h-0 relative">
         {error ? (
-          <div className="text-center py-8 sm:py-12">
-            <p className="text-red-500 mb-4 text-sm sm:text-base">{error}</p>
+          <div className="p-6 text-center">
+            <p className="text-red-500 mb-4 text-sm">{error}</p>
             <button
-              onClick={fetchVenues}
-              className="bg-primary-500 text-white px-4 sm:px-6 py-2 rounded-lg hover:bg-primary-600 text-sm sm:text-base"
+              onClick={() => window.location.reload()}
+              className="bg-primary-500 text-white px-4 py-2 rounded-lg hover:bg-primary-600 text-sm"
             >
               {translate('common.try_again') || 'ลองอีกครั้ง'}
             </button>
           </div>
-        ) : venues.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-            {venues.map((venue) => (
-              <VenueCard key={venue.venue_id} venue={venue} />
-            ))}
+        ) : showListView ? (
+          <div className="overflow-y-auto h-[calc(100vh-180px)] p-4">
+            {displayPlaces.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {displayPlaces.map((place) => {
+                  const isRestaurant = place.type === 'restaurant';
+                  const name = isRestaurant ? place.restaurant_name : place.venue_name;
+                  const imageUrl = place.image_display_url;
+                  const key = isRestaurant ? `r-${place.restaurant_id}` : `v-${place.venue_id}`;
+                  return (
+                    <button
+                      key={key}
+                      onClick={() => handlePlaceClick(place)}
+                      className="text-left bg-white rounded-lg shadow-sm border border-gray-200 p-4 hover:shadow-md hover:border-primary-200 transition-all"
+                    >
+                      <div className="flex gap-3">
+                        {imageUrl ? (
+                          <img
+                            src={imageUrl}
+                            alt={name}
+                            className="w-20 h-20 rounded-lg object-cover flex-shrink-0"
+                          />
+                        ) : (
+                          <div className="w-20 h-20 rounded-lg bg-gray-200 flex items-center justify-center flex-shrink-0">
+                            {isRestaurant ? (
+                              <LuUtensilsCrossed className="w-8 h-8 text-gray-400" />
+                            ) : (
+                              <FaTheaterMasks className="w-8 h-8 text-gray-400" />
+                            )}
+                          </div>
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <h3 className="font-semibold text-gray-900 truncate">{name}</h3>
+                          <p className="text-xs text-gray-500 line-clamp-2 mt-0.5">
+                            {place.address || place.description}
+                          </p>
+                          {place.average_rating > 0 && (
+                            <span className="text-xs text-amber-600 font-medium mt-1 inline-block">
+                              ★ {Number(place.average_rating).toFixed(1)}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <FaTheaterMasks className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-gray-700 mb-2">
+                  {translate('entertainment.no_venues_found') || 'ไม่พบสถานที่บันเทิง'}
+                </h3>
+                <p className="text-sm text-gray-500">
+                  {translate('entertainment.try_different_search') ||
+                    'ลองค้นหาด้วยคำอื่น หรือเลือกหมวดหมู่อื่น'}
+                </p>
+              </div>
+            )}
           </div>
         ) : (
-          <div className="text-center py-8 sm:py-12">
-            <div className="mb-4 opacity-30 flex justify-center">
-              <FaTheaterMasks className="w-16 h-16 sm:w-24 sm:h-24 text-secondary-400" />
-            </div>
-            <h3 className="text-lg sm:text-xl font-semibold text-secondary-700 mb-2">
-              {translate('entertainment.no_venues_found') || 'ไม่พบสถานที่บันเทิง'}
-            </h3>
-            <p className="text-sm sm:text-base text-secondary-500 px-4">
-              {translate('entertainment.try_different_search') || 'ลองค้นหาด้วยคำอื่น หรือเลือกหมวดหมู่อื่น'}
-            </p>
+          <div className="absolute inset-0">
+            <VenuesMap
+              places={displayPlaces}
+              height="100%"
+              onPlaceClick={handlePlaceClick}
+            />
+            {displayPlaces.length > 0 && displayPlaces.filter((p) => p.latitude && p.longitude).length === 0 && (
+              <div className="absolute bottom-4 left-4 right-4 bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-800">
+                {translate('entertainment.no_venue_coordinates') ||
+                  'สถานที่ที่พบไม่มีพิกัด จึงไม่สามารถแสดงบนแผนที่ได้'}
+              </div>
+            )}
           </div>
         )}
       </div>

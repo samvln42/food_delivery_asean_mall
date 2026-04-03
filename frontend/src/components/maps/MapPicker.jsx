@@ -1,26 +1,45 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback, forwardRef, useImperativeHandle } from 'react';
 import { GrLocationPin } from 'react-icons/gr';
+import { BiCurrentLocation } from 'react-icons/bi';
 import { reverseGeocode, getGoogleMapsApiKey } from '../../utils/googleMaps';
 import { loadGoogleMaps, isGoogleMapsLoaded } from '../../utils/googleMapsLoader';
 
 /**
  * MapPicker Component
- * Component สำหรับเลือกที่อยู่โดยคลิกบนแผนที่
+ * Component สำหรับเลือกที่อยู่โดยคลิกบนแผนที่ (ใช้ Google Maps)
  */
-const MapPicker = ({ 
+const MapPicker = forwardRef(({ 
   initialCenter = { lat: 13.7563, lng: 100.5018 }, // กรุงเทพฯ
   onLocationSelect,
+  deferSelection = false,
   zoom = 15,
   className = '',
   height = '400px'
-}) => {
+}, ref) => {
   const [map, setMap] = useState(null);
   const [currentLocation, setCurrentLocation] = useState(initialCenter);
   const [address, setAddress] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [mapsLoaded, setMapsLoaded] = useState(false);
   const mapRef = useRef(null);
+  const lastCenterKeyRef = useRef('');
   const apiKey = getGoogleMapsApiKey();
+
+  useImperativeHandle(ref, () => ({
+    confirmCurrentLocation: async () => {
+      if (map) {
+        const center = map.getCenter();
+        // ปัดทศนิยมเหลือ 10 ตำแหน่ง
+        const loc = { 
+          lat: Math.round(center.lat() * 1e10) / 1e10, 
+          lng: Math.round(center.lng() * 1e10) / 1e10 
+        };
+        await updateLocation(loc, { commit: true, awaitGeocode: false });
+        return loc;
+      }
+      return currentLocation;
+    }
+  }), [map, currentLocation]);
 
   useEffect(() => {
     if (!apiKey) {
@@ -28,11 +47,9 @@ const MapPicker = ({
       return;
     }
 
-    // ใช้ shared loader เพื่อป้องกันการโหลดซ้ำ
     loadGoogleMaps(apiKey, ['places'])
       .then(() => {
         setMapsLoaded(true);
-        initializeMap();
       })
       .catch((error) => {
         console.error('Failed to load Google Maps:', error);
@@ -40,6 +57,11 @@ const MapPicker = ({
       });
   }, [apiKey]);
 
+  useEffect(() => {
+    if (mapsLoaded && mapRef.current && !map) {
+      initializeMap();
+    }
+  }, [mapsLoaded, map]);
 
   const initializeMap = () => {
     if (!mapRef.current || !isGoogleMapsLoaded() || !window.google?.maps) {
@@ -50,113 +72,120 @@ const MapPicker = ({
       const googleMap = new window.google.maps.Map(mapRef.current, {
         center: currentLocation,
         zoom: zoom,
-        mapTypeControl: true,
+        mapTypeControl: false,
         streetViewControl: false,
-        fullscreenControl: true
+        fullscreenControl: false,
+        zoomControl: false,
+        gestureHandling: 'greedy'
       });
 
-      // อัพเดทตำแหน่งเมื่อแผนที่เลื่อนหรือซูม
       const updateCenterLocation = async () => {
         const center = googleMap.getCenter();
-        if (center) {
-          const newLocation = {
-            lat: center.lat(),
-            lng: center.lng()
-          };
-          await updateLocation(newLocation);
+        const centerKey = `${center.lat().toFixed(5)},${center.lng().toFixed(5)}`;
+        if (lastCenterKeyRef.current === centerKey) {
+          return;
         }
+        lastCenterKeyRef.current = centerKey;
+        
+        const newLocation = {
+          lat: center.lat(),
+          lng: center.lng()
+        };
+        await updateLocation(newLocation, { commit: !deferSelection });
       };
 
-      googleMap.addListener('center_changed', updateCenterLocation);
-      googleMap.addListener('dragend', updateCenterLocation);
-      googleMap.addListener('zoom_changed', updateCenterLocation);
+      googleMap.addListener('idle', updateCenterLocation);
 
       setMap(googleMap);
 
-      // Get initial address (ไม่ต้องรอ reverse geocode)
       const fallbackAddress = `ตำแหน่ง: ${currentLocation.lat.toFixed(6)}, ${currentLocation.lng.toFixed(6)}`;
       setAddress(fallbackAddress);
       
-      // พยายาม reverse geocode แต่ไม่บล็อก UI
-      updateLocation(currentLocation).catch(err => {
+      updateLocation(currentLocation, { commit: !deferSelection }).catch(err => {
         console.warn('Initial reverse geocoding failed:', err);
       });
     } catch (error) {
       console.error('Error initializing map:', error);
       setIsLoading(false);
-      // แสดงข้อความแจ้งเตือน
       if (error.message && error.message.includes('Billing')) {
         setAddress('⚠️ กรุณาเปิดใช้งาน Billing ใน Google Cloud Console');
       }
     }
   };
 
-  const updateLocation = async (location) => {
-    setCurrentLocation(location);
-    setIsLoading(true);
+  const updateLocation = useCallback(async (location, options = {}) => {
+    const {
+      commit: commitOverride,
+      awaitGeocode = true,
+    } = options;
 
-    try {
-      if (apiKey) {
-        try {
-          const addr = await reverseGeocode(location.lat, location.lng, apiKey);
+    const shouldCommit = typeof commitOverride === 'boolean'
+      ? commitOverride
+      : !deferSelection;
+
+    // ปัดทศนิยมเหลือ 10 ตำแหน่ง (ไม่เกิน 12 ตำแหน่งที่ backend รองรับ)
+    const roundedLat = Math.round(location.lat * 1e10) / 1e10;
+    const roundedLng = Math.round(location.lng * 1e10) / 1e10;
+
+    setCurrentLocation({ lat: roundedLat, lng: roundedLng });
+    const fallbackAddr = `ตำแหน่ง: ${roundedLat.toFixed(6)}, ${roundedLng.toFixed(6)}`;
+
+    if (!shouldCommit) {
+      setAddress(fallbackAddr);
+      return;
+    }
+
+    if (onLocationSelect) {
+      onLocationSelect({
+        lat: roundedLat,
+        lng: roundedLng,
+        address: fallbackAddr
+      });
+    }
+
+    const doGeocode = async () => {
+      setIsLoading(true);
+      try {
+        if (apiKey) {
+          const addr = await reverseGeocode(roundedLat, roundedLng, apiKey);
           setAddress(addr);
-          
           if (onLocationSelect) {
             onLocationSelect({
-              lat: location.lat,
-              lng: location.lng,
+              lat: roundedLat,
+              lng: roundedLng,
               address: addr
             });
           }
-        } catch (geocodeError) {
-          // ถ้า reverse geocode ไม่สำเร็จ ให้ใช้พิกัดแทน
-          console.warn('Reverse geocoding failed, using coordinates:', geocodeError.message);
-          const fallbackAddress = `ตำแหน่ง: ${location.lat.toFixed(6)}, ${location.lng.toFixed(6)}`;
-          setAddress(fallbackAddress);
-          
-          if (onLocationSelect) {
-            onLocationSelect({
-              lat: location.lat,
-              lng: location.lng,
-              address: fallbackAddress
-            });
-          }
+        } else {
+          setAddress(fallbackAddr);
         }
-      } else {
-        // ถ้าไม่มี API Key ให้ใช้พิกัด
-        const fallbackAddress = `ตำแหน่ง: ${location.lat.toFixed(6)}, ${location.lng.toFixed(6)}`;
-        setAddress(fallbackAddress);
-        
-        if (onLocationSelect) {
+      } catch (geocodeError) {
+        console.warn('Reverse geocoding failed, using coordinates:', geocodeError.message);
+        setAddress(fallbackAddr);
+        if (onLocationSelect && shouldCommit) {
           onLocationSelect({
-            lat: location.lat,
-            lng: location.lng,
-            address: fallbackAddress
+            lat: roundedLat,
+            lng: roundedLng,
+            address: fallbackAddr
           });
         }
+      } finally {
+        setIsLoading(false);
       }
-    } catch (error) {
-      console.error('Error updating location:', error);
-      const fallbackAddress = `ตำแหน่ง: ${location.lat.toFixed(6)}, ${location.lng.toFixed(6)}`;
-      setAddress(fallbackAddress);
-      
-      if (onLocationSelect) {
-        onLocationSelect({
-          lat: location.lat,
-          lng: location.lng,
-          address: fallbackAddress
-        });
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    };
 
-  const getCurrentLocation = () => {
+    if (awaitGeocode) {
+      await doGeocode();
+    } else {
+      void doGeocode();
+    }
+  }, [onLocationSelect, deferSelection, apiKey]);
+
+  const zoomToCurrentLocation = () => {
     if (navigator.geolocation) {
       setIsLoading(true);
       navigator.geolocation.getCurrentPosition(
-        (position) => {
+        async (position) => {
           const location = {
             lat: position.coords.latitude,
             lng: position.coords.longitude
@@ -164,33 +193,30 @@ const MapPicker = ({
           
           if (map) {
             map.setCenter(location);
-            // updateLocation จะถูกเรียกอัตโนมัติจาก center_changed event
+            map.setZoom(17);
           }
+          setIsLoading(false);
         },
         (error) => {
           console.error('Geolocation error:', error);
+          alert('ไม่สามารถเข้าถึงตำแหน่งปัจจุบันได้ กรุณาอนุญาตการเข้าถึงตำแหน่ง');
           setIsLoading(false);
         }
       );
+    } else {
+      alert('เบราว์เซอร์ของคุณไม่รองรับการเข้าถึงตำแหน่ง');
     }
   };
 
   return (
     <div className={`map-picker ${className}`}>
-      <div className="mb-2 flex items-center gap-2">
-        <button
-          type="button"
-          onClick={getCurrentLocation}
-          disabled={isLoading}
-          className="px-3 py-1 text-sm bg-primary-500 text-white rounded hover:bg-primary-600 disabled:opacity-50"
-        >
-          📍 ใช้ตำแหน่งปัจจุบัน
-        </button>
-        {isLoading && (
-          <span className="text-sm text-secondary-600">กำลังโหลด...</span>
-        )}
-      </div>
-      
+      <style>{`
+        .map-picker .gm-style-cc,
+        .map-picker .gmnoprint,
+        .map-picker .gm-fullscreen-control {
+          display: none !important;
+        }
+      `}</style>
       <div
         style={{ height: height }}
         className="w-full rounded-lg border border-secondary-300 overflow-hidden relative"
@@ -208,19 +234,23 @@ const MapPicker = ({
           justifyContent: 'center',
           filter: 'drop-shadow(0 4px 6px rgba(249, 115, 22, 0.35))'
         }}>
-          <GrLocationPin size={40} color="#f97316" />
+          <GrLocationPin size={36} color="#f97316" />
         </div>
         <div
           ref={mapRef}
           style={{ height: '100%', width: '100%' }}
         />
+        {/* ปุ่มซูมไปที่ตำแหน่งปัจจุบัน (แบบกลม) */}
+        <button
+          type="button"
+          onClick={zoomToCurrentLocation}
+          disabled={isLoading}
+          className="absolute bottom-4 right-4 w-10 h-10 bg-white rounded-full shadow-lg hover:bg-gray-50 transition-colors flex items-center justify-center z-[1000] border border-gray-300 disabled:opacity-50"
+          title="ไปที่ตำแหน่งปัจจุบัน"
+        >
+          <BiCurrentLocation className="w-5 h-5 text-gray-700" />
+        </button>
       </div>
-      
-      {address && (
-        <div className="mt-2 p-2 bg-secondary-50 rounded text-sm">
-          <strong>ที่อยู่:</strong> {address}
-        </div>
-      )}
       
       {!apiKey && (
         <p className="mt-2 text-xs text-yellow-600">
@@ -244,14 +274,12 @@ const MapPicker = ({
           >
             เปิดใช้งาน Billing ที่นี่ →
           </a>
-          <p className="text-xs text-gray-600 mt-2">
-            💡 ระบบยังสามารถใช้พิกัด (lat/lng) ได้แม้ไม่มีที่อยู่
-          </p>
         </div>
       )}
     </div>
   );
-};
+});
+
+MapPicker.displayName = 'MapPicker';
 
 export default MapPicker;
-

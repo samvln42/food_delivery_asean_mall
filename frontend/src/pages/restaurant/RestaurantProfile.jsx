@@ -3,6 +3,8 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { restaurantService } from '../../services/api';
 import Loading from '../../components/common/Loading';
+import MapPicker from '../../components/maps/MapPicker';
+import { LuMapPin } from 'react-icons/lu';
 
 const RestaurantProfile = () => {
   const { user, updateProfile } = useAuth();
@@ -245,15 +247,46 @@ const RestaurantProfile = () => {
                 <input type="text" name="address" value={formData.address} onChange={handleInputChange} placeholder={t('restaurant.profile.address_placeholder', 'Enter restaurant address')} required readOnly={!isEditing} className={`w-full p-3 border border-secondary-300 rounded-lg ${!isEditing ? 'bg-secondary-50' : ''}`} />
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-secondary-700 mb-2">Latitude</label>
-                  <input type="number" step="any" name="latitude" value={formData.latitude} onChange={handleInputChange} placeholder="Latitude" readOnly={!isEditing} className={`w-full p-3 border border-secondary-300 rounded-lg ${!isEditing ? 'bg-secondary-50' : ''}`} />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-secondary-700 mb-2">Longitude</label>
-                  <input type="number" step="any" name="longitude" value={formData.longitude} onChange={handleInputChange} placeholder="Longitude" readOnly={!isEditing} className={`w-full p-3 border border-secondary-300 rounded-lg ${!isEditing ? 'bg-secondary-50' : ''}`} />
-                </div>
+              {/* Location Picker */}
+              <div>
+                <label className="block text-sm font-medium text-secondary-700 mb-2">
+                  {t('restaurant.profile.location', 'ตำแหน่งร้าน')}
+                </label>
+                
+                
+                {isEditing && (
+                  <MapPicker
+                    initialCenter={{
+                      lat: formData.latitude ? parseFloat(formData.latitude) : 13.7563,
+                      lng: formData.longitude ? parseFloat(formData.longitude) : 100.5018
+                    }}
+                    onLocationSelect={(location) => {
+                      setFormData(prev => ({
+                        ...prev,
+                        latitude: location.lat.toString(),
+                        longitude: location.lng.toString()
+                      }));
+                    }}
+                    height="300px"
+                    zoom={formData.latitude ? 17 : 12}
+                  />
+                )}
+                
+                {!isEditing && formData.latitude && formData.longitude && (
+                  <MapPicker
+                    initialCenter={{
+                      lat: parseFloat(formData.latitude),
+                      lng: parseFloat(formData.longitude)
+                    }}
+                    height="200px"
+                    zoom={17}
+                  />
+                )}
+                
+                <p className="mt-2 text-xs text-secondary-500">
+                  <LuMapPin className="inline w-3 h-3 mr-1" />
+                  {t('restaurant.profile.map_hint', 'เลื่อนแผนที่เพื่อเลือกตำแหน่งร้าน')}
+                </p>
               </div>
 
               <div>

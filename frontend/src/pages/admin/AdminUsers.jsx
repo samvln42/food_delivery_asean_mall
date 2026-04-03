@@ -639,17 +639,24 @@ const UserModal = ({ user, type, onClose, onUpdate }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg max-w-2xl w-full max-h-screen overflow-y-auto">
-        <div className="flex justify-between items-center p-6 border-b">
-          <h2 className="text-xl font-semibold text-secondary-900">
+    <div
+      className="fixed inset-0 bg-black/50 flex items-start justify-center p-3 sm:p-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-[max(0.75rem,env(safe-area-inset-bottom))] overflow-y-auto z-[1200]"
+      role="dialog"
+      aria-modal="true"
+    >
+      <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full my-auto min-h-0 max-h-[min(92vh,calc(100dvh-1.5rem))] flex flex-col overflow-hidden">
+        <div className="flex-shrink-0 flex items-center justify-between gap-3 px-4 sm:px-6 py-3 sm:py-4 border-b border-secondary-200 bg-white">
+          <h2 className="text-base sm:text-xl font-semibold text-secondary-900 flex-1 min-w-0 pr-2 leading-snug break-words">
             {type === 'view' ? translate('admin.user_modal.view_title') : 
              type === 'create' ? translate('admin.user_modal.create_title') :
              translate('admin.user_modal.edit_title')}
           </h2>
           <button
+            type="button"
             onClick={onClose}
-            className="text-secondary-400 hover:text-secondary-600"
+            className="flex-shrink-0 p-2 rounded-lg border border-gray-300 bg-gray-50 text-gray-700 hover:bg-gray-100 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary-500"
+            aria-label={translate('common.close') || 'ปิด'}
+            title={translate('common.close') || 'ปิด'}
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
@@ -657,7 +664,7 @@ const UserModal = ({ user, type, onClose, onUpdate }) => {
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6">
+        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto min-h-0 p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <label className="block text-sm font-medium text-secondary-700 mb-2">

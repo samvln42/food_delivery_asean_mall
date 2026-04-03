@@ -8,8 +8,8 @@ import { toast } from "../../hooks/useNotification";
 import { useLanguage } from "../../contexts/LanguageContext";
 import { formatCurrency } from "../../utils/formatPrice";
 import { getTranslatedName, getTranslatedDescription } from "../../utils/translationUtils";
-import AddressPickerLeaflet from "../../components/maps/AddressPickerLeaflet";
-import MapPickerLeaflet from "../../components/maps/MapPickerLeaflet";
+import AddressPicker from "../../components/maps/AddressPicker";
+import MapPicker from "../../components/maps/MapPicker";
 import {
   LuMapPin,
   LuCheck,
@@ -22,7 +22,7 @@ import {
   LuPackage,
   LuShoppingCart,
 } from "react-icons/lu";
-import { reverseGeocode } from "../../utils/nominatim";
+import { reverseGeocode, getGoogleMapsApiKey } from "../../utils/googleMaps";
 
 const Cart = () => {
   const { translate, currentLanguage } = useLanguage();
@@ -82,7 +82,7 @@ const Cart = () => {
           };
           
           try {
-            const address = await reverseGeocode(location.lat, location.lng);
+            const address = await reverseGeocode(location.lat, location.lng, getGoogleMapsApiKey());
             const locationWithAddress = {
               ...location,
               address: address
@@ -122,7 +122,7 @@ const Cart = () => {
           };
           
           try {
-            const address = await reverseGeocode(location.lat, location.lng);
+            const address = await reverseGeocode(location.lat, location.lng, getGoogleMapsApiKey());
             const locationWithAddress = {
               ...location,
               address: address
@@ -755,7 +755,7 @@ const Cart = () => {
               {/* Map Picker */}
               {showMapPicker && (
                 <div className="mb-4">
-                  <MapPickerLeaflet
+                  <MapPicker
                     ref={mapPickerRef}
                     deferSelection
                     initialCenter={deliveryLocation ? { lat: deliveryLocation.lat, lng: deliveryLocation.lng } : { lat: 13.7563, lng: 100.5018 }}
@@ -1206,7 +1206,7 @@ const Cart = () => {
                           lng: position.coords.longitude
                         };
                         try {
-                          const address = await reverseGeocode(location.lat, location.lng);
+                          const address = await reverseGeocode(location.lat, location.lng, getGoogleMapsApiKey());
                           const locationWithAddress = {
                             ...location,
                             address: address

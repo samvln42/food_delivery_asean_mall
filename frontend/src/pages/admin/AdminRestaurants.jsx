@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { restaurantService, userService } from '../../services/api';
 import { FiSearch } from "react-icons/fi";
+import { LuMapPin, LuX } from "react-icons/lu";
+import MapPicker from '../../components/maps/MapPicker';
 
 const AdminRestaurants = () => {
   const [restaurants, setRestaurants] = useState([]);
@@ -885,26 +887,31 @@ const RestaurantModal = ({ restaurant, type, onClose, onUpdate, availableUsers }
   const isCreateMode = type === 'create';
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg max-w-2xl w-full max-h-screen overflow-y-auto">
-        <div className="flex justify-between items-center p-6 border-b">
-          <h2 className="text-xl font-semibold text-secondary-900">
+    <div
+      className="fixed inset-0 bg-black/50 flex items-start justify-center p-3 sm:p-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-[max(0.75rem,env(safe-area-inset-bottom))] overflow-y-auto z-[1200]"
+      role="dialog"
+      aria-modal="true"
+    >
+      <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full my-auto min-h-0 max-h-[min(92vh,calc(100dvh-1.5rem))] flex flex-col overflow-hidden">
+        <div className="flex-shrink-0 flex items-center justify-between gap-3 px-4 sm:px-5 py-3 sm:py-4 border-b border-gray-200 bg-white">
+          <h2 className="text-base sm:text-lg font-semibold text-gray-900 flex-1 min-w-0 pr-2 leading-snug break-words">
             {type === 'view' ? translate('admin.restaurant_modal.view_title') : 
              type === 'upload' ? translate('admin.restaurant_modal.upload_title') : 
              type === 'create' ? translate('admin.restaurant_modal.create_title') :
              translate('admin.restaurant_modal.edit_title')}
           </h2>
           <button
+            type="button"
             onClick={onClose}
-            className="text-secondary-400 hover:text-secondary-600"
+            className="flex-shrink-0 p-2 rounded-lg border border-gray-300 bg-gray-50 text-gray-700 hover:bg-gray-100 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary-500"
+            aria-label={translate('common.close') || 'ปิด'}
+            title={translate('common.close') || 'ปิด'}
           >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-            </svg>
+            <LuX className="w-6 h-6" strokeWidth={2} />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6">
+        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto min-h-0 p-6">
           {/* Image Upload Section - แสดงในทุกโหมดยกเว้น view */}
           {(isUploadMode || isEditable) && (
             <div className="mb-6 p-4 border border-secondary-200 rounded-lg bg-secondary-50">
@@ -1112,39 +1119,57 @@ const RestaurantModal = ({ restaurant, type, onClose, onUpdate, availableUsers }
               )}
             </div>
 
-            <div>
+            {/* Location Picker */}
+            <div className="md:col-span-2">
               <label className="block text-sm font-medium text-secondary-700 mb-2">
-                {translate('admin.restaurant_modal.latitude')}
+                {(() => {
+                  const t = translate('admin.restaurant_modal.location');
+                  if (t && !String(t).startsWith('admin.restaurant_modal')) return t;
+                  if (currentLanguage === 'en') return 'Restaurant location';
+                  if (currentLanguage === 'ko') return '매장 위치';
+                  return 'ตำแหน่งร้าน';
+                })()}
               </label>
-              <input
-                type="number"
-                step="any"
-                value={formData.latitude}
-                onChange={(e) => setFormData({ ...formData, latitude: e.target.value })}
-                disabled={!isEditable}
-                placeholder="17.9668552"
-                className="w-full p-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent disabled:bg-secondary-50"
-              />
-              <p className="mt-1 text-xs text-secondary-500">
-                {translate('admin.restaurant_modal.latitude_hint')}
-              </p>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-secondary-700 mb-2">
-                {translate('admin.restaurant_modal.longitude')}
-              </label>
-              <input
-                type="number"
-                step="any"
-                value={formData.longitude}
-                onChange={(e) => setFormData({ ...formData, longitude: e.target.value })}
-                disabled={!isEditable}
-                placeholder="102.6427002"
-                className="w-full p-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent disabled:bg-secondary-50"
-              />
-              <p className="mt-1 text-xs text-secondary-500">
-                {translate('admin.restaurant_modal.longitude_hint')}
+              
+              
+              {isEditable && (
+                <MapPicker
+                  initialCenter={{
+                    lat: formData.latitude ? parseFloat(formData.latitude) : 13.7563,
+                    lng: formData.longitude ? parseFloat(formData.longitude) : 100.5018
+                  }}
+                  onLocationSelect={(location) => {
+                    setFormData(prev => ({
+                      ...prev,
+                      latitude: location.lat.toString(),
+                      longitude: location.lng.toString()
+                    }));
+                  }}
+                  height="300px"
+                  zoom={formData.latitude ? 17 : 12}
+                />
+              )}
+              
+              {!isEditable && formData.latitude && formData.longitude && (
+                <MapPicker
+                  initialCenter={{
+                    lat: parseFloat(formData.latitude),
+                    lng: parseFloat(formData.longitude)
+                  }}
+                  height="200px"
+                  zoom={17}
+                />
+              )}
+              
+              <p className="mt-2 text-xs text-secondary-500">
+                <LuMapPin className="inline w-3 h-3 mr-1" />
+                {(() => {
+                  const t = translate('admin.restaurant_modal.map_hint');
+                  if (t && !String(t).startsWith('admin.restaurant_modal')) return t;
+                  if (currentLanguage === 'en') return 'Drag the map to set the restaurant location';
+                  if (currentLanguage === 'ko') return '지도를 움직여 매장 위치를 선택하세요';
+                  return 'เลื่อนแผนที่เพื่อเลือกตำแหน่งร้าน';
+                })()}
               </p>
             </div>
 

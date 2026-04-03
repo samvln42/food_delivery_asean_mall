@@ -2,7 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { FiSearch, FiEdit2, FiTrash2, FiEye, FiPlus, FiX, FiImage, FiUpload, FiArrowUp, FiArrowDown } from 'react-icons/fi';
 import { FaMapMarkerAlt, FaPhone, FaClock, FaStar, FaTheaterMasks } from 'react-icons/fa';
+import { LuMapPin } from 'react-icons/lu';
 import { entertainmentVenueService, venueCategoryService } from '../../services/api';
+import MapPicker from '../../components/maps/MapPicker';
 
 const AdminEntertainmentVenues = () => {
   const { translate } = useLanguage();
@@ -782,31 +784,33 @@ const AdminEntertainmentVenues = () => {
                         required
                       />
                     </div>
-                    <div>
+                    {/* Location Picker */}
+                    <div className="md:col-span-2">
                       <label className="block text-sm font-medium text-secondary-700 mb-1">
-                        {translate('entertainment.latitude_label') || 'ละติจูด'}
+                        {translate('entertainment.location_label') || 'ตำแหน่งสถานที่'}
                       </label>
-                      <input
-                        type="text"
-                        value={formData.latitude}
-                        onChange={(e) =>
-                          setFormData({ ...formData, latitude: e.target.value })
-                        }
-                        className="w-full px-4 py-2 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                      
+                      
+                      <MapPicker
+                        initialCenter={{
+                          lat: formData.latitude ? parseFloat(formData.latitude) : 13.7563,
+                          lng: formData.longitude ? parseFloat(formData.longitude) : 100.5018
+                        }}
+                        onLocationSelect={(location) => {
+                          setFormData(prev => ({
+                            ...prev,
+                            latitude: location.lat.toString(),
+                            longitude: location.lng.toString()
+                          }));
+                        }}
+                        height="250px"
+                        zoom={formData.latitude ? 17 : 12}
                       />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-secondary-700 mb-1">
-                        {translate('entertainment.longitude_label') || 'ลองจิจูด'}
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.longitude}
-                        onChange={(e) =>
-                          setFormData({ ...formData, longitude: e.target.value })
-                        }
-                        className="w-full px-4 py-2 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500"
-                      />
+                      
+                      <p className="mt-2 text-xs text-secondary-500">
+                        <LuMapPin className="inline w-3 h-3 mr-1" />
+                        {translate('entertainment.map_hint') || 'เลื่อนแผนที่เพื่อเลือกตำแหน่ง'}
+                      </p>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-secondary-700 mb-1">

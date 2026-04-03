@@ -7,13 +7,11 @@ import { useNotificationContext } from "../../layouts/AdminLayout";
 import { useLanguage } from "../../contexts/LanguageContext";
 import { getTranslatedName, getTranslatedDescription } from "../../utils/translationUtils";
 import { formatPrice } from "../../utils/formatPrice";
-import { FaRegEye } from "react-icons/fa";
-import { FaUserAlt } from "react-icons/fa";
-import { IoStorefrontSharp } from "react-icons/io5";
-import { FaBoxOpen } from "react-icons/fa";
-import { GiSandsOfTime } from "react-icons/gi";
-import { FaRegCreditCard } from "react-icons/fa6";
-import { LuMapPin } from "react-icons/lu";
+import {
+  LuMapPin, LuUser, LuStore, LuPackage, LuTag, LuFileText, LuX, LuTrash2,
+  LuCalendar, LuCreditCard, LuReceipt, LuUtensilsCrossed, LuRefreshCw, LuSearch,
+  LuMap
+} from "react-icons/lu";
 
 // Modal Component สำหรับแสดงรายละเอียดคำสั่งซื้อ
 const OrderDetailsModal = ({ order, isOpen, onClose, orderStatuses, formatDateTime, onDelete }) => {
@@ -27,81 +25,116 @@ const OrderDetailsModal = ({ order, isOpen, onClose, orderStatuses, formatDateTi
   const restaurantCount = order.restaurant_count || orderDetailsByRestaurant.length;
   const subtotal = orderDetails.reduce((total, detail) => total + parseFloat(detail.subtotal || 0), 0);
 
+  const statusLabel = orderStatuses.find(s => s.value === (order.current_status || order.status))?.label || (order.current_status || order.status);
+
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
-        {/* Enhanced Background overlay */}
-        <div className="fixed inset-0 transition-all duration-300 bg-black/60 backdrop-blur-sm" onClick={onClose}></div>
+      <div className="flex items-center justify-center min-h-screen px-4 py-8">
+        <div className="fixed inset-0 bg-black/50" onClick={onClose} />
         
-        {/* Enhanced Modal content */}
-        <div className="inline-block w-full max-w-5xl p-8 my-8 overflow-hidden text-left align-middle transition-all transform bg-white/95 backdrop-blur-xl shadow-2xl rounded-3xl border border-white/20">
-          {/* Enhanced Header */}
-          <div className="flex items-center justify-between mb-8 pb-6 border-b border-gray-200">
-            <div className="flex items-center space-x-4">
-              <div className="w-12 h-12 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
-                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
+        <div className="relative w-full max-w-2xl max-h-[90vh] my-8 flex flex-col overflow-hidden bg-white shadow-xl rounded-lg border border-gray-200">
+          <div className="flex-shrink-0 px-6 py-4 border-b border-gray-200 flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="text-lg font-semibold text-gray-900">#{order.order_id}</h3>
+                <span className="px-2.5 py-1 rounded text-xs font-medium bg-gray-100 text-gray-700">{statusLabel}</span>
               </div>
-              <div>
-                <h3 className="text-3xl font-bold bg-gradient-to-r from-gray-900 via-blue-800 to-purple-800 bg-clip-text text-transparent">
-                  {translate('order.order_number', { id: order.order_id })}
-                </h3>
-                <p className="text-sm text-gray-600 mt-1 font-medium">
-                  📅 {formatDateTime(order.order_date)}
-                </p>
-              </div>
+              <p className="text-sm text-gray-500 mt-1 flex items-center gap-1">
+                <LuCalendar className="w-3.5 h-3.5" />
+                {formatDateTime(order.order_date)}
+              </p>
             </div>
-            <div className="flex items-center space-x-3">
-              {/* ปุ่มลบออเดอร์ */}
+            <div className="flex items-center gap-1 flex-shrink-0">
               <button
                 onClick={() => {
-                  if (window.confirm(`ยืนยันการลบออเดอร์ #${order.order_id}?\n\nการกระทำนี้ไม่สามารถยกเลิกได้และจะลบข้อมูลทั้งหมดที่เกี่ยวข้อง`)) {
+                  if (window.confirm(`ยืนยันการลบออเดอร์ #${order.order_id}?\n\nการกระทำนี้ไม่สามารถยกเลิกได้`)) {
                     onDelete(order.order_id);
                   }
                 }}
-                className="group p-3 rounded-2xl hover:bg-red-50 transition-all duration-200 transform hover:scale-110 border border-red-200 hover:border-red-400 bg-red-50/50"
-                title="ลบออเดอร์"
+                className="p-2 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-600"
+                title="ลบ"
               >
-                <svg className="w-6 h-6 text-red-500 group-hover:text-red-700 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                </svg>
+                <LuTrash2 className="w-4 h-4" />
               </button>
-              
-              {/* ปุ่มปิด */}
               <button
                 onClick={onClose}
-                className="group p-3 rounded-2xl hover:bg-gray-50 transition-all duration-200 transform hover:scale-110 border border-gray-200 hover:border-gray-300"
+                className="p-2 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600"
                 title="ปิด"
               >
-                <svg className="w-6 h-6 text-gray-400 group-hover:text-gray-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
+                <LuX className="w-4 h-4" />
               </button>
             </div>
           </div>
 
-          {/* Content */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* รายการอาหาร */}
-            <div>
-              <h4 className="text-lg font-semibold text-gray-800 mb-4">{translate('order.items')}</h4>
+          <div className="flex-1 min-h-0 overflow-y-auto">
+            <div className="p-6 space-y-6">
+              <div className="flex items-center justify-between py-3 px-4 bg-gray-50 rounded-lg">
+                <span className="text-sm text-gray-600">{translate('order.total_amount')}</span>
+                <span className="text-lg font-semibold text-gray-900">{formatPrice(order.total_amount)}</span>
+              </div>
+
+              <div>
+                <h4 className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">{translate('admin.customer_info')}</h4>
+                <div className="space-y-2 text-sm">
+                  <div className="flex gap-2">
+                    <LuUser className="w-4 h-4 text-gray-400 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-medium text-gray-900">{order.customer_name || "—"}</p>
+                      <p className="text-gray-500">{order.customer_phone || "—"}</p>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <LuMapPin className="w-4 h-4 text-gray-400 flex-shrink-0 mt-0.5" />
+                    <div className="min-w-0">
+                      {order.delivery_address ? (
+                        <p className="text-gray-700 whitespace-pre-line">
+                          {order.delivery_address
+                            .split("\n")
+                            .filter((line) => !/ตำแหน่ง\s*:\s*-?\d+\.?\d*,\s*-?\d+\.?\d*/.test(line.trim()))
+                            .join("\n")
+                            .trim() || "—"}
+                        </p>
+                      ) : (
+                        <p className="text-gray-500">—</p>
+                      )}
+                      {order.delivery_latitude && order.delivery_longitude && (
+                        <a
+                          href={`https://www.google.com/maps?q=${order.delivery_latitude},${order.delivery_longitude}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:text-blue-800 underline mt-1 inline-flex items-center gap-1"
+                        >
+                          <LuMap className="w-3 h-3" />
+                          {translate('order.delivery_address') || 'ที่อยู่จัดส่ง'}
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <h4 className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3 flex items-center gap-1">
+                  <LuUtensilsCrossed className="w-3.5 h-3.5" />
+                  {translate('order.items')}
+                </h4>
               
               {isMultiRestaurant && orderDetailsByRestaurant.length > 0 ? (
                 <div className="space-y-4">
                   {orderDetailsByRestaurant.map((restaurantGroup, groupIndex) => (
-                    <div key={restaurantGroup.restaurant_id || groupIndex} className="border rounded-lg p-4 bg-gray-50">
-                      <div className="flex items-center justify-between mb-3">
-                        <h5 className="font-medium text-gray-800"><IoStorefrontSharp /> {restaurantGroup.restaurant_name}</h5>
-                        <span className="text-sm font-semibold text-primary-600">
-                          {formatPrice(restaurantGroup.subtotal)}
+                    <div key={restaurantGroup.restaurant_id || groupIndex} className="border border-gray-200 rounded-lg overflow-hidden">
+                      <div className="px-4 py-2 bg-gray-50 flex justify-between items-center">
+                        <span className="text-sm font-medium text-gray-800 flex items-center gap-1">
+                          <LuStore className="w-3.5 h-3.5 text-gray-500" />
+                          {restaurantGroup.restaurant_name}
                         </span>
+                        <span className="text-sm font-medium text-gray-700">{formatPrice(restaurantGroup.subtotal)}</span>
                       </div>
-                      <div className="space-y-2">
+                      <div className="divide-y divide-gray-100">
                         {(restaurantGroup.items || []).map((item, itemIndex) => (
-                          <div key={item.order_detail_id || itemIndex} className="flex justify-between text-sm">
+                          <div key={item.order_detail_id || itemIndex} className="px-4 py-3 flex justify-between text-sm">
                             <span>{getTranslatedName(item, currentLanguage, item.product_name)} × {item.quantity}</span>
-                            <span>{formatPrice(item.subtotal)}</span>
+                            <span className="font-medium text-gray-800 ml-2">{formatPrice(item.subtotal)}</span>
                           </div>
                         ))}
                       </div>
@@ -109,143 +142,74 @@ const OrderDetailsModal = ({ order, isOpen, onClose, orderStatuses, formatDateTi
                   ))}
                 </div>
               ) : (
-                <div className="space-y-2">
+                <div className="border border-gray-200 rounded-lg divide-y divide-gray-100">
                   {orderDetails.map((detail, index) => (
-                    <div key={detail.order_detail_id || index} className="flex justify-between p-3 bg-gray-50 rounded-lg">
+                    <div key={detail.order_detail_id || index} className="px-4 py-3 flex justify-between text-sm">
                       <span>{getTranslatedName(detail, currentLanguage, detail.product_name)} × {detail.quantity}</span>
-                      <span className="font-medium">{formatPrice(detail.subtotal)}</span>
+                      <span className="font-medium text-gray-800 ml-2">{formatPrice(detail.subtotal)}</span>
                     </div>
                   ))}
                 </div>
               )}
-
-              {/* ยอดรวม */}
-              <div className="mt-4 pt-4 border-t">
-                <div className="flex justify-between text-lg font-semibold">
-                  <span>{translate('order.subtotal')}:</span>
-                  <span className="text-primary-600">{formatPrice(subtotal)}</span>
-                </div>
               </div>
-            </div>
 
-            {/* ข้อมูลการจัดส่งและการชำระเงิน */}
-            <div className="space-y-6">
-              {/* ข้อมูลลูกค้า */}
-              <div>
-                <h4 className="text-lg font-semibold text-gray-800 mb-3">{translate('admin.customer_info')}</h4>
-                <div className="bg-gray-50 p-4 rounded-lg space-y-2">
-                  <div>
-                    <span className="text-sm text-gray-600">{translate('contact.name')}:</span>
-                    <span className="ml-2">{order.customer_name || "ไม่ระบุ"}</span>
-                  </div>
-                    <div>
-                      <span className="text-sm text-gray-600">{translate('auth.phone')}:</span>
-                      <span className="ml-2">{order.customer_phone || "ไม่ระบุ"}</span>
-                    </div>
-                  <div>
-                    <span className="text-sm text-gray-600">{translate('order.delivery_address')}:</span>
-                    <div className="mt-1 text-sm">
-                      {order.delivery_address ? (
-                        (() => {
-                          const addressLines = order.delivery_address.split('\n');
-                          const detailAddress = addressLines.slice(1).join('\n');
-                          return (
-                            <>
-                              {detailAddress && (
-                                <div className="mt-1 text-gray-600">
-                                  <p className="whitespace-pre-line">{detailAddress}</p>
-                                </div>
-                              )}
-                            </>
-                          );
-                        })()
-                      ) : (
-                        <p>ไม่ระบุ</p>
-                      )}
-                    </div>
-                    {order.delivery_latitude && order.delivery_longitude && (
-                      <div className="mt-2">
-                        <a
-                          href={`https://www.google.com/maps?q=${order.delivery_latitude},${order.delivery_longitude}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-blue-600 hover:text-blue-800 underline text-sm cursor-pointer inline-flex items-center gap-1"
-                        >
-                          <LuMapPin className="w-4 h-4" /> {order.delivery_latitude}, {order.delivery_longitude}
-                        </a>
-                      </div>
-                    )}
-                  </div>
+              <div className="border-t border-gray-200 pt-4 space-y-1">
+                <div className="flex justify-between text-sm text-gray-600">
+                  <span>{translate('order.subtotal')}</span>
+                  <span>{formatPrice(subtotal)}</span>
+                </div>
+                <div className="flex justify-between text-sm text-gray-600">
+                  <span>{translate('order.delivery_fee')}</span>
+                  <span>{formatPrice(order.delivery_fee)}</span>
+                </div>
+                <div className="flex justify-between text-base font-semibold text-gray-900 pt-2">
+                  <span>{translate('order.total_amount')}</span>
+                  <span>{formatPrice(order.total_amount)}</span>
                 </div>
               </div>
 
-              {/* ข้อมูลการชำระเงิน */}
               <div>
-                <h4 className="text-lg font-semibold text-gray-800 mb-3">{translate('admin.payment_info')}</h4>
+                <h4 className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3 flex items-center gap-1">
+                  <LuCreditCard className="w-3.5 h-3.5" />
+                  {translate('admin.payment_info')}
+                </h4>
                 {order.payment ? (
-                  <div className="bg-gray-50 p-4 rounded-lg space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-600">{translate('common.status')}:</span>
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        order.payment.status === "completed" ? "bg-green-100 text-green-800" :
-                        order.payment.status === "pending" ? "bg-yellow-100 text-yellow-800" :
-                        "bg-red-100 text-red-800"
+                  <div className="space-y-2">
+                    <div className="flex flex-wrap gap-2 items-center">
+                      <span className={`px-2.5 py-1 rounded text-xs font-medium ${
+                        order.payment.status === "completed" ? "bg-gray-100 text-gray-800" :
+                        order.payment.status === "pending" ? "bg-gray-100 text-gray-600" :
+                        "bg-gray-100 text-gray-600"
                       }`}>
-                        {order.payment.status === "completed" ? `${translate('order.status.paid')}` :
-                         order.payment.status === "pending" ? ` ${translate('admin.payment_pending')}` : `❌ ${translate('admin.payment_failed')}`}
+                        {order.payment.status === "completed" ? translate('order.status.paid') :
+                         order.payment.status === "pending" ? translate('admin.payment_pending') : translate('admin.payment_failed')}
                       </span>
-                    </div>
-                    <div>
-                      <span className="text-sm text-gray-600">{translate('order.payment_method')}:</span>
-                      <span className="ml-2 text-sm">
-                        {order.payment.payment_method === "bank_transfer" ? `🏦 ${translate('cart.bank_transfer')}` :
-                         order.payment.payment_method === "qr_payment" ? `📱 ${translate('cart.qr_payment')}` :
+                      <span className="text-sm text-gray-600">
+                        {order.payment.payment_method === "bank_transfer" ? translate('cart.bank_transfer') :
+                         order.payment.payment_method === "qr_payment" ? translate('cart.qr_payment') :
                          order.payment.payment_method}
                       </span>
-                    </div>
-                    <div>
-                      <span className="text-sm text-gray-600">{translate('common.amount')}:</span>
-                      <span className="ml-2 font-semibold text-primary-600">
-                        {formatPrice(order.payment.amount_paid)}
-                      </span>
+                      <span className="text-sm font-medium text-gray-800">{formatPrice(order.payment.amount_paid)}</span>
                     </div>
                     {order.payment.proof_of_payment_display_url && (
-                      <div>
-                        <span className="text-sm text-gray-600 block mb-2">{translate('cart.proof_of_payment')}:</span>
-                        <img
-                          src={order.payment.proof_of_payment_display_url}
-                          alt="หลักฐานการโอนเงิน"
-                          className="w-full max-w-xs h-auto rounded-lg cursor-pointer hover:opacity-80 transition-opacity"
+                      <div className="mt-3">
+                        <button
+                          type="button"
                           onClick={() => window.open(order.payment.proof_of_payment_display_url, "_blank")}
-                        />
+                          className="block"
+                        >
+                          <img
+                            src={order.payment.proof_of_payment_display_url}
+                            alt="หลักฐานการโอน"
+                            className="max-w-full max-h-48 rounded-lg border border-gray-200 hover:opacity-90 transition-opacity"
+                          />
+                        </button>
                       </div>
                     )}
                   </div>
                 ) : (
-                  <div className="bg-gray-50 p-4 rounded-lg text-center">
-                    <div className="text-2xl mb-2 opacity-30">💳</div>
-                    <p className="text-gray-500 text-sm">{translate('admin.no_payment_info')}</p>
-                  </div>
+                  <p className="text-sm text-gray-500">{translate('admin.no_payment_info')}</p>
                 )}
-              </div>
-
-              {/* สรุปยอดเงิน */}
-              <div>
-                <h4 className="text-lg font-semibold text-gray-800 mb-3">{translate('admin.summary')}</h4>
-                <div className="bg-gray-50 p-4 rounded-lg space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span>{translate('order.subtotal')}:</span>
-                    <span>{formatPrice(subtotal)}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span>{translate('order.delivery_fee')}:</span>
-                    <span>{formatPrice(order.delivery_fee)}</span>
-                  </div>
-                  <div className="flex justify-between text-lg font-semibold border-t pt-2">
-                    <span>{translate('order.total_amount')}:</span>
-                    <span className="text-primary-600">{formatPrice(order.total_amount)}</span>
-                  </div>
-                </div>
               </div>
             </div>
           </div>
@@ -287,45 +251,41 @@ const StatusUpdateModal = ({
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
       <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
-        <div className="fixed inset-0 transition-all duration-300 bg-black/60 backdrop-blur-sm" onClick={onClose}></div>
+        <div className="fixed inset-0 bg-black/50" onClick={onClose}></div>
         
-        <div className="inline-block w-full max-w-md p-8 my-8 overflow-hidden text-left align-middle transition-all transform bg-white/95 backdrop-blur-xl shadow-2xl rounded-3xl border border-white/20">
+        <div className="inline-block w-full max-w-md p-6 my-8 overflow-hidden text-left align-middle bg-white shadow-xl rounded-xl border border-gray-200">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
-                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
+              <div className="w-9 h-9 bg-gray-100 rounded-lg flex items-center justify-center">
+                <LuRefreshCw className="w-4 h-4 text-gray-600" />
               </div>
-              <h3 className="text-xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
+              <h3 className="text-lg font-semibold text-gray-900">
                 {translate('admin.update_status_title')}
               </h3>
             </div>
             <button 
               onClick={onClose} 
-              className="group p-2 rounded-xl hover:bg-red-50 transition-all duration-200 transform hover:scale-110 border border-gray-200 hover:border-red-200"
+              className="p-2 rounded-lg hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors"
             >
-              <svg className="w-5 h-5 text-gray-400 group-hover:text-red-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
+              <LuX className="w-5 h-5" />
             </button>
           </div>
 
           <div className="mb-6">
-            <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-2xl p-4 mb-4 border border-blue-100">
-              <p className="text-sm font-semibold text-blue-800">
-                🏷️ {translate('order.order_number', { id: order.order_id })}
+            <div className="bg-gray-50 rounded-lg p-4 mb-4 border border-gray-200">
+              <p className="text-sm font-medium text-gray-800">
+                {translate('order.order_number', { id: order.order_id })}
               </p>
             </div>
             
-            <label className="block text-sm font-bold text-gray-700 mb-3">
-              🎯 {translate('admin.select_new_status')}
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              {translate('admin.select_new_status')}
             </label>
             <div className="relative">
               <select
                 value={selectedStatus}
                 onChange={(e) => setSelectedStatus(e.target.value)}
-                className="w-full appearance-none p-4 bg-gray-50/50 border-2 border-gray-200 rounded-2xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 focus:bg-white transition-all font-medium cursor-pointer"
+                className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-300 focus:border-gray-400 font-medium cursor-pointer text-sm"
               >
                 {orderStatuses.map((status) => (
                   <option key={status.value} value={status.value}>
@@ -333,35 +293,24 @@ const StatusUpdateModal = ({
                   </option>
                 ))}
               </select>
-              <div className="absolute right-4 top-1/2 transform -translate-y-1/2 pointer-events-none">
-                <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </div>
             </div>
           </div>
 
-          <div className="flex space-x-3">
+          <div className="flex gap-2">
             <button
               onClick={handleStatusUpdate}
               disabled={isUpdating}
-              className="group flex-1 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-6 py-4 rounded-2xl font-bold transition-all duration-200 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl"
+              className="flex-1 bg-gray-900 hover:bg-gray-800 text-white px-4 py-3 rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
             >
-              <span className="flex items-center justify-center space-x-2">
-                <span className={isUpdating ? "" : "group-hover:rotate-180 transition-transform duration-300"}>
-                  {isUpdating ? "⏳" : "✅"}
-                </span>
-                <span>{isUpdating ? translate('admin.saving') : translate('common.confirm')}</span>
-              </span>
+              <LuRefreshCw className={`w-4 h-4 ${isUpdating ? 'animate-spin' : ''}`} />
+              {isUpdating ? translate('admin.saving') : translate('common.confirm')}
             </button>
             <button
               onClick={onClose}
-              className="group flex-1 bg-gradient-to-r from-gray-200 to-gray-300 hover:from-gray-300 hover:to-gray-400 text-gray-800 px-6 py-4 rounded-2xl font-bold transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-xl"
+              className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-3 rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
             >
-              <span className="flex items-center justify-center space-x-2">
-                <span className="group-hover:scale-110 transition-transform">❌</span>
-                <span>{translate('common.cancel')}</span>
-              </span>
+              <LuX className="w-4 h-4" />
+              {translate('common.cancel')}
             </button>
           </div>
         </div>
@@ -717,25 +666,22 @@ const AdminOrders = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
-      {/* Header */}
-      <div className="bg-white/80 backdrop-blur-xl border-b border-white/20 shadow-lg shadow-blue-500/5">
-        <div className="max-w-7xl mx-auto px-4 py-8">
+    <div className="min-h-screen bg-gray-50">
+      <div className="bg-white border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 py-6">
           <div className="flex items-center justify-between">
             <div className="space-y-2">
               <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
-                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
+                <div className="w-9 h-9 bg-gray-100 rounded-lg flex items-center justify-center">
+                  <LuUser className="w-5 h-5 text-gray-600" />
                 </div>
-                <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-900 via-blue-800 to-purple-800 bg-clip-text text-transparent">
+                <h1 className="text-xl font-semibold text-gray-900">
                   {translate('admin.orders')}
                 </h1>
               </div>
               <div className="flex items-center space-x-4">
                 <div className="flex items-center space-x-2">
-                  <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                  <div className="w-1.5 h-1.5 bg-gray-400 rounded-full"></div>
                   <p className="text-sm text-gray-600">
                     {translate('admin.showing_of_total', { showing: filteredOrders.length, total: orders.length })}
                   </p>
@@ -744,11 +690,9 @@ const AdminOrders = () => {
             </div>
             <button
               onClick={fetchOrders}
-              className="group bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-0.5 flex items-center space-x-2"
+              className="bg-gray-900 hover:bg-gray-800 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
             >
-              <svg className="w-5 h-5 group-hover:rotate-180 transition-transform duration-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
+              <LuRefreshCw className="w-4 h-4" />
               <span className="font-medium">{translate('admin.refresh')}</span>
             </button>
           </div>
@@ -756,144 +700,80 @@ const AdminOrders = () => {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 py-6">
-        {/* Enhanced Controls */}
-        <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-xl border border-white/20 p-6 mb-8">
-          <div className="flex flex-wrap gap-4">
-            {/* Search */}
+        <div className="bg-white rounded-lg border border-gray-200 p-4 mb-6">
+          <div className="flex flex-wrap gap-3">
             <div className="flex-1 min-w-64">
-              <div className="relative group">
-                <div className="absolute left-4 top-1/2 transform -translate-y-1/2 z-10">
-                  <svg className="w-5 h-5 text-gray-400 group-focus-within:text-blue-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
-                </div>
+              <div className="relative">
+                <LuSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <input
                   type="text"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   placeholder={translate('admin.orders_search_placeholder')}
-                  className="w-full pl-12 pr-4 py-3 bg-gray-50/50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 focus:bg-white transition-all text-sm font-medium placeholder-gray-400"
+                  className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-300 focus:border-gray-400 text-sm placeholder-gray-400"
                 />
-                <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 to-purple-500/5 rounded-xl opacity-0 group-focus-within:opacity-100 transition-opacity pointer-events-none"></div>
               </div>
             </div>
-
-            {/* Filter */}
             <div className="min-w-44">
-              <div className="relative">
-                <select
-                  value={filter}
-                  onChange={(e) => setFilter(e.target.value)}
-                  className="w-full appearance-none px-4 py-3 bg-gray-50/50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 focus:bg-white transition-all text-sm font-medium cursor-pointer"
-                >
-                  <option value="all">🔍 {translate('admin.all_statuses')}</option>
-                  {orderStatuses.map((status) => (
-                    <option key={status.value} value={status.value}>
-                      {status.label}
-                    </option>
-                  ))}
-                </select>
-                <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
-                  <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </div>
-              </div>
+              <select
+                value={filter}
+                onChange={(e) => setFilter(e.target.value)}
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-300 focus:border-gray-400 text-sm cursor-pointer"
+              >
+                <option value="all">{translate('admin.all_statuses')}</option>
+                {orderStatuses.map((status) => (
+                  <option key={status.value} value={status.value}>
+                    {status.label}
+                  </option>
+                ))}
+              </select>
             </div>
-
-            {/* Sort */}
             <div className="min-w-44">
-              <div className="relative">
-                <select
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value)}
-                  className="w-full appearance-none px-4 py-3 bg-gray-50/50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 focus:bg-white transition-all text-sm font-medium cursor-pointer"
-                >
-                  <option value="-order_date">📅 {translate('admin.sort.latest')}</option>
-                  <option value="order_date">📅 {translate('admin.sort.oldest')}</option>
-                  <option value="-total_amount">💰 {translate('admin.sort.price_high')}</option>
-                  <option value="total_amount">💰 {translate('admin.sort.price_low')}</option>
-                  <option value="current_status">📊 {translate('admin.sort.by_status')}</option>
-                </select>
-                <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
-                  <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </div>
-              </div>
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-300 focus:border-gray-400 text-sm cursor-pointer"
+              >
+                <option value="-order_date">{translate('admin.sort.latest')}</option>
+                <option value="order_date">{translate('admin.sort.oldest')}</option>
+                <option value="-total_amount">{translate('admin.sort.price_high')}</option>
+                <option value="total_amount">{translate('admin.sort.price_low')}</option>
+                <option value="current_status">{translate('admin.sort.by_status')}</option>
+              </select>
             </div>
           </div>
         </div>
 
-        {/* Beautiful Statistics */}
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4 mb-8">
-          {orderStatuses.map((status, index) => {
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4 mb-6">
+          {orderStatuses.map((status) => {
             const count = orders.filter(
               (order) => (order.current_status || order.status) === status.value
             ).length;
             const percentage = orders.length > 0 ? (count / orders.length) * 100 : 0;
             const isActive = filter === status.value;
-            
             return (
               <div
                 key={status.value}
-                className={`group relative bg-white/80 backdrop-blur-sm rounded-2xl border border-white/20 p-4 text-center cursor-pointer transition-all duration-300 transform hover:-translate-y-1 hover:shadow-xl ${
-                  isActive ? 'ring-2 ring-blue-400 bg-gradient-to-br from-blue-50 to-purple-50 scale-105 shadow-xl' : 'hover:shadow-lg'
+                className={`bg-white rounded-lg border p-4 text-center cursor-pointer transition-shadow ${
+                  isActive ? 'ring-2 ring-gray-900 shadow-md' : 'border-gray-200 hover:shadow-sm'
                 }`}
                 onClick={() => setFilter(filter === status.value ? 'all' : status.value)}
-                style={{ animationDelay: `${index * 100}ms` }}
               >
-                {/* Background Gradient */}
-                <div className={`absolute inset-0 bg-gradient-to-br opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-2xl ${
-                  status.value === 'pending' ? 'from-yellow-100 to-orange-100' :
-                  status.value === 'paid' ? 'from-blue-100 to-cyan-100' :
-                  status.value === 'preparing' ? 'from-orange-100 to-red-100' :
-                  status.value === 'ready_for_pickup' ? 'from-purple-100 to-pink-100' :
-                  status.value === 'delivering' ? 'from-indigo-100 to-blue-100' :
-                  status.value === 'completed' ? 'from-green-100 to-emerald-100' :
-                  'from-red-100 to-pink-100'
-                }`}></div>
-                
-                {/* Content */}
-                <div className="relative z-10">
-                  <div className={`text-3xl font-black mb-2 transition-all duration-300 ${
-                    count > 0 ? 'text-gray-800 group-hover:scale-110' : 'text-gray-300'
-                  } ${isActive ? 'text-blue-600' : ''}`}>
-                    {count}
-                  </div>
-                  <div className={`text-xs font-semibold mb-2 transition-colors ${
-                    isActive ? 'text-blue-700' : 'text-gray-600 group-hover:text-gray-800'
-                  }`}>
-                    {status.label}
-                  </div>
-                  
-                  {/* Progress Bar */}
-                  <div className="w-full bg-gray-200 rounded-full h-1.5 mb-2">
-                    <div 
-                      className={`h-1.5 rounded-full transition-all duration-700 ${
-                        status.value === 'pending' ? 'bg-gradient-to-r from-yellow-400 to-orange-400' :
-                        status.value === 'paid' ? 'bg-gradient-to-r from-blue-400 to-cyan-400' :
-                        status.value === 'preparing' ? 'bg-gradient-to-r from-orange-400 to-red-400' :
-                        status.value === 'ready_for_pickup' ? 'bg-gradient-to-r from-purple-400 to-pink-400' :
-                        status.value === 'delivering' ? 'bg-gradient-to-r from-indigo-400 to-blue-400' :
-                        status.value === 'completed' ? 'bg-gradient-to-r from-green-400 to-emerald-400' :
-                        'bg-gradient-to-r from-red-400 to-pink-400'
-                      }`}
-                      style={{ width: `${Math.max(percentage, 3)}%` }}
-                    ></div>
-                  </div>
-                  
-                  <div className={`text-xs font-bold px-2 py-1 rounded-full transition-all ${
-                    isActive ? 'bg-blue-500 text-white' : status.color
-                  }`}>
-                    {percentage.toFixed(1)}%
-                  </div>
+                <div className="text-2xl font-bold text-gray-900 mb-2">
+                  {count}
                 </div>
-
-                {/* Active Indicator */}
-                {isActive && (
-                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full animate-pulse"></div>
-                )}
+                <div className="text-xs font-medium text-gray-600 mb-2">
+                  {status.label}
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-1 mb-2">
+                  <div 
+                    className="h-1 rounded-full bg-gray-400 transition-all"
+                    style={{ width: `${Math.max(percentage, 2)}%` }}
+                  />
+                </div>
+                <div className="text-xs font-medium text-gray-500">
+                  {percentage.toFixed(1)}%
+                </div>
               </div>
             );
           })}
@@ -931,7 +811,7 @@ const AdminOrders = () => {
           </div>
         ) : (
           <div className="bg-white rounded-xl border p-12 text-center">
-            <div className="text-6xl mb-4 opacity-20">📋</div>
+            <LuUser className="w-16 h-16 text-gray-300 mb-4 mx-auto" />
             <h2 className="text-xl font-semibold text-gray-700 mb-2">
               {searchTerm || filter !== "all" ? translate('order.no_history') : translate('order.no_history')}
             </h2>
@@ -985,7 +865,7 @@ const AdminOrders = () => {
                     onClick={() => setPage(p)}
                     className={`px-3 py-2 rounded-lg transition-colors ${
                       page === p
-                        ? "bg-primary-600 text-white"
+                        ? "bg-gray-900 text-white"
                         : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
                     }`}
                   >
@@ -1063,95 +943,132 @@ const OrderCard = ({
   return (
     <>
       <div 
-        id={`order-${order.order_id}`} 
-        className={`group relative rounded-2xl shadow-lg transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 overflow-hidden ${
-          order.order_id === order.highlightOrderId ? 'ring-2 ring-blue-400 ring-opacity-60 shadow-2xl' : ''
+        id={`order-${order.order_id}`}
+        className={`group relative rounded-lg border transition-shadow overflow-hidden ${
+          order.order_id === order.highlightOrderId ? 'ring-2 ring-gray-900 ring-offset-1' : ''
         } ${
           hasUnreadNotification 
-            ? 'bg-gradient-to-r from-orange-50 via-white to-orange-50 border-2 border-orange-300 shadow-orange-200' 
-            : 'bg-white/90 backdrop-blur-sm border border-white/20'
+            ? 'bg-gray-50 border-gray-300' 
+            : 'bg-white border-gray-200 hover:shadow-md'
         }`}
       >
-        {/* Unread indicator badge */}
         {hasUnreadNotification && (
           <div className="absolute top-3 right-3 z-20">
-            <div className="flex items-center gap-2 bg-gradient-to-r from-orange-500 to-red-500 text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg animate-pulse">
-              <span className="w-2 h-2 bg-white rounded-full"></span>
+            <div className="flex items-center gap-1.5 bg-gray-900 text-white px-2.5 py-1 rounded text-xs font-medium">
               {translate('common.new') || 'ใหม่'}
             </div>
           </div>
         )}
         
-        {/* Decorative gradient border */}
-        <div className={`absolute inset-0 transition-opacity duration-300 pointer-events-none ${
-          hasUnreadNotification 
-            ? 'bg-gradient-to-r from-orange-500/10 via-red-500/10 to-pink-500/10 opacity-30 group-hover:opacity-50' 
-            : 'bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-pink-500/10 opacity-0 group-hover:opacity-100'
-        }`}></div>
-        
-        {/* Main Card Content */}
         <div className="relative z-10 p-6">
-          {/* Header Row */}
           <div className="flex items-center justify-between mb-5">
             <div className="flex items-center space-x-4">
               <div className="flex items-center space-x-2">
-                <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg flex items-center justify-center shadow-lg">
-                  <span className="text-white text-xs font-bold">#</span>
+                <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center">
+                  <LuUser className="w-4 h-4 text-gray-600" />
                 </div>
-                <h3 className="text-xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
+                <h3 className="text-lg font-semibold text-gray-900">
                   {order.order_id}
                 </h3>
               </div>
-              <span className={`px-4 py-2 rounded-xl text-sm font-bold shadow-sm transition-all group-hover:shadow-md ${getStatusColor(order.current_status || order.status)}`}>
+              <span className={`px-3 py-1.5 rounded text-sm font-medium ${getStatusColor(order.current_status || order.status)}`}>
                 {orderStatuses.find(s => s.value === (order.current_status || order.status))?.label || order.current_status || order.status}
               </span>
               {isMultiRestaurant && (
-                <span className="bg-gradient-to-r from-blue-100 to-purple-100 text-blue-800 px-3 py-1 rounded-xl text-xs font-bold shadow-sm">
-                  🏪 {restaurantCount} {translate('common.restaurant')}
+                <span className="bg-gray-100 text-gray-700 px-2 py-1 rounded text-xs font-medium flex items-center gap-1">
+                  <LuStore className="w-3 h-3" />
+                  {restaurantCount} ร้าน
                 </span>
               )}
             </div>
             <div className="text-right">
-              <p className="text-2xl font-black bg-gradient-to-r from-green-600 to-blue-600 bg-clip-text text-transparent">
-                {formatPrice(order.total_amount)}
+              <p className="text-xl font-semibold text-gray-900">
+                {formatPrice(order.total_amount || 0)}
               </p>
-              <p className="text-xs text-gray-500 font-medium">{formatDateTime(order.order_date)}</p>
+              <p className="text-xs text-gray-500">{formatDateTime(order.order_date)}</p>
             </div>
           </div>
 
-          {/* Enhanced Info Grid */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-            <div className="bg-gray-50/50 rounded-xl p-3 border border-gray-100">
-              <p className="text-xs text-gray-500 mb-1 font-medium"><FaUserAlt className="w-4 h-4 text-gray-500 inline-block mr-1" /> {translate('admin.customer')}</p>
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-5">
+            <div className="bg-gray-50 rounded-lg p-3 border border-gray-100">
+              <p className="text-xs text-gray-500 mb-1 font-medium flex items-center gap-1">
+                <LuUser className="w-3 h-3" />
+                {translate('admin.customer')}
+              </p>
               <p className="font-bold text-gray-900 truncate text-sm">{order.customer_name || "ไม่ระบุ"}</p>
+              <p className="text-xs text-gray-500">{order.customer_phone || "ไม่ระบุ"}</p>
             </div>
-            <div className="bg-gray-50/50 rounded-xl p-3 border border-gray-100">
-              <p className="text-xs text-gray-500 mb-1 font-medium"><IoStorefrontSharp className="w-4 h-4 text-gray-500 inline-block mr-1" /> {translate('common.restaurant')}</p>
+            <div className="bg-gray-50 rounded-lg p-3 border border-gray-100">
+              <p className="text-xs text-gray-500 mb-1 font-medium flex items-center gap-1">
+                <LuStore className="w-3 h-3" />
+                {translate('common.restaurant')}
+              </p>
               {isMultiRestaurant ? (
-                <p className="font-bold text-blue-600 text-sm">{translate('order.from_multiple_restaurants', { count: restaurantCount })}</p>
+                <p className="font-bold text-gray-800 text-sm">หลายร้าน ({restaurantCount})</p>
               ) : (
                 <Link 
                   to={`/restaurants/${order.restaurant}`}
-                  className="font-bold text-primary-600 hover:text-primary-700 text-sm truncate block transition-colors"
+                  className="font-bold text-gray-900 hover:text-primary-600 text-sm truncate block"
                 >
                   {order.restaurant_name || "ไม่ระบุ"}
                 </Link>
               )}
             </div>
-            <div className="bg-gray-50/50 rounded-xl p-3 border border-gray-100">
-              <p className="text-xs text-gray-500 mb-1 font-medium"><FaBoxOpen className="w-4 h-4 text-gray-500 inline-block mr-1" /> {translate('order.items')}</p>
+            <div className="bg-gray-50 rounded-lg p-3 border border-gray-100">
+              <p className="text-xs text-gray-500 mb-1 font-medium flex items-center gap-1">
+                <LuMapPin className="w-3 h-3" />
+                {translate('order.delivery_address')}
+              </p>
+              <div className="text-gray-900 text-sm">
+                {order.delivery_address ? (
+                  (() => {
+                    const displayAddress = order.delivery_address
+                      .split("\n")
+                      .filter((line) => !/ตำแหน่ง\s*:\s*-?\d+\.?\d*,\s*-?\d+\.?\d*/.test(line.trim()))
+                      .join("\n")
+                      .trim();
+                    return displayAddress ? (
+                      <p className="text-xs text-gray-700 whitespace-pre-line line-clamp-2">{displayAddress}</p>
+                    ) : null;
+                  })()
+                ) : (
+                  <p className="font-bold">ไม่ระบุ</p>
+                )}
+              </div>
+              {order.delivery_latitude && order.delivery_longitude && (
+                <div className="mt-2 pt-2 border-t border-gray-200">
+                  <a
+                    href={`https://www.google.com/maps?q=${order.delivery_latitude},${order.delivery_longitude}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:text-blue-800 underline text-xs cursor-pointer inline-flex items-center gap-1"
+                  >
+                    <LuMap className="w-3 h-3" />
+                    {translate('order.delivery_address') || 'ที่อยู่จัดส่ง'}
+                  </a>
+                </div>
+              )}
+            </div>
+            <div className="bg-gray-50 rounded-lg p-3 border border-gray-100">
+              <p className="text-xs text-gray-500 mb-1 font-medium flex items-center gap-1">
+                <LuPackage className="w-3 h-3" />
+                {translate('order.items')}
+              </p>
               <p className="font-bold text-gray-900 text-sm">{orderDetails.length} {translate('order.items_count')}</p>
             </div>
-            <div className="bg-gray-50/50 rounded-xl p-3 border border-gray-100">
-              <p className="text-xs text-gray-500 mb-1 font-medium"><FaRegCreditCard className="w-4 h-4 text-gray-500 inline-block mr-1" /> {translate('order.payment_method')}</p>
+            <div className="bg-gray-50 rounded-lg p-3 border border-gray-100">
+              <p className="text-xs text-gray-500 mb-1 font-medium flex items-center gap-1">
+                <LuCreditCard className="w-3 h-3" />
+                {translate('order.payment_method')}
+              </p>
               {order.payment ? (
-                <span className={`inline-flex items-center px-3 py-1 rounded-xl text-xs font-bold shadow-sm ${
-                  order.payment.status === "completed" ? "bg-gradient-to-r from-green-100 to-emerald-100 text-green-800" :
-                  order.payment.status === "pending" ? "bg-gradient-to-r from-yellow-100 to-orange-100 text-yellow-800" :
-                  "bg-gradient-to-r from-red-100 to-pink-100 text-red-800"
+                <span className={`px-2.5 py-1 rounded text-xs font-medium ${
+                  order.payment.status === "completed" ? "bg-gray-100 text-gray-800" :
+                  order.payment.status === "pending" ? "bg-gray-100 text-gray-600" :
+                  "bg-gray-100 text-gray-600"
                 }`}>
-                  {order.payment.status === "completed" ? `${translate('order.status.paid')}` :
-                   order.payment.status === "pending" ? `${translate('admin.payment_pending_short')}` : `❌ ${translate('admin.payment_failed')}`}
+                  {order.payment.status === "completed" ? translate('order.status.paid') :
+                   order.payment.status === "pending" ? translate('admin.payment_pending_short') : translate('admin.payment_failed')}
                 </span>
               ) : (
                 <span className="text-xs text-gray-500 font-medium">{translate('common.no_data')}</span>
@@ -1159,49 +1076,39 @@ const OrderCard = ({
             </div>
           </div>
 
-          {/* Enhanced Quick Actions */}
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap gap-2">
             <button
               onClick={handleViewDetailsClick}
-              className="group flex-1 min-w-0 bg-gradient-to-r from-gray-100 to-gray-200 hover:from-gray-200 hover:to-gray-300 text-gray-800 px-4 py-3 rounded-xl text-sm font-bold transition-all duration-200 transform hover:scale-105 shadow-sm hover:shadow-md"
+              className="flex-1 min-w-0 bg-gray-100 hover:bg-gray-200 text-gray-800 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
             >
-              <span className="flex items-center justify-center space-x-2">
-                <span className="group-hover:scale-110 transition-transform"><FaRegEye /></span>
-                <span>{translate('common.details')}</span>
-              </span>
+              <LuFileText className="w-4 h-4" />
+              {translate('common.details')}
             </button>
             <button
               onClick={() => onChangeStatus(order)}
               disabled={isUpdating}
-              className={`group flex-1 min-w-0 px-4 py-3 rounded-xl text-sm font-bold transition-all duration-200 transform shadow-sm ${
-                isUpdating 
-                  ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                  : "bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white hover:scale-105 hover:shadow-md"
+              className={`flex-1 min-w-0 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
+                isUpdating
+                  ? "bg-gray-200 text-gray-500 cursor-not-allowed"
+                  : "bg-gray-900 hover:bg-gray-800 text-white"
               }`}
             >
-              <span className="flex items-center justify-center space-x-2">
-                <svg className="w-5 h-5 group-hover:rotate-180 transition-transform duration-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-                <span>{isUpdating ? translate('admin.saving') : translate('admin.change_status')}</span>
-              </span>
+              <LuRefreshCw className={`w-4 h-4 ${isUpdating ? 'animate-spin' : ''}`} />
+              {isUpdating ? translate('admin.saving') : translate('admin.change_status')}
             </button>
             {(order.current_status || order.status) !== "cancelled" && (
               <button
                 onClick={() => onUpdateStatus(order.order_id, "cancelled")}
                 disabled={isUpdating}
-                className="group bg-gradient-to-r from-red-500 to-pink-600 hover:from-red-600 hover:to-pink-700 text-white px-4 py-3 rounded-xl text-sm font-bold transition-all duration-200 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm hover:shadow-md"
+                className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <span className="flex items-center justify-center space-x-2">
-                  <span className="group-hover:scale-110 transition-transform">❌</span>
-                  <span>{translate('common.cancel')}</span>
-                </span>
+                <LuX className="w-4 h-4" />
+                {translate('common.cancel')}
               </button>
             )}
           </div>
         </div>
       </div>
-
     </>
   );
 };

@@ -1,5 +1,21 @@
 import { API_CONFIG } from '../config/api';
 
+/**
+ * เบราว์เซอร์ส่ง WebSocket onerror เป็น Event แบบไม่มี message (ไม่ใช่ Error จริง)
+ * — log แบบนี้ช่วยไม่ให้เข้าใจผิดว่าเป็น bug ในแอป
+ */
+function logWebSocketTransportFailure(kind, urlWithoutSecrets) {
+  const url = urlWithoutSecrets || '(unknown)';
+  if (import.meta.env.DEV) {
+    console.warn(
+      `⚠️ WebSocket [${kind}] เชื่อมต่อไม่สำเร็จ → ${url}\n` +
+        'สาเหตุที่พบบ่อย: แบ็กเอนด์ไม่รัน/ไม่รองรับ WS, พอร์ตหรือ host ผิด, หน้า HTTPS ต้องใช้ wss (ตั้ง VITE_API_URL), reverse proxy ไม่ส่ง WebSocket Upgrade'
+    );
+  } else {
+    console.warn(`⚠️ WebSocket [${kind}] connection failed → ${url}`);
+  }
+}
+
 class WebSocketService {
   constructor() {
     this.ws = null;
@@ -158,16 +174,14 @@ class WebSocketService {
         }
       };
       
-      this.ws.onerror = (error) => {
-        // Throttle error logging เพื่อไม่ให้ log ซ้ำๆ
+      this.ws.onerror = () => {
         const now = Date.now();
         if (now - this.lastErrorLogTime > this.errorLogThrottle || this.lastErrorType !== 'main_ws_error') {
-          console.error('❌ WebSocket error:', error);
+          logWebSocketTransportFailure('orders (auth)', wsUrl);
           this.lastErrorLogTime = now;
           this.lastErrorType = 'main_ws_error';
         }
-        // เมื่อเกิด error ให้รอให้ onclose ถูกเรียกก่อนเพื่อทำ reconnect
-        // (onclose จะถูกเรียกหลังจาก onerror ตาม WebSocket spec)
+        // onclose จะถูกเรียกต่อจากนี้แล้วค่อย reconnect
       };
       
     } catch (error) {
@@ -232,17 +246,16 @@ class WebSocketService {
             resolve(ws);
           };
 
-          ws.onerror = (error) => {
+          ws.onerror = () => {
             clearTimeout(connectionTimeout);
-            // Throttle error logging เพื่อไม่ให้ log ซ้ำๆ
             const now = Date.now();
             if (now - this.lastErrorLogTime > this.errorLogThrottle || this.lastErrorType !== 'guest_ws_connect_error') {
-              console.error(`❌ WebSocket connection error: ${wsUrl}`, error);
+              logWebSocketTransportFailure('guest-orders', wsUrl);
               this.lastErrorLogTime = now;
               this.lastErrorType = 'guest_ws_connect_error';
             }
             ws.close();
-            reject(error);
+            reject(new Error('WebSocket guest connection failed'));
           };
 
           ws.onclose = (event) => {
@@ -381,10 +394,10 @@ class WebSocketService {
         // ไม่ทำ reconnect อัตโนมัติแบบ aggressive เพื่อกัน loop; ให้ client setDineInSessionId ใหม่เมื่อจำเป็น
       };
 
-      this.dineInWs.onerror = (error) => {
+      this.dineInWs.onerror = () => {
         const now = Date.now();
         if (now - this.lastErrorLogTime > this.errorLogThrottle || this.lastErrorType !== 'dine_in_ws_error') {
-          console.error('Dine-in WebSocket error:', error);
+          logWebSocketTransportFailure('dine-in', wsUrl);
           this.lastErrorLogTime = now;
           this.lastErrorType = 'dine_in_ws_error';
         }

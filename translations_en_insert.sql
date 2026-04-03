@@ -635,6 +635,8 @@ INSERT IGNORE INTO translations (language_id, `key`, value, `group`) VALUES
 (1, 'admin.restaurant_modal.geocode_failed', 'Unable to find coordinates', 'admin'),
 (1, 'admin.restaurant_modal.enter_coordinates_manually', 'Please enter coordinates manually', 'admin'),
 (1, 'admin.restaurant_modal.find_coordinates', 'Find coordinates from address', 'admin'),
+(1, 'admin.restaurant_modal.location', 'Restaurant location', 'admin'),
+(1, 'admin.restaurant_modal.map_hint', 'Drag the map to set the restaurant location', 'admin'),
 (1, 'admin.restaurant_modal.latitude', 'Latitude', 'admin'),
 (1, 'admin.restaurant_modal.longitude', 'Longitude', 'admin'),
 (1, 'admin.restaurant_modal.latitude_hint', 'Latitude coordinate, e.g., 17.9668552', 'admin'),

@@ -315,6 +315,52 @@ class RestaurantSerializer(serializers.ModelSerializer):
         image_url = obj.get_image_url()
         return get_absolute_image_url(image_url, self.context.get('request'))
     
+    def validate_latitude(self, value):
+        """Convert string to Decimal if needed and ensure max 12 decimal places"""
+        if value is None or value == '':
+            return None
+        
+        from decimal import Decimal, ROUND_HALF_UP, InvalidOperation
+        
+        if isinstance(value, str):
+            try:
+                value = Decimal(value)
+            except InvalidOperation:
+                raise serializers.ValidationError('Invalid latitude value')
+        
+        if isinstance(value, float):
+            value = Decimal(str(value))
+        
+        if value < -90 or value > 90:
+            raise serializers.ValidationError('Latitude must be between -90 and 90')
+        
+        if isinstance(value, Decimal):
+            return value.quantize(Decimal('0.000000000001'), rounding=ROUND_HALF_UP)
+        return value
+
+    def validate_longitude(self, value):
+        """Convert string to Decimal if needed and ensure max 12 decimal places"""
+        if value is None or value == '':
+            return None
+        
+        from decimal import Decimal, ROUND_HALF_UP, InvalidOperation
+        
+        if isinstance(value, str):
+            try:
+                value = Decimal(value)
+            except InvalidOperation:
+                raise serializers.ValidationError('Invalid longitude value')
+        
+        if isinstance(value, float):
+            value = Decimal(str(value))
+        
+        if value < -180 or value > 180:
+            raise serializers.ValidationError('Longitude must be between -180 and 180')
+        
+        if isinstance(value, Decimal):
+            return value.quantize(Decimal('0.000000000001'), rounding=ROUND_HALF_UP)
+        return value
+
     def update(self, instance, validated_data):
         """à¸­à¸±à¸›à¹€à¸”à¸—à¸£à¹‰à¸²à¸™à¹à¸¥à¸°à¸‹à¸´à¸‡à¸à¹Œ User role à¸­à¸±à¸•à¹‚à¸™à¸¡à¸±à¸•à¸´"""
         old_is_special = instance.is_special

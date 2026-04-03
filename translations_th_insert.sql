@@ -1,4 +1,4 @@
-﻿INSERT IGNORE INTO translations (language_id, `key`, value, `group`) VALUES
+INSERT IGNORE INTO translations (language_id, `key`, value, `group`) VALUES
 (3, 'common.welcome', 'ยินดีต้อนรับ', 'common'),
 (3, 'common.login', 'เข้าสู่ระบบ', 'common'),
 (3, 'common.register', 'ลงทะเบียน', 'common'),
@@ -603,6 +603,8 @@
 (3, 'admin.restaurant_modal.geocode_failed', 'ไม่สามารถค้นหาพิกัดได้', 'admin'),
 (3, 'admin.restaurant_modal.enter_coordinates_manually', 'กรุณากรอกพิกัดด้วยตนเอง', 'admin'),
 (3, 'admin.restaurant_modal.find_coordinates', 'ค้นหาพิกัดจากที่อยู่', 'admin'),
+(3, 'admin.restaurant_modal.location', 'ตำแหน่งร้าน', 'admin'),
+(3, 'admin.restaurant_modal.map_hint', 'เลื่อนแผนที่เพื่อเลือกตำแหน่งร้าน', 'admin'),
 (3, 'admin.restaurant_modal.latitude', 'Latitude (พิกัดละติจูด)', 'admin'),
 (3, 'admin.restaurant_modal.longitude', 'Longitude (พิกัดลองจิจูด)', 'admin'),
 (3, 'admin.restaurant_modal.latitude_hint', 'พิกัดละติจูด (Latitude) เช่น 17.9668552', 'admin'),

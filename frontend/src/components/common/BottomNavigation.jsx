@@ -15,7 +15,6 @@ import {
   InformationCircleIcon,
   Cog6ToothIcon,
 } from "@heroicons/react/24/outline";
-import { FaTheaterMasks } from 'react-icons/fa';
 
 const BottomNavigation = () => {
   const { user, isAuthenticated } = useAuth();
@@ -61,12 +60,6 @@ const BottomNavigation = () => {
       href: "/products",
       icon: ShoppingBagIcon,
       current: location.pathname === "/products",
-    },
-    {
-      name: translate("entertainment.venues_short") || translate("entertainment.venues") || "บันเทิง",
-      href: "/entertainment-venues",
-      icon: FaTheaterMasks,
-      current: location.pathname.startsWith("/entertainment-venues"),
     },
     {
       name: translate("cart.cart"),
@@ -116,12 +109,6 @@ const BottomNavigation = () => {
       href: "/products",
       icon: ShoppingBagIcon,
       current: location.pathname === "/products",
-    },
-    {
-      name: translate("entertainment.venues_short") || translate("entertainment.venues") || "บันเทิง",
-      href: "/entertainment-venues",
-      icon: FaTheaterMasks,
-      current: location.pathname.startsWith("/entertainment-venues"),
     },
     {
       name: translate("cart.cart"),

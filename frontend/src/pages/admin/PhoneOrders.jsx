@@ -4,95 +4,140 @@ import { useAuth } from '../../contexts/AuthContext';
 import api, { orderService } from '../../services/api';
 import { formatPrice } from '../../utils/formatPrice';
 import { useLanguage } from '../../contexts/LanguageContext';
+import { getTranslatedName } from '../../utils/translationUtils';
+import {
+  LuMapPin, LuUser, LuStore, LuPackage, LuTag, LuFileText, LuX, LuTrash2,
+  LuCalendar, LuCreditCard, LuUtensilsCrossed, LuRefreshCw, LuSearch, LuMap
+} from 'react-icons/lu';
 
-// Phone Order Details Modal Component
-const PhoneOrderDetailsModal = ({ order, isOpen, onClose, orderStatuses, formatDateTime, onDelete }) => {
+// Phone Order Details Modal Component (same style as Guest Orders)
+const PhoneOrderDetailsModal = ({ order, isOpen, onClose, orderStatuses, formatDateTime, onDelete, getStatusColor }) => {
   if (!isOpen || !order) return null;
-  const { translate } = useLanguage();
+  const { translate, currentLanguage } = useLanguage();
 
   const orderDetails = Array.isArray(order.order_details) ? order.order_details : [];
   const orderDetailsByRestaurant = order.order_details_by_restaurant || [];
   const isMultiRestaurant = orderDetailsByRestaurant.length > 1;
   const restaurantCount = isMultiRestaurant ? orderDetailsByRestaurant.length : 1;
   const subtotal = orderDetails.reduce((total, detail) => total + parseFloat(detail.subtotal || 0), 0);
+  const orderId = order.guest_order_id || order.order_id;
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
-        {/* Enhanced Background overlay */}
-        <div className="fixed inset-0 transition-all duration-300 bg-black/60 backdrop-blur-sm" onClick={onClose}></div>
+      <div className="flex items-center justify-center min-h-screen px-4 py-8">
+        <div className="fixed inset-0 bg-black/50" onClick={onClose}></div>
         
-        {/* Enhanced Modal content */}
-        <div className="inline-block w-full max-w-5xl p-8 my-8 overflow-hidden text-left align-middle transition-all transform bg-white/95 backdrop-blur-xl shadow-2xl rounded-3xl border border-white/20">
-          {/* Enhanced Header */}
-          <div className="flex items-center justify-between mb-8 pb-6 border-b border-gray-200">
-            <div className="flex items-center space-x-4">
-              <div className="w-12 h-12 bg-gradient-to-r from-green-600 to-emerald-600 rounded-2xl flex items-center justify-center shadow-lg">
-                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                </svg>
+        <div className="relative w-full max-w-2xl max-h-[90vh] my-8 flex flex-col overflow-hidden bg-white shadow-xl rounded-lg border border-gray-200">
+          <div className="flex-shrink-0 px-6 py-4 border-b border-gray-200 flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="text-lg font-semibold text-gray-900">#{orderId}</h3>
+                <span className="px-2.5 py-1 rounded text-xs font-medium bg-gray-100 text-gray-700">
+                  {orderStatuses?.find(s => s.value === order.current_status)?.label || order.current_status}
+                </span>
+                <span className="px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-600">
+                  📞 {translate('admin.phone_orders')}
+                </span>
               </div>
-              <div>
-                <h3 className="text-3xl font-bold bg-gradient-to-r from-gray-900 via-green-800 to-emerald-800 bg-clip-text text-transparent">
-                  📞 {translate('admin.phone_order_number', { id: order.guest_order_id })}
-                </h3>
-                <p className="text-sm text-gray-600 mt-1 font-medium">
-                  📅 {formatDateTime(order.order_date)} | {translate('admin.temporary_id')}: {order.temporary_id}
-                </p>
-              </div>
+              <p className="text-sm text-gray-500 mt-1 flex items-center gap-1">
+                <LuCalendar className="w-3.5 h-3.5" />
+                {formatDateTime(order.order_date)}
+                {order.temporary_id && <span className="ml-2">| {order.temporary_id}</span>}
+              </p>
             </div>
-            <div className="flex items-center space-x-3">
-              {/* ปุ่มลบออเดอร์ */}
+            <div className="flex items-center gap-1 flex-shrink-0">
               <button
                 onClick={() => {
-                  const orderType = order.temporary_id ? 'Guest' : 'Regular';
-                  const orderId = order.temporary_id || order.order_id;
-                  if (window.confirm(`ยืนยันการลบออเดอร์ ${orderType} #${orderId}?\n\nการกระทำนี้ไม่สามารถยกเลิกได้และจะลบข้อมูลทั้งหมดที่เกี่ยวข้อง`)) {
+                  const orderIdDel = order.temporary_id || order.guest_order_id || order.order_id;
+                  if (window.confirm(`ยืนยันการลบออเดอร์ #${orderIdDel}?\n\nการกระทำนี้ไม่สามารถยกเลิกได้`)) {
                     onDelete(order);
                   }
                 }}
-                className="group p-3 rounded-2xl hover:bg-red-50 transition-all duration-200 transform hover:scale-110 border border-red-200 hover:border-red-400 bg-red-50/50"
-                title="ลบออเดอร์"
+                className="p-2 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-600"
+                title="ลบ"
               >
-                <svg className="w-6 h-6 text-red-500 group-hover:text-red-700 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                </svg>
+                <LuTrash2 className="w-4 h-4" />
               </button>
-              
-              {/* ปุ่มปิด */}
-              <button
-                onClick={onClose}
-                className="group p-3 rounded-2xl hover:bg-gray-50 transition-all duration-200 transform hover:scale-110 border border-gray-200 hover:border-gray-300"
-                title="ปิด"
-              >
-                <svg className="w-6 h-6 text-gray-400 group-hover:text-gray-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
+              <button onClick={onClose} className="p-2 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600" title="ปิด">
+                <LuX className="w-4 h-4" />
               </button>
             </div>
           </div>
 
-          {/* Content */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* รายการอาหาร */}
-            <div>
-              <h4 className="text-lg font-semibold text-gray-800 mb-4">🍽️ {translate('order.items')}</h4>
-              
+          <div className="flex-1 min-h-0 overflow-y-auto">
+            <div className="p-6 space-y-6">
+              <div className="flex items-center justify-between py-3 px-4 bg-gray-50 rounded-lg">
+                <span className="text-sm text-gray-600">{translate('order.total_amount')}</span>
+                <span className="text-lg font-semibold text-gray-900">{formatPrice(order.total_amount)}</span>
+              </div>
+
+              <div>
+                <h4 className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">{translate('admin.customer_info')}</h4>
+                <div className="space-y-2 text-sm">
+                  <div className="flex gap-2">
+                    <LuUser className="w-4 h-4 text-gray-400 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-medium text-gray-900">{order.customer_name || "—"}</p>
+                      <p className="text-gray-500">{order.customer_phone || "—"}</p>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <LuMapPin className="w-4 h-4 text-gray-400 flex-shrink-0 mt-0.5" />
+                    <div className="min-w-0">
+                      {order.delivery_address ? (
+                        <p className="text-gray-700 whitespace-pre-line">
+                          {order.delivery_address
+                            .split("\n")
+                            .filter((line) => !/ตำแหน่ง\s*:\s*-?\d+\.?\d*,\s*-?\d+\.?\d*/.test(line.trim()))
+                            .join("\n")
+                            .trim() || "—"}
+                        </p>
+                      ) : (
+                        <p className="text-gray-500">—</p>
+                      )}
+                      {order.delivery_latitude && order.delivery_longitude && (
+                        <a
+                          href={`https://www.google.com/maps?q=${order.delivery_latitude},${order.delivery_longitude}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:text-blue-800 underline mt-1 inline-flex items-center gap-1"
+                        >
+                          <LuMap className="w-3 h-3" />
+                          {translate('order.delivery_address') || 'ที่อยู่จัดส่ง'}
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                  {order.temporary_id && (
+                    <div className="flex gap-2 items-center pt-1">
+                      <LuTag className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                      <span className="font-mono text-xs text-gray-600 bg-gray-100 px-2 py-1 rounded">{order.temporary_id}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <h4 className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3 flex items-center gap-1">
+                  <LuUtensilsCrossed className="w-3.5 h-3.5" />
+                  {translate('order.items')}
+                </h4>
               {isMultiRestaurant && orderDetailsByRestaurant.length > 0 ? (
                 <div className="space-y-4">
                   {orderDetailsByRestaurant.map((restaurantGroup, groupIndex) => (
-                    <div key={restaurantGroup.restaurant_id || groupIndex} className="border rounded-lg p-4 bg-gray-50">
-                      <div className="flex items-center justify-between mb-3">
-                        <h5 className="font-medium text-gray-800">🏪 {restaurantGroup.restaurant_name}</h5>
-                        <span className="text-sm font-semibold text-green-600">
-                          {formatPrice(restaurantGroup.subtotal)}
+                    <div key={restaurantGroup.restaurant_id || groupIndex} className="border border-gray-200 rounded-lg overflow-hidden">
+                      <div className="px-4 py-2 bg-gray-50 flex justify-between items-center">
+                        <span className="text-sm font-medium text-gray-800 flex items-center gap-1">
+                          <LuStore className="w-3.5 h-3.5 text-gray-500" />
+                          {restaurantGroup.restaurant_name}
                         </span>
+                        <span className="text-sm font-medium text-gray-700">{formatPrice(restaurantGroup.subtotal)}</span>
                       </div>
-                      <div className="space-y-2">
+                      <div className="divide-y divide-gray-100">
                         {(restaurantGroup.items || []).map((item, itemIndex) => (
-                          <div key={item.guest_order_detail_id || itemIndex} className="flex justify-between text-sm">
-                            <span>{item.product_name} × {item.quantity}</span>
-                            <span>{formatPrice(item.subtotal)}</span>
+                          <div key={item.guest_order_detail_id || item.order_detail_id || itemIndex} className="px-4 py-3 flex justify-between text-sm">
+                            <span>{getTranslatedName(item, currentLanguage, item.product_name) || item.product_name} × {item.quantity}</span>
+                            <span className="font-medium text-gray-800 ml-2">{formatPrice(item.subtotal)}</span>
                           </div>
                         ))}
                       </div>
@@ -100,109 +145,73 @@ const PhoneOrderDetailsModal = ({ order, isOpen, onClose, orderStatuses, formatD
                   ))}
                 </div>
               ) : (
-                <div className="space-y-2">
+                <div className="border border-gray-200 rounded-lg divide-y divide-gray-100">
                   {orderDetails.map((detail, index) => (
-                    <div key={detail.guest_order_detail_id || index} className="flex justify-between p-3 bg-gray-50 rounded-lg">
-                      <span>{detail.product_name} × {detail.quantity}</span>
-                      <span className="font-medium">{formatPrice(detail.subtotal)}</span>
+                    <div key={detail.guest_order_detail_id || detail.order_detail_id || index} className="px-4 py-3 flex justify-between text-sm">
+                      <span>{getTranslatedName(detail, currentLanguage, detail.product_name) || detail.product_name} × {detail.quantity}</span>
+                      <span className="font-medium text-gray-800 ml-2">{formatPrice(detail.subtotal || 0)}</span>
                     </div>
                   ))}
                 </div>
               )}
+              </div>
 
-              {/* สรุปยอดเงิน */}
-              <div className="mt-6">
-                <h4 className="text-lg font-semibold text-gray-800 mb-3">💰 {translate('admin.summary')}</h4>
-                <div className="bg-gray-50 p-4 rounded-lg space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span>{translate('order.subtotal')}:</span>
-                    <span>{formatPrice(subtotal)}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span>{translate('order.delivery_fee')}:</span>
-                    <span>{formatPrice(order.delivery_fee)}</span>
-                  </div>
-                  <div className="flex justify-between text-lg font-semibold border-t pt-2">
-                    <span>{translate('order.total_amount')}:</span>
-                    <span className="text-green-600">{formatPrice(order.total_amount)}</span>
-                  </div>
+              <div className="border-t border-gray-200 pt-4 space-y-1">
+                <div className="flex justify-between text-sm text-gray-600">
+                  <span>{translate('order.subtotal')}</span>
+                  <span>{formatPrice(subtotal)}</span>
+                </div>
+                <div className="flex justify-between text-sm text-gray-600">
+                  <span>{translate('order.delivery_fee')}</span>
+                  <span>{formatPrice(order.delivery_fee)}</span>
+                </div>
+                <div className="flex justify-between text-base font-semibold text-gray-900 pt-2">
+                  <span>{translate('order.total_amount')}</span>
+                  <span>{formatPrice(order.total_amount)}</span>
                 </div>
               </div>
-            </div>
 
-            {/* ข้อมูลลูกค้าและการจัดส่ง */}
-            <div className="space-y-6">
-              {/* ข้อมูลลูกค้า */}
               <div>
-                <h4 className="text-lg font-semibold text-gray-800 mb-3">👤 {translate('admin.customer_info')}</h4>
-                <div className="bg-green-50 p-4 rounded-lg space-y-3">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
-                      <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                      </svg>
-                    </div>
-                    <div>
-                      <p className="font-semibold text-gray-800">{order.customer_name}</p>
-                      <p className="text-sm text-gray-600">{order.customer_phone}</p>
-                    </div>
-                  </div>
-                  <div className="border-t pt-3">
-                    <p className="text-sm text-gray-600 mb-1">{translate('order.delivery_address')}:</p>
-                    <p className="text-gray-800">{order.delivery_address}</p>
-                  </div>
-                  {order.special_instructions && (
-                    <div className="border-t pt-3">
-                      <p className="text-sm text-gray-600 mb-1">{translate('cart.special_instructions')}:</p>
-                      <p className="text-gray-800">{order.special_instructions}</p>
-                    </div>
+                <h4 className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3 flex items-center gap-1">
+                  <LuCreditCard className="w-3.5 h-3.5" />
+                  {translate('admin.payment_info')}
+                </h4>
+                <div className="flex flex-wrap gap-2 items-center">
+                  <span className={`px-2.5 py-1 rounded text-xs font-medium ${
+                    (order.payment_status || order.payment?.status) === "completed" || (order.payment_status || order.payment?.status) === "paid" ? "bg-gray-100 text-gray-800" :
+                    (order.payment_status || order.payment?.status) === "pending" ? "bg-gray-100 text-gray-600" :
+                    "bg-gray-100 text-gray-600"
+                  }`}>
+                    {(order.payment_status || order.payment?.status) === "completed" || (order.payment_status || order.payment?.status) === "paid"
+                      ? translate('order.status.paid')
+                      : (order.payment_status || order.payment?.status) === "pending"
+                        ? translate('admin.payment_pending')
+                        : translate('common.not_specified')}
+                  </span>
+                  {(order.payment_method || order.payment?.payment_method) && (
+                    <span className="text-sm text-gray-600">
+                      {(order.payment_method || order.payment?.payment_method) === "bank_transfer" ? translate('cart.bank_transfer') :
+                       (order.payment_method || order.payment?.payment_method) === "cash" ? translate('payment.cash') :
+                       (order.payment_method || order.payment?.payment_method) === "qr_payment" ? translate('cart.qr_payment') :
+                       (order.payment_method || order.payment?.payment_method)}
+                    </span>
                   )}
                 </div>
-              </div>
-
-              {/* ข้อมูลการชำระเงิน */}
-              <div>
-                <h4 className="text-lg font-semibold text-gray-800 mb-3">💳 {translate('admin.payment_info')}</h4>
-                <div className="bg-blue-50 p-4 rounded-lg space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">{translate('order.payment_method')}:</span>
-                    <span className="font-medium">
-                      {order.payment_method === 'bank_transfer' ? translate('cart.bank_transfer') : 
-                       order.payment_method === 'cash' ? translate('payment.cash') : 
-                       (order.payment_method || translate('common.not_specified'))}
-                    </span>
+                {(order.proof_of_payment || order.payment?.proof_of_payment_display_url) && (
+                  <div className="mt-3">
+                    <button
+                      type="button"
+                      onClick={() => window.open(order.proof_of_payment || order.payment?.proof_of_payment_display_url, "_blank")}
+                      className="block"
+                    >
+                      <img
+                        src={order.proof_of_payment || order.payment?.proof_of_payment_display_url}
+                        alt="หลักฐานการโอน"
+                        className="max-w-full max-h-48 rounded-lg border border-gray-200 hover:opacity-90 transition-opacity"
+                      />
+                    </button>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">{translate('admin.payment_status')}:</span>
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      order.payment_status === 'paid' ? 'bg-green-100 text-green-800' : 
-                      order.payment_status === 'pending' ? 'bg-yellow-100 text-yellow-800' : 
-                      'bg-gray-100 text-gray-800'
-                    }`}>
-                      {order.payment_status === 'paid' ? translate('order.status.paid') : 
-                       order.payment_status === 'pending' ? translate('admin.payment_pending_short') : 
-                       translate('common.not_specified')}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* สถานะคำสั่งซื้อ */}
-              <div>
-                <h4 className="text-lg font-semibold text-gray-800 mb-3">📋 {translate('admin.order_status')}</h4>
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <div className="flex items-center justify-between">
-                    <span className="text-gray-600">{translate('admin.current_status')}:</span>
-                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(order.current_status)}`}>
-                      {translate(`order.status.${order.current_status}`)}
-                    </span>
-                  </div>
-                  {isMultiRestaurant && (
-                    <div className="mt-3 pt-3 border-t">
-                      <p className="text-sm text-orange-600 font-medium">🏪 {translate('order.from_multiple_restaurants', { count: restaurantCount })}</p>
-                    </div>
-                  )}
-                </div>
+                )}
               </div>
             </div>
           </div>
@@ -212,12 +221,13 @@ const PhoneOrderDetailsModal = ({ order, isOpen, onClose, orderStatuses, formatD
   );
 };
 
-// Status Update Modal Component
-const PhoneStatusUpdateModal = ({ order, isOpen, onClose, onUpdateStatus, orderStatuses }) => {
+// Status Update Modal Component (same style as Guest Orders)
+const PhoneStatusUpdateModal = ({ order, isOpen, onClose, onUpdateStatus, orderStatuses, isUpdating: isUpdatingProp }) => {
   const [selectedStatus, setSelectedStatus] = useState(order?.current_status || '');
   const [note, setNote] = useState('');
-  const [isUpdating, setIsUpdating] = useState(false);
+  const [isUpdatingLocal, setIsUpdatingLocal] = useState(false);
   const { translate } = useLanguage();
+  const isUpdating = isUpdatingProp !== undefined ? isUpdatingProp : isUpdatingLocal;
 
   useEffect(() => {
     if (order) {
@@ -230,14 +240,14 @@ const PhoneStatusUpdateModal = ({ order, isOpen, onClose, onUpdateStatus, orderS
     e.preventDefault();
     if (!selectedStatus || selectedStatus === order.current_status) return;
 
-    setIsUpdating(true);
+    setIsUpdatingLocal(true);
     try {
       await onUpdateStatus(order.guest_order_id, selectedStatus, note);
       onClose();
     } catch (error) {
       console.error('Error updating status:', error);
     } finally {
-      setIsUpdating(false);
+      setIsUpdatingLocal(false);
     }
   };
 
@@ -246,25 +256,36 @@ const PhoneStatusUpdateModal = ({ order, isOpen, onClose, onUpdateStatus, orderS
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
       <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
-        <div className="fixed inset-0 transition-all duration-300 bg-black/60 backdrop-blur-sm" onClick={onClose}></div>
+        <div className="fixed inset-0 bg-black/50" onClick={onClose}></div>
         
-        <div className="inline-block w-full max-w-md p-6 my-8 overflow-hidden text-left align-middle transition-all transform bg-white/95 backdrop-blur-xl shadow-2xl rounded-3xl border border-white/20">
+        <div className="inline-block w-full max-w-md p-6 my-8 overflow-hidden text-left align-middle bg-white shadow-xl rounded-xl border border-gray-200">
           <div className="flex items-center justify-between mb-6">
-            <h3 className="text-xl font-bold text-gray-900">{translate('admin.update_status_title')}</h3>
-            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
+            <div className="flex items-center space-x-3">
+              <div className="w-9 h-9 bg-gray-100 rounded-lg flex items-center justify-center">
+                <LuRefreshCw className="w-4 h-4 text-gray-600" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900">{translate('admin.update_status_title')}</h3>
+            </div>
+            <button onClick={onClose} className="p-2 rounded-lg hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors">
+              <LuX className="w-5 h-5" />
             </button>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
+              <div className="bg-gray-50 rounded-lg p-4 mb-4 border border-gray-200">
+                <p className="text-sm font-medium text-gray-800">
+                  {translate('admin.phone_order_number', { id: order.guest_order_id })}
+                </p>
+                {order.temporary_id && (
+                  <p className="text-xs text-gray-500 mt-1">{translate('admin.temporary_id')}: {order.temporary_id}</p>
+                )}
+              </div>
               <label className="block text-sm font-medium text-gray-700 mb-2">{translate('admin.select_new_status')}</label>
               <select
                 value={selectedStatus}
                 onChange={(e) => setSelectedStatus(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-300 focus:border-gray-400 font-medium cursor-pointer text-sm"
                 required
               >
                 {orderStatuses.map(status => (
@@ -275,31 +296,21 @@ const PhoneStatusUpdateModal = ({ order, isOpen, onClose, onUpdateStatus, orderS
               </select>
             </div>
 
-            {/* <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">{translate('admin.note_optional')}</label>
-              <textarea
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                rows={3}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                placeholder="เพิ่มหมายเหตุเกี่ยวกับการอัพเดทสถานะ..."
-              />
-            </div> */}
-
-            <div className="flex space-x-3 pt-4">
+            <div className="flex gap-2">
               <button
                 type="button"
                 onClick={onClose}
-                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-3 rounded-lg font-medium transition-colors"
               >
                 {translate('common.cancel')}
               </button>
               <button
                 type="submit"
                 disabled={isUpdating || selectedStatus === order.current_status}
-                className="flex-1 px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white rounded-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 bg-gray-900 hover:bg-gray-800 text-white px-4 py-3 rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
               >
-                {isUpdating ? translate('admin.saving') : translate('admin.change_status')}
+                <LuRefreshCw className={`w-4 h-4 ${isUpdating ? 'animate-spin' : ''}`} />
+                {isUpdating ? translate('admin.saving') : translate('common.confirm')}
               </button>
             </div>
           </form>
@@ -551,9 +562,9 @@ const PhoneOrders = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-green-50 to-emerald-100 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="w-16 h-16 border-4 border-green-200 border-t-green-600 rounded-full animate-spin mx-auto"></div>
+          <div className="w-16 h-16 border-4 border-gray-200 border-t-gray-600 rounded-full animate-spin mx-auto"></div>
           <p className="mt-6 text-gray-600 font-medium text-lg">
             {translate('admin.loading_phone_orders')}
           </p>
@@ -563,41 +574,40 @@ const PhoneOrders = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-green-50 to-emerald-100">
-      {/* Enhanced Header */}
-      <div className="bg-white/80 backdrop-blur-xl border-b border-white/20 shadow-lg shadow-green-500/5">
+    <div className="min-h-screen bg-gray-50">
+      <div className="bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 py-6">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center space-x-4">
-              <div className="w-12 h-12 bg-gradient-to-r from-green-600 to-emerald-600 rounded-2xl flex items-center justify-center shadow-lg">
-                <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                </svg>
-              </div>
-              <div>
-                <h1 className="text-3xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
-                  📞 {translate('admin.phone_orders_title')}
+          <div className="flex items-center justify-between">
+            <div className="space-y-2">
+              <div className="flex items-center space-x-3">
+                <div className="w-9 h-9 bg-gray-100 rounded-lg flex items-center justify-center">
+                  <LuUser className="w-5 h-5 text-gray-600" />
+                </div>
+                <h1 className="text-xl font-semibold text-gray-900">
+                  {translate('admin.phone_orders_title')}
                 </h1>
-                <p className="text-gray-500 text-sm font-medium">{translate('admin.phone_orders_subtitle')}</p>
+              </div>
+              <div className="flex items-center space-x-4">
+                <div className="flex items-center space-x-2">
+                  <div className="w-1.5 h-1.5 bg-gray-400 rounded-full"></div>
+                  <p className="text-sm text-gray-600">
+                    {translate('admin.showing_of_total', { showing: filteredOrders.length, total: orders.length })}
+                  </p>
+                </div>
               </div>
             </div>
-            <div className="flex items-center space-x-3">
+            <div className="flex items-center gap-2">
               <button
                 onClick={fetchPhoneOrders}
-                className="group bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-0.5 flex items-center space-x-2"
+                className="bg-gray-900 hover:bg-gray-800 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
               >
-                <svg className="w-5 h-5 group-hover:rotate-180 transition-transform duration-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
+                <LuRefreshCw className="w-4 h-4" />
                 <span className="font-medium">{translate('admin.refresh')}</span>
               </button>
               <button
                 onClick={() => navigate('/admin/create-phone-order')}
-                className="group bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-0.5 flex items-center space-x-2"
+                className="bg-gray-100 hover:bg-gray-200 text-gray-800 px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
               >
-                <svg className="w-5 h-5 group-hover:scale-110 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                </svg>
                 <span className="font-medium">{translate('admin.phone_orders_create_new')}</span>
               </button>
             </div>
@@ -606,80 +616,49 @@ const PhoneOrders = () => {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 py-6">
-
-        {/* Controls - match AdminOrders style */}
-        <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-xl border border-white/20 p-6 mb-8">
-          <div className="flex flex-wrap gap-4">
-            {/* Search */}
+        <div className="bg-white rounded-lg border border-gray-200 p-4 mb-6">
+          <div className="flex flex-wrap gap-3">
             <div className="flex-1 min-w-64">
-              <div className="relative group">
-                <div className="absolute left-4 top-1/2 transform -translate-y-1/2 z-10">
-                  <svg className="w-5 h-5 text-gray-400 group-focus-within:text-green-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
-                </div>
+              <div className="relative">
+                <LuSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <input
                   type="text"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   placeholder={translate('admin.phone_orders_search_placeholder')}
-                  className="w-full pl-12 pr-4 py-3 bg-gray-50/50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500/20 focus:border-green-400 focus:bg-white transition-all text-sm font-medium placeholder-gray-400"
+                  className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-300 focus:border-gray-400 text-sm placeholder-gray-400"
                 />
-                <div className="absolute inset-0 bg-gradient-to-r from-green-500/5 to-emerald-500/5 rounded-xl opacity-0 group-focus-within:opacity-100 transition-opacity pointer-events-none"></div>
               </div>
             </div>
-
-            {/* Filter */}
             <div className="min-w-44">
-              <div className="relative">
               <select
                 value={filter}
                 onChange={(e) => setFilter(e.target.value)}
-                  className="w-full appearance-none px-4 py-3 bg-gray-50/50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500/20 focus:border-green-400 focus:bg-white transition-all text-sm font-medium cursor-pointer"
-                >
-                  <option value="all">🔍 {translate('admin.all_statuses')}</option>
-                  <option value="pending">⏳ {translate('order.status.pending')}</option>
-                  <option value="paid">💳 {translate('order.status.paid')}</option>
-                  <option value="preparing">👨‍🍳 {translate('order.status.preparing')}</option>
-                  <option value="ready_for_pickup">📦 {translate('order.status.ready_for_pickup')}</option>
-                  <option value="delivering">🚚 {translate('order.status.delivering')}</option>
-                  <option value="completed">✅ {translate('order.status.completed')}</option>
-                  <option value="cancelled">❌ {translate('order.status.cancelled')}</option>
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-300 focus:border-gray-400 text-sm cursor-pointer"
+              >
+                <option value="all">{translate('admin.all_statuses')}</option>
+                {orderStatuses.map((status) => (
+                  <option key={status.value} value={status.value}>{status.label}</option>
+                ))}
               </select>
-                <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
-                  <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </div>
-              </div>
             </div>
-
-            {/* Sort */}
             <div className="min-w-44">
-              <div className="relative">
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
-                  className="w-full appearance-none px-4 py-3 bg-gray-50/50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500/20 focus:border-green-400 focus:bg-white transition-all text-sm font-medium cursor-pointer"
-                >
-                  <option value="-order_date">📅 {translate('admin.sort.latest')}</option>
-                  <option value="order_date">📅 {translate('admin.sort.oldest')}</option>
-                  <option value="-total_amount">💰 {translate('admin.sort.price_high')}</option>
-                  <option value="total_amount">💰 {translate('admin.sort.price_low')}</option>
-                  <option value="current_status">📊 {translate('admin.sort.by_status')}</option>
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-300 focus:border-gray-400 text-sm cursor-pointer"
+              >
+                <option value="-order_date">{translate('admin.sort.latest')}</option>
+                <option value="order_date">{translate('admin.sort.oldest')}</option>
+                <option value="-total_amount">{translate('admin.sort.price_high')}</option>
+                <option value="total_amount">{translate('admin.sort.price_low')}</option>
+                <option value="current_status">{translate('admin.sort.by_status')}</option>
               </select>
-                <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
-                  <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </div>
-              </div>
             </div>
           </div>
         </div>
 
-        {/* Status Cards (click to filter) */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-4 mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4 mb-6">
           {orderStatuses.map((status) => {
             const count = orders.filter((o) => o.current_status === status.value).length;
             const percentage = orders.length > 0 ? (count / orders.length) * 100 : 0;
@@ -687,62 +666,34 @@ const PhoneOrders = () => {
             return (
               <div
                 key={status.value}
-                className={`group relative bg-white/80 backdrop-blur-sm rounded-2xl border border-white/20 p-4 text-center cursor-pointer transition-all duration-300 transform hover:-translate-y-1 hover:shadow-xl ${
-                  isActive ? 'ring-2 ring-green-400 bg-gradient-to-br from-green-50 to-emerald-50 scale-105 shadow-xl' : 'hover:shadow-lg'
+                className={`bg-white rounded-lg border p-4 text-center cursor-pointer transition-shadow ${
+                  isActive ? 'ring-2 ring-gray-900 shadow-md' : 'border-gray-200 hover:shadow-sm'
                 }`}
                 onClick={() => setFilter(isActive ? 'all' : status.value)}
               >
-                <div className="relative z-10">
-                  <div className={`text-3xl font-black mb-2 transition-all duration-300 ${
-                    count > 0 ? 'text-gray-800 group-hover:scale-110' : 'text-gray-300'
-                  } ${isActive ? 'text-green-600' : ''}`}>
-                    {count}
-                  </div>
-                  <div className={`text-xs font-semibold mb-2 transition-colors ${
-                    isActive ? 'text-green-700' : 'text-gray-600 group-hover:text-gray-800'
-                  }`}>
-                    {status.label}
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-1.5 mb-2">
-                    <div 
-                      className="h-1.5 rounded-full bg-gradient-to-r from-green-400 to-emerald-400 transition-all duration-700"
-                      style={{ width: `${Math.max(percentage, 3)}%` }}
-                    ></div>
-                  </div>
-                  <div className={`text-xs font-bold px-2 py-1 rounded-full transition-all ${
-                    isActive ? 'bg-green-500 text-white' : status.color
-                  }`}>
-                    {percentage.toFixed(1)}%
-                  </div>
+                <div className="text-2xl font-bold text-gray-900 mb-2">{count}</div>
+                <div className="text-xs font-medium text-gray-600 mb-2">{status.label}</div>
+                <div className="w-full bg-gray-200 rounded-full h-1 mb-2">
+                  <div className="h-1 rounded-full bg-gray-400 transition-all" style={{ width: `${Math.max(percentage, 2)}%` }} />
                 </div>
-                {isActive && (
-                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
-                )}
+                <div className="text-xs font-medium text-gray-500">{percentage.toFixed(1)}%</div>
               </div>
             );
           })}
         </div>
 
-        {/* Orders List */}
         {displayOrders.length === 0 ? (
-          <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-xl border border-white/20 text-center py-16">
-            <div className="w-20 h-20 bg-gradient-to-r from-green-500 to-emerald-500 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-lg">
-              <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-              </svg>
-            </div>
-            <h3 className="text-xl font-bold text-gray-800 mb-2">{translate('admin.phone_orders_empty_title')}</h3>
+          <div className="bg-white rounded-xl border p-12 text-center">
+            <LuUser className="w-16 h-16 text-gray-300 mb-4 mx-auto" />
+            <h2 className="text-xl font-semibold text-gray-700 mb-2">{translate('admin.phone_orders_empty_title')}</h2>
             <p className="text-gray-500 mb-6">
               {searchTerm || filter !== 'all' ? translate('admin.phone_orders_empty_search_message') : translate('admin.phone_orders_empty_message')}
             </p>
             <button
               onClick={() => navigate('/admin/create-phone-order')}
-              className="inline-flex items-center space-x-2 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-0.5"
+              className="bg-gray-900 hover:bg-gray-800 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-              <span className="font-medium">{translate('admin.phone_orders_create_new')}</span>
+              {translate('admin.phone_orders_create_new')}
             </button>
           </div>
         ) : (
@@ -753,73 +704,56 @@ const PhoneOrders = () => {
                 <PhoneOrderCard
                   key={order.guest_order_id}
                   order={order}
+                  orderStatuses={orderStatuses}
                   onViewDetails={() => {
                     setSelectedOrder(order);
                     setShowDetailsModal(true);
                   }}
-                  onUpdateStatus={() => {
+                  onChangeStatus={() => {
                     setSelectedOrder(order);
                     setShowStatusModal(true);
                   }}
+                  onUpdateStatus={handleStatusUpdate}
                   isUpdating={updatingOrders.has(order.guest_order_id)}
                   highlightOrderId={highlightOrderId}
                   highlightTemporaryId={highlightTemporaryId}
                   formatDateTime={formatDateTime}
+                  getStatusColor={getStatusColor}
                 />
               ))}
             </div>
 
-            {/* Enhanced Pagination */}
             {totalPages > 1 && (
-              <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-xl border border-white/20 p-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2 text-sm text-gray-600">
-                    <span>แสดง</span>
-                    <span className="font-semibold text-green-600">{(page - 1) * pageSize + 1}</span>
-                    <span>ถึง</span>
-                    <span className="font-semibold text-green-600">{Math.min(page * pageSize, filteredOrders.length)}</span>
-                    <span>จาก</span>
-                    <span className="font-semibold text-green-600">{filteredOrders.length}</span>
-                    <span>รายการ</span>
-                  </div>
-                  
-                  <div className="flex items-center space-x-2">
-                    <button
-                      onClick={() => setPage(Math.max(1, page - 1))}
-                      disabled={page === 1}
-                      className="px-4 py-2 text-sm font-medium text-gray-500 bg-white/60 border border-white/30 rounded-xl hover:bg-white/80 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300"
-                    >
-                      ก่อนหน้า
-                    </button>
-                    
-                    <div className="flex items-center space-x-1">
-                      {[...Array(totalPages)].map((_, i) => {
-                        const pageNum = i + 1;
-                        return (
-                          <button
-                            key={pageNum}
-                            onClick={() => setPage(pageNum)}
-                            className={`px-3 py-2 text-sm font-medium rounded-xl transition-all duration-300 ${
-                              page === pageNum
-                                ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white shadow-lg'
-                                : 'text-gray-600 bg-white/60 border border-white/30 hover:bg-white/80'
-                            }`}
-                          >
-                            {pageNum}
-                          </button>
-                        );
-                      })}
-                    </div>
-                    
-                    <button
-                      onClick={() => setPage(Math.min(totalPages, page + 1))}
-                      disabled={page === totalPages}
-                      className="px-4 py-2 text-sm font-medium text-gray-500 bg-white/60 border border-white/30 rounded-xl hover:bg-white/80 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300"
-                    >
-                      ถัดไป
-                    </button>
-                  </div>
-                </div>
+              <div className="flex justify-center items-center mt-8 space-x-1">
+                <button
+                  disabled={page === 1}
+                  onClick={() => setPage(page - 1)}
+                  className="px-3 py-2 rounded-lg bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
+                  <button
+                    key={pageNum}
+                    onClick={() => setPage(pageNum)}
+                    className={`px-3 py-2 rounded-lg transition-colors ${
+                      pageNum === page ? "bg-gray-900 text-white" : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
+                    }`}
+                  >
+                    {pageNum}
+                  </button>
+                ))}
+                <button
+                  disabled={page === totalPages}
+                  onClick={() => setPage(page + 1)}
+                  className="px-3 py-2 rounded-lg bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
               </div>
             )}
           </>
@@ -847,152 +781,131 @@ const PhoneOrders = () => {
   );
 };
 
-// Compact Phone Order Card Component
-const PhoneOrderCard = ({ order, onViewDetails, onUpdateStatus, isUpdating, highlightOrderId, highlightTemporaryId, formatDateTime }) => {
+// Phone Order Card Component (same style as Guest Orders)
+const PhoneOrderCard = ({ order, orderStatuses, onViewDetails, onChangeStatus, onUpdateStatus, isUpdating, highlightOrderId, highlightTemporaryId, formatDateTime, getStatusColor }) => {
   const { translate } = useLanguage();
   const orderDetails = Array.isArray(order.order_details) ? order.order_details : [];
   const orderDetailsByRestaurant = order.order_details_by_restaurant || [];
   const isMultiRestaurant = orderDetailsByRestaurant.length > 1;
   const restaurantCount = isMultiRestaurant ? orderDetailsByRestaurant.length : 1;
-
   const isHighlighted = order.guest_order_id === highlightOrderId || order.temporary_id === highlightTemporaryId;
 
   return (
-    <div className={`group bg-white/70 backdrop-blur-sm rounded-2xl shadow-xl border transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 overflow-hidden ${
-      isHighlighted 
-        ? 'border-green-300 bg-green-50/80 shadow-green-500/20' 
-        : 'border-white/20 hover:border-green-200'
-    }`}>
-      {/* Compact Header */}
-      <div className="p-6">
-        <div className="flex items-center justify-between mb-4">
+    <div
+      id={`phone-order-${order.guest_order_id}`}
+      className={`group relative rounded-lg border transition-shadow overflow-hidden ${
+        isHighlighted ? 'ring-2 ring-gray-900 ring-offset-1' : ''
+      } bg-white border-gray-200 hover:shadow-md`}
+    >
+      <div className="relative z-10 p-6">
+        <div className="flex items-center justify-between mb-5">
           <div className="flex items-center space-x-4">
-            <div className="w-12 h-12 bg-gradient-to-r from-green-500 to-emerald-500 rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300">
-              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-              </svg>
-            </div>
-            <div>
-              <h3 className="text-lg font-bold text-gray-800 group-hover:text-green-600 transition-colors duration-300">
-                📞 {translate('admin.phone_order_number', { id: order.guest_order_id })}
-              </h3>
-              <p className="text-sm text-gray-500 font-medium">
-                {formatDateTime(order.order_date)} • {translate('admin.temporary_id')}: {order.temporary_id}
-              </p>
-            </div>
-          </div>
-          
-          <div className="text-right">
-            <p className="text-2xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
-              {formatPrice(order.total_amount || 0)}
-            </p>
-            <span className={`inline-flex px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(order.current_status)} shadow-sm`}>
-              {getStatusText(order.current_status, translate)}
-            </span>
-          </div>
-        </div>
-
-        {/* Compact Info Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-4 text-sm">
-          <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-              <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-              </svg>
-            </div>
-            <div>
-              <p className="font-medium text-gray-800">{order.customer_name}</p>
-              <p className="text-gray-500">{order.customer_phone}</p>
-            </div>
-          </div>
-
-          <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
-              <svg className="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
-            </div>
-            <div>
-              <p className="font-medium text-gray-800">{translate('order.delivery_address')}</p>
-              <p className="text-gray-500 truncate">{order.delivery_address}</p>
-            </div>
-          </div>
-
-          <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center">
-              <svg className="w-4 h-4 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-            </div>
-            <div>
-              <p className="font-medium text-gray-800">{orderDetails.length} {translate('common.items')}</p>
-              {isMultiRestaurant && (
-                <p className="text-gray-500">{restaurantCount} {translate('common.restaurants')}</p>
-              )}
-            </div>
-          </div>
-
-          <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
-              <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
-              </svg>
-            </div>
-            <div>
-              <p className="font-medium text-gray-800">{translate('admin.payment_info')}</p>
-              <p className="text-gray-500">
-                {order.payment_method === 'bank_transfer' ? translate('cart.bank_transfer') : 
-                 order.payment_method === 'cash' ? translate('payment.cash') : 
-                 (order.payment_method || translate('common.not_specified'))}
-              </p>
-            </div>
-          </div>
-
-          {isMultiRestaurant && (
             <div className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-amber-100 rounded-lg flex items-center justify-center">
-                <span className="text-amber-600 text-xs">🏪</span>
+              <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center">
+                <LuUser className="w-4 h-4 text-gray-600" />
               </div>
-              <div>
-                    <p className="font-medium text-amber-600">{translate('admin.multiple_restaurants')}</p>
-                    <p className="text-gray-500">{restaurantCount} {translate('common.restaurants')}</p>
-              </div>
+              <h3 className="text-lg font-semibold text-gray-900">
+                {order.guest_order_id}
+              </h3>
             </div>
-          )}
+            <span className={`px-3 py-1.5 rounded text-sm font-medium ${getStatusColor(order.current_status)}`}>
+              {orderStatuses?.find(s => s.value === order.current_status)?.label || order.current_status}
+            </span>
+            <span className="bg-gray-100 text-gray-700 px-2 py-1 rounded text-xs font-medium flex items-center gap-1">
+              📞 {translate('admin.phone_orders')}
+            </span>
+            {isMultiRestaurant && (
+              <span className="bg-gray-100 text-gray-700 px-2 py-1 rounded text-xs font-medium flex items-center gap-1">
+                <LuStore className="w-3 h-3" />
+                {restaurantCount} ร้าน
+              </span>
+            )}
+          </div>
+          <div className="text-right">
+            <p className="text-xl font-semibold text-gray-900">{formatPrice(order.total_amount || 0)}</p>
+            <p className="text-xs text-gray-500">{formatDateTime(order.order_date)}</p>
+          </div>
         </div>
 
-        {/* Action Buttons */}
-        <div className="flex flex-wrap gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-5">
+          <div className="bg-gray-50 rounded-lg p-3 border border-gray-100">
+            <p className="text-xs text-gray-500 mb-1 font-medium flex items-center gap-1"><LuUser className="w-3 h-3" /> {translate('admin.customer')}</p>
+            <p className="font-bold text-gray-900 truncate text-sm">{order.customer_name || "ไม่ระบุ"}</p>
+            <p className="text-xs text-gray-500">{order.customer_phone || "ไม่ระบุ"}</p>
+          </div>
+          <div className="bg-gray-50 rounded-lg p-3 border border-gray-100">
+            <p className="text-xs text-gray-500 mb-1 font-medium flex items-center gap-1"><LuStore className="w-3 h-3" /> {translate('common.restaurant')}</p>
+            {isMultiRestaurant ? (
+              <p className="font-bold text-gray-800 text-sm">หลายร้าน ({restaurantCount})</p>
+            ) : (
+              <p className="font-bold text-gray-900 text-sm truncate">{order.restaurant_name || "ไม่ระบุ"}</p>
+            )}
+          </div>
+          <div className="bg-gray-50 rounded-lg p-3 border border-gray-100">
+            <p className="text-xs text-gray-500 mb-1 font-medium flex items-center gap-1"><LuMapPin className="w-3 h-3" /> {translate('order.delivery_address')}</p>
+            <div className="text-gray-900 text-sm">
+              {order.delivery_address ? (
+                (() => {
+                  const displayAddress = order.delivery_address
+                    .split("\n")
+                    .filter((line) => !/ตำแหน่ง\s*:\s*-?\d+\.?\d*,\s*-?\d+\.?\d*/.test(line.trim()))
+                    .join("\n")
+                    .trim();
+                  return displayAddress ? <p className="text-xs text-gray-700 whitespace-pre-line line-clamp-2">{displayAddress}</p> : null;
+                })()
+              ) : <p className="font-bold">ไม่ระบุ</p>}
+            </div>
+            {order.delivery_latitude && order.delivery_longitude && (
+              <div className="mt-2 pt-2 border-t border-gray-200">
+                <a
+                  href={`https://www.google.com/maps?q=${order.delivery_latitude},${order.delivery_longitude}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 hover:text-blue-800 underline text-xs cursor-pointer inline-flex items-center gap-1"
+                >
+                  <LuMap className="w-3 h-3" />
+                  {translate('order.delivery_address') || 'ที่อยู่จัดส่ง'}
+                </a>
+              </div>
+            )}
+          </div>
+          <div className="bg-gray-50 rounded-lg p-3 border border-gray-100">
+            <p className="text-xs text-gray-500 mb-1 font-medium flex items-center gap-1"><LuPackage className="w-3 h-3" /> {translate('order.items')}</p>
+            <p className="font-bold text-gray-900 text-sm">{orderDetails.length} {translate('order.items_count')}</p>
+          </div>
+          <div className="bg-gray-50 rounded-lg p-3 border border-gray-100">
+            <p className="text-xs text-gray-500 mb-1 font-medium flex items-center gap-1"><LuTag className="w-3 h-3" /> {translate('admin.temporary_id')}</p>
+            <p className="font-mono text-xs bg-gray-200 px-2 py-1 rounded truncate">{order.temporary_id || "—"}</p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap gap-2">
           <button
             onClick={onViewDetails}
-            className="group/btn flex items-center space-x-2 bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white px-4 py-2 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-0.5"
+            className="flex-1 min-w-0 bg-gray-100 hover:bg-gray-200 text-gray-800 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
           >
-            <svg className="w-4 h-4 group-hover/btn:scale-110 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-            </svg>
-                <span className="text-sm font-medium">{translate('common.details')}</span>
+            <LuFileText className="w-4 h-4" />
+            {translate('common.details')}
           </button>
-
           <button
-            onClick={onUpdateStatus}
+            onClick={onChangeStatus}
             disabled={isUpdating}
-            className="group/btn flex items-center space-x-2 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white px-4 py-2 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed"
+            className={`flex-1 min-w-0 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
+              isUpdating ? "bg-gray-200 text-gray-500 cursor-not-allowed" : "bg-gray-900 hover:bg-gray-800 text-white"
+            }`}
           >
-            <svg className="w-4 h-4 group-hover/btn:scale-110 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-            </svg>
-              <span className="text-sm font-medium">{isUpdating ? translate('admin.saving') : translate('admin.change_status')}</span>
+            <LuRefreshCw className={`w-4 h-4 ${isUpdating ? 'animate-spin' : ''}`} />
+            {isUpdating ? translate('admin.saving') : translate('admin.change_status')}
           </button>
-
-          {isMultiRestaurant && (
-            <div className="flex items-center space-x-1 bg-amber-100 text-amber-800 px-3 py-2 rounded-xl">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-              </svg>
-              <span className="text-sm font-medium">{translate('order.from_multiple_restaurants', { count: restaurantCount })}</span>
-            </div>
+          {order.current_status !== "cancelled" && (
+            <button
+              onClick={() => onUpdateStatus(order.guest_order_id, "cancelled")}
+              disabled={isUpdating}
+              className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <LuX className="w-4 h-4" />
+              {translate('common.cancel')}
+            </button>
           )}
         </div>
       </div>

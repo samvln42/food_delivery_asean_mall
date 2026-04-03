@@ -118,11 +118,6 @@ const Header = ({ appSettings: appSettingsProp }) => {
           current: location.pathname === "/products",
         },
         {
-          name: translate("entertainment.venues_short") || translate("entertainment.venues") || "บันเทิง",
-          href: "/entertainment-venues",
-          current: location.pathname.startsWith("/entertainment-venues"),
-        },
-        {
           name: translate("nav.orders"),
           href: "/guest-orders",
           current: location.pathname === "/guest-orders",
@@ -153,11 +148,6 @@ const Header = ({ appSettings: appSettingsProp }) => {
           name: translate("nav.all_products"),
           href: "/products",
           current: location.pathname === "/products",
-        },
-        {
-          name: translate("entertainment.venues_short") || translate("entertainment.venues") || "บันเทิง",
-          href: "/entertainment-venues",
-          current: location.pathname.startsWith("/entertainment-venues"),
         },
         {
           name: translate("nav.orders"),

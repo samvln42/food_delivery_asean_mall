@@ -165,8 +165,14 @@ function App() {
                     } />
 
 
-                    {/* Customer Routes */}
+                    {/* Customer Routes - Venues as main page */}
                     <Route path="/" element={
+                      <CustomerLayout>
+                        <EntertainmentVenues />
+                      </CustomerLayout>
+                    } />
+
+                    <Route path="/home" element={
                       <CustomerLayout>
                         <Home />
                       </CustomerLayout>
