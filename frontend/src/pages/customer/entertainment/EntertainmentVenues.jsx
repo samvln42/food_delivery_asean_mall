@@ -4,8 +4,14 @@ import { useLanguage } from '../../../contexts/LanguageContext';
 import Loading from '../../../components/common/Loading';
 import VenuesMap from '../../../components/entertainment/VenuesMap';
 import { entertainmentVenueService, venueCategoryService, restaurantService } from '../../../services/api';
-import { FaTheaterMasks } from 'react-icons/fa';
-import { LuSearch, LuList, LuMapPin, LuUtensilsCrossed } from 'react-icons/lu';
+import {
+  FaTheaterMasks,
+  FaStar,
+  FaSearch,
+  FaList,
+  FaMapMarkerAlt,
+  FaUtensils,
+} from 'react-icons/fa';
 
 const CATEGORY_RESTAURANTS = 'restaurants';
 
@@ -130,7 +136,7 @@ const EntertainmentVenues = () => {
         <div className="px-3 sm:px-4 py-3">
           <div className="flex items-center justify-between gap-2 mb-3">
             <h1 className="text-lg sm:text-xl font-semibold text-gray-900 flex items-center gap-2">
-              <FaTheaterMasks className="w-5 h-5 text-primary-600" />
+              <FaTheaterMasks className="h-5 w-5 shrink-0 text-primary-600" aria-hidden />
               {translate('entertainment.venues') || 'สถานที่บันเทิง'}
             </h1>
             <button
@@ -139,16 +145,16 @@ const EntertainmentVenues = () => {
               title={showListView ? 'แสดงแผนที่' : 'แสดงรายการ'}
             >
               {showListView ? (
-                <LuMapPin className="w-5 h-5" />
+                <FaMapMarkerAlt className="w-5 h-5" aria-hidden />
               ) : (
-                <LuList className="w-5 h-5" />
+                <FaList className="w-5 h-5" aria-hidden />
               )}
             </button>
           </div>
 
           <form onSubmit={handleSearch} className="mb-2">
             <div className="relative">
-              <LuSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <FaSearch className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" aria-hidden />
               <input
                 type="text"
                 value={searchQuery}
@@ -178,7 +184,7 @@ const EntertainmentVenues = () => {
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
-              <LuUtensilsCrossed className="w-3.5 h-3.5" />
+              <FaUtensils className="h-3.5 w-3.5 shrink-0" aria-hidden />
               {translate('common.restaurants') || 'ร้านอาหาร'}
             </button>
             {Array.isArray(categories) &&
@@ -199,7 +205,7 @@ const EntertainmentVenues = () => {
                       className="inline w-3.5 h-3.5 mr-1"
                     />
                   ) : (
-                    <FaTheaterMasks className="inline w-3.5 h-3.5 text-gray-400 mr-1" />
+                    <FaTheaterMasks className="mr-1 inline h-3.5 w-3.5 shrink-0 text-gray-400" aria-hidden />
                   )}
                   {category.category_name}
                 </button>
@@ -245,9 +251,9 @@ const EntertainmentVenues = () => {
                         ) : (
                           <div className="w-20 h-20 rounded-lg bg-gray-200 flex items-center justify-center flex-shrink-0">
                             {isRestaurant ? (
-                              <LuUtensilsCrossed className="w-8 h-8 text-gray-400" />
+                              <FaUtensils className="h-8 w-8 text-gray-400" aria-hidden />
                             ) : (
-                              <FaTheaterMasks className="w-8 h-8 text-gray-400" />
+                              <FaTheaterMasks className="h-8 w-8 text-gray-400" aria-hidden />
                             )}
                           </div>
                         )}
@@ -257,8 +263,9 @@ const EntertainmentVenues = () => {
                             {place.address || place.description}
                           </p>
                           {place.average_rating > 0 && (
-                            <span className="text-xs text-amber-600 font-medium mt-1 inline-block">
-                              ★ {Number(place.average_rating).toFixed(1)}
+                            <span className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-amber-600">
+                              <FaStar className="h-3 w-3 shrink-0 text-amber-500" aria-hidden />
+                              {Number(place.average_rating).toFixed(1)}
                             </span>
                           )}
                         </div>
@@ -269,7 +276,7 @@ const EntertainmentVenues = () => {
               </div>
             ) : (
               <div className="text-center py-12">
-                <FaTheaterMasks className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                <FaTheaterMasks className="mx-auto mb-4 h-16 w-16 text-gray-300" aria-hidden />
                 <h3 className="text-lg font-semibold text-gray-700 mb-2">
                   {translate('entertainment.no_venues_found') || 'ไม่พบสถานที่บันเทิง'}
                 </h3>

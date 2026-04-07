@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, forwardRef, useImperativeHandle } from 'react';
 import { GrLocationPin } from 'react-icons/gr';
 import { BiCurrentLocation } from 'react-icons/bi';
+import { FaSearch } from 'react-icons/fa';
 import { reverseGeocode, getGoogleMapsApiKey } from '../../utils/googleMaps';
 import { loadGoogleMaps, isGoogleMapsLoaded } from '../../utils/googleMapsLoader';
 
@@ -8,13 +9,15 @@ import { loadGoogleMaps, isGoogleMapsLoaded } from '../../utils/googleMapsLoader
  * MapPicker Component
  * Component สำหรับเลือกที่อยู่โดยคลิกบนแผนที่ (ใช้ Google Maps)
  */
-const MapPicker = forwardRef(({ 
+const MapPicker = forwardRef(({
   initialCenter = { lat: 13.7563, lng: 100.5018 }, // กรุงเทพฯ
   onLocationSelect,
   deferSelection = false,
   zoom = 15,
   className = '',
-  height = '400px'
+  height = '400px',
+  showPlaceSearch = true,
+  placeSearchPlaceholder = 'ค้นหาสถานที่ แล้วเลือกจากรายการ',
 }, ref) => {
   const [map, setMap] = useState(null);
   const [currentLocation, setCurrentLocation] = useState(initialCenter);
@@ -22,8 +25,14 @@ const MapPicker = forwardRef(({
   const [isLoading, setIsLoading] = useState(false);
   const [mapsLoaded, setMapsLoaded] = useState(false);
   const mapRef = useRef(null);
+  const searchInputRef = useRef(null);
+  const onLocationSelectRef = useRef(onLocationSelect);
+  const deferSelectionRef = useRef(deferSelection);
   const lastCenterKeyRef = useRef('');
   const apiKey = getGoogleMapsApiKey();
+
+  onLocationSelectRef.current = onLocationSelect;
+  deferSelectionRef.current = deferSelection;
 
   useImperativeHandle(ref, () => ({
     confirmCurrentLocation: async () => {
@@ -63,6 +72,80 @@ const MapPicker = forwardRef(({
     }
   }, [mapsLoaded, map]);
 
+  // เลื่อนแผนที่เมื่อพิกัดจากฟอร์มเปลี่ยน (เช่น เลือกจากช่องที่อยู่ Autocomplete)
+  useEffect(() => {
+    if (!map) return;
+    const rawLat = initialCenter?.lat;
+    const rawLng = initialCenter?.lng;
+    const nLat =
+      typeof rawLat === 'number' && !Number.isNaN(rawLat) ? rawLat : parseFloat(rawLat);
+    const nLng =
+      typeof rawLng === 'number' && !Number.isNaN(rawLng) ? rawLng : parseFloat(rawLng);
+    if (!Number.isFinite(nLat) || !Number.isFinite(nLng)) return;
+
+    const c = map.getCenter();
+    const dLat = Math.abs(c.lat() - nLat);
+    const dLng = Math.abs(c.lng() - nLng);
+    if (dLat < 0.00012 && dLng < 0.00012) return;
+
+    lastCenterKeyRef.current = `${nLat.toFixed(5)},${nLng.toFixed(5)}`;
+    setCurrentLocation({ lat: nLat, lng: nLng });
+    map.setCenter({ lat: nLat, lng: nLng });
+    const z = typeof zoom === 'number' ? zoom : 15;
+    map.setZoom(z >= 15 ? z : 17);
+  }, [map, initialCenter?.lat, initialCenter?.lng, zoom]);
+
+  useEffect(() => {
+    if (!showPlaceSearch || !map || !mapsLoaded || !searchInputRef.current || !window.google?.maps?.places) {
+      return undefined;
+    }
+
+    const ac = new window.google.maps.places.Autocomplete(searchInputRef.current, {
+      fields: ['formatted_address', 'geometry', 'name'],
+    });
+    ac.bindTo('bounds', map);
+
+    const listener = ac.addListener('place_changed', () => {
+      const place = ac.getPlace();
+      if (!place.geometry?.location) return;
+
+      const lat = place.geometry.location.lat();
+      const lng = place.geometry.location.lng();
+      const roundedLat = Math.round(lat * 1e10) / 1e10;
+      const roundedLng = Math.round(lng * 1e10) / 1e10;
+
+      if (place.geometry.viewport) {
+        map.fitBounds(place.geometry.viewport);
+      } else {
+        map.setCenter({ lat: roundedLat, lng: roundedLng });
+        map.setZoom(17);
+      }
+
+      lastCenterKeyRef.current = `${roundedLat.toFixed(5)},${roundedLng.toFixed(5)}`;
+      setCurrentLocation({ lat: roundedLat, lng: roundedLng });
+
+      const addr =
+        place.formatted_address ||
+        `ตำแหน่ง: ${roundedLat.toFixed(6)}, ${roundedLng.toFixed(6)}`;
+      setAddress(addr);
+
+      if (!deferSelectionRef.current && onLocationSelectRef.current) {
+        onLocationSelectRef.current({
+          lat: roundedLat,
+          lng: roundedLng,
+          address: addr,
+        });
+      }
+    });
+
+    return () => {
+      if (listener) {
+        window.google.maps.event.removeListener(listener);
+      }
+      window.google.maps.event.clearInstanceListeners(ac);
+    };
+  }, [map, mapsLoaded, showPlaceSearch]);
+
   const initializeMap = () => {
     if (!mapRef.current || !isGoogleMapsLoaded() || !window.google?.maps) {
       return;
@@ -100,8 +183,8 @@ const MapPicker = forwardRef(({
 
       const fallbackAddress = `ตำแหน่ง: ${currentLocation.lat.toFixed(6)}, ${currentLocation.lng.toFixed(6)}`;
       setAddress(fallbackAddress);
-      
-      updateLocation(currentLocation, { commit: !deferSelection }).catch(err => {
+
+      updateLocation(currentLocation, { commit: !deferSelection }).catch((err) => {
         console.warn('Initial reverse geocoding failed:', err);
       });
     } catch (error) {
@@ -216,10 +299,28 @@ const MapPicker = forwardRef(({
         .map-picker .gm-fullscreen-control {
           display: none !important;
         }
+        .pac-container {
+          z-index: 13000 !important;
+        }
       `}</style>
+      {showPlaceSearch && apiKey ? (
+        <div className="relative mb-2">
+          <FaSearch
+            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-secondary-400"
+            aria-hidden
+          />
+          <input
+            ref={searchInputRef}
+            type="text"
+            autoComplete="off"
+            placeholder={placeSearchPlaceholder}
+            className="w-full rounded-lg border border-secondary-300 py-2.5 pl-10 pr-3 text-sm text-secondary-900 placeholder:text-secondary-400 focus:border-secondary-400 focus:outline-none focus:ring-2 focus:ring-secondary-300/80"
+          />
+        </div>
+      ) : null}
       <div
         style={{ height: height }}
-        className="w-full rounded-lg border border-secondary-300 overflow-hidden relative"
+        className="relative w-full overflow-hidden rounded-lg border border-secondary-300"
       >
         {/* Fixed center pin */}
         <div style={{

@@ -34,26 +34,28 @@ const RestaurantDineInProducts = () => {
   });
   const [imageFile, setImageFile] = useState(null);
 
+  // ใช้ร้านของผู้ใช้ที่ล็อกอิน — ห้ามใช้รายการแรกจาก GET /restaurants/ (จะเป็นคนละร้านกับบัญชี)
   useEffect(() => {
-    const fetchRestaurant = async () => {
-      try {
-        const response = await axios.get(`${API_CONFIG.BASE_URL}/restaurants/`, {
-          headers: { Authorization: `Token ${token}` }
-        });
-
-        const restaurants = response.data.results || response.data;
-        if (restaurants && restaurants.length > 0) {
-          setRestaurant(restaurants[0]);
-        }
-      } catch (err) {
-        console.error('Error fetching restaurant:', err);
-      }
-    };
-
-    if (user && token) {
-      fetchRestaurant();
+    if (!user) {
+      setRestaurant(null);
+      return;
     }
-  }, [user, token]);
+    const info = user.restaurant_info;
+    if (info && info.id != null && info.status !== 'no_restaurant') {
+      setRestaurant({
+        restaurant_id: info.id,
+        restaurant_name: info.name,
+        is_special: info.is_special,
+        status: info.status,
+      });
+      return;
+    }
+    if (user.restaurant?.restaurant_id != null) {
+      setRestaurant(user.restaurant);
+      return;
+    }
+    setRestaurant(null);
+  }, [user]);
 
   useEffect(() => {
     if (restaurant) {

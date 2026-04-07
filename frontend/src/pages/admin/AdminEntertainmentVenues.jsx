@@ -1,10 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../../contexts/LanguageContext';
-import { FiSearch, FiEdit2, FiTrash2, FiEye, FiPlus, FiX, FiImage, FiUpload, FiArrowUp, FiArrowDown } from 'react-icons/fi';
-import { FaMapMarkerAlt, FaPhone, FaClock, FaStar, FaTheaterMasks } from 'react-icons/fa';
-import { LuMapPin } from 'react-icons/lu';
+import { FcGallery } from "react-icons/fc";
+import {
+  FaTheaterMasks,
+  FaStar,
+  FaSearch,
+  FaTrash,
+  FaPlus,
+  FaTimes,
+  FaImage,
+  FaUpload,
+  FaArrowUp,
+  FaArrowDown,
+  FaMapMarkerAlt,
+  FaPhone,
+  FaClock,
+  FaChevronUp,
+  FaChevronDown,
+} from 'react-icons/fa';
 import { entertainmentVenueService, venueCategoryService } from '../../services/api';
 import MapPicker from '../../components/maps/MapPicker';
+import AddressPicker from '../../components/maps/AddressPicker';
 
 const AdminEntertainmentVenues = () => {
   const { translate } = useLanguage();
@@ -21,7 +37,11 @@ const AdminEntertainmentVenues = () => {
   const [showModal, setShowModal] = useState(false);
   const [modalType, setModalType] = useState('view'); // 'view', 'edit', 'create', 'gallery'
   const [showGalleryModal, setShowGalleryModal] = useState(false);
-  const [venueImages, setVenueImages] = useState([]);
+  /** รายการในโมดัลแกลเลอรี: รูปจากเซิร์ฟเวอร์ + รูปรออัปโหลด (มี file + previewUrl) */
+  const [galleryDraft, setGalleryDraft] = useState([]);
+  const [gallerySaving, setGallerySaving] = useState(false);
+  /** ซ่อนแผนที่ชั่วคราวเพื่อเลื่อนฟอร์มโดยไม่ให้แผนที่ดัก scroll / zoom */
+  const [venueMapExpanded, setVenueMapExpanded] = useState(true);
   const [formData, setFormData] = useState({
     venue_name: '',
     description: '',
@@ -69,6 +89,12 @@ const AdminEntertainmentVenues = () => {
   useEffect(() => {
     fetchCategories();
   }, []);
+
+  useEffect(() => {
+    if (showModal && modalType !== 'view') {
+      setVenueMapExpanded(true);
+    }
+  }, [showModal, modalType]);
 
   useEffect(() => {
     fetchVenues();
@@ -132,100 +158,167 @@ const AdminEntertainmentVenues = () => {
     }
   };
 
+  const revokeGalleryDraftPreviews = (items) => {
+    items.forEach((it) => {
+      if (it.previewUrl) {
+        try {
+          URL.revokeObjectURL(it.previewUrl);
+        } catch {
+          /* ignore */
+        }
+      }
+    });
+  };
+
+  const closeGalleryModal = () => {
+    setGalleryDraft((prev) => {
+      revokeGalleryDraftPreviews(prev);
+      return [];
+    });
+    setShowGalleryModal(false);
+  };
+
   const handleManageGallery = async (venue) => {
     setSelectedVenue(venue);
     try {
       const response = await entertainmentVenueService.getImages(venue.venue_id);
-      setVenueImages(response.data || []);
+      const list = response.data || [];
+      setGalleryDraft(
+        list.map((img, idx) => ({
+          ...img,
+          _key: `save-${img.image_id}`,
+          sort_order: Number(img.sort_order) || idx + 1,
+        }))
+      );
       setShowGalleryModal(true);
     } catch (err) {
       console.error('Error fetching images:', err);
-      setVenueImages([]);
+      setGalleryDraft([]);
       setShowGalleryModal(true);
     }
   };
 
-  const handleAddImage = async (e) => {
-    const files = Array.from(e.target.files);
+  /** เลือกไฟล์ = แสดงตัวอย่างเท่านั้น ยังไม่อัปโหลดจนกว่าจะกดบันทึก */
+  const handleAddGalleryFiles = (e) => {
+    const files = Array.from(e.target.files || []);
+    const inputEl = e.target;
+    if (files.length === 0) return;
+
+    setGalleryDraft((prev) => {
+      const sorted = [...prev].sort((a, b) => a.sort_order - b.sort_order);
+      const start = sorted.length;
+      const additions = files.map((file, i) => ({
+        _key: `local-${Date.now()}-${i}-${Math.random().toString(36).slice(2, 9)}`,
+        file,
+        previewUrl: URL.createObjectURL(file),
+        caption: '',
+        sort_order: start + i + 1,
+        image_id: null,
+      }));
+      const combined = [...sorted, ...additions];
+      return combined.map((item, idx) => ({ ...item, sort_order: idx + 1 }));
+    });
+    if (inputEl) inputEl.value = '';
+  };
+
+  const handleDeleteGalleryItem = async (draftKey) => {
+    const item = galleryDraft.find((x) => x._key === draftKey);
+    if (!item) return;
+
+    if (item.file) {
+      if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
+      setGalleryDraft((prev) => {
+        const next = prev.filter((x) => x._key !== draftKey);
+        return next.map((it, idx) => ({ ...it, sort_order: idx + 1 }));
+      });
+      return;
+    }
+
     if (!selectedVenue) return;
-    
+    if (!window.confirm(translate('entertainment.delete_image') || 'ยืนยันการลบรูปภาพนี้?')) {
+      return;
+    }
     try {
-      for (const file of files) {
-        const formData = new FormData();
-        formData.append('image', file);
-        formData.append('sort_order', venueImages.length + 1);
-        formData.append('caption', '');
-        
-        const response = await entertainmentVenueService.uploadImage(selectedVenue.venue_id, formData);
-        setVenueImages([...venueImages, response.data]);
-      }
-      alert('อัปโหลดรูปภาพสำเร็จ');
+      await entertainmentVenueService.deleteImage(selectedVenue.venue_id, item.image_id);
+      setGalleryDraft((prev) => {
+        const next = prev.filter((x) => x._key !== draftKey);
+        return next.map((it, idx) => ({ ...it, sort_order: idx + 1 }));
+      });
+      alert('ลบรูปภาพสำเร็จ');
     } catch (err) {
-      console.error('Error uploading image:', err);
-      alert(err.response?.data?.detail || err.message || 'เกิดข้อผิดพลาดในการอัปโหลดรูปภาพ');
+      console.error('Error deleting image:', err);
+      alert(err.response?.data?.detail || err.message || 'เกิดข้อผิดพลาดในการลบรูปภาพ');
     }
   };
 
-  const handleDeleteImage = async (imageId) => {
-    if (!selectedVenue) return;
-    if (window.confirm(translate('entertainment.delete_image') || 'ยืนยันการลบรูปภาพนี้?')) {
-      try {
-        await entertainmentVenueService.deleteImage(selectedVenue.venue_id, imageId);
-        setVenueImages(venueImages.filter((img) => img.image_id !== imageId));
-        alert('ลบรูปภาพสำเร็จ');
-      } catch (err) {
-        console.error('Error deleting image:', err);
-        alert(err.response?.data?.detail || err.message || 'เกิดข้อผิดพลาดในการลบรูปภาพ');
-      }
-    }
-  };
-
-  const handleUpdateCaption = (imageId, caption) => {
-    setVenueImages(
-      venueImages.map((img) =>
-        img.image_id === imageId ? { ...img, caption } : img
-      )
+  const handleUpdateGalleryCaption = (draftKey, caption) => {
+    setGalleryDraft((prev) =>
+      prev.map((img) => (img._key === draftKey ? { ...img, caption } : img))
     );
   };
 
-  const handleMoveImage = (imageId, direction) => {
-    const index = venueImages.findIndex((img) => img.image_id === imageId);
-    if (index === -1) return;
-
-    const newImages = [...venueImages];
-    if (direction === 'up' && index > 0) {
-      [newImages[index - 1], newImages[index]] = [newImages[index], newImages[index - 1]];
-    } else if (direction === 'down' && index < newImages.length - 1) {
-      [newImages[index], newImages[index + 1]] = [newImages[index + 1], newImages[index]];
-    }
-
-    // Update sort_order
-    newImages.forEach((img, idx) => {
-      img.sort_order = idx + 1;
+  const handleMoveGalleryItem = (draftKey, direction) => {
+    setGalleryDraft((prev) => {
+      const sorted = [...prev].sort((a, b) => a.sort_order - b.sort_order);
+      const index = sorted.findIndex((x) => x._key === draftKey);
+      if (index === -1) return prev;
+      const next = [...sorted];
+      if (direction === 'up' && index > 0) {
+        [next[index - 1], next[index]] = [next[index], next[index - 1]];
+      } else if (direction === 'down' && index < next.length - 1) {
+        [next[index], next[index + 1]] = [next[index + 1], next[index]];
+      } else {
+        return prev;
+      }
+      return next.map((img, idx) => ({ ...img, sort_order: idx + 1 }));
     });
-
-    setVenueImages(newImages);
   };
 
   const handleSaveGallery = async () => {
     if (!selectedVenue) return;
-    
+
+    setGallerySaving(true);
     try {
-      // Prepare images data for batch update
-      const imagesData = venueImages.map((img, index) => ({
-        image_id: img.image_id,
-        caption: img.caption || '',
-        sort_order: index + 1,
-        is_primary: img.is_primary || false,
-      }));
-      
+      const sorted = [...galleryDraft].sort((a, b) => a.sort_order - b.sort_order);
+      const imagesData = [];
+
+      for (let i = 0; i < sorted.length; i++) {
+        const item = sorted[i];
+        if (item.file) {
+          const formDataUpload = new FormData();
+          formDataUpload.append('image', item.file);
+          formDataUpload.append('caption', item.caption || '');
+          const response = await entertainmentVenueService.uploadImage(
+            selectedVenue.venue_id,
+            formDataUpload
+          );
+          imagesData.push({
+            image_id: response.data.image_id,
+            caption: item.caption || '',
+            sort_order: i + 1,
+            is_primary: response.data.is_primary || item.is_primary || false,
+          });
+          if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
+        } else {
+          imagesData.push({
+            image_id: item.image_id,
+            caption: item.caption || '',
+            sort_order: i + 1,
+            is_primary: item.is_primary || false,
+          });
+        }
+      }
+
       await entertainmentVenueService.batchUpdateImages(selectedVenue.venue_id, imagesData);
       alert('บันทึกรูปภาพสำเร็จ');
+      setGalleryDraft([]);
       setShowGalleryModal(false);
-      await fetchVenues(); // Refresh venues to get updated images
+      await fetchVenues();
     } catch (err) {
       console.error('Error saving gallery:', err);
       alert(err.response?.data?.detail || err.message || 'เกิดข้อผิดพลาดในการบันทึกรูปภาพ');
+    } finally {
+      setGallerySaving(false);
     }
   };
 
@@ -301,7 +394,7 @@ const AdminEntertainmentVenues = () => {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="flex justify-center items-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500"></div>
+          <div className="h-12 w-12 animate-spin rounded-full border-2 border-secondary-200 border-b-secondary-500" />
           <span className="ml-4 text-lg">{translate('common.loading') || 'กำลังโหลด...'}</span>
         </div>
       </div>
@@ -312,13 +405,13 @@ const AdminEntertainmentVenues = () => {
     <div className="container mx-auto px-2 sm:px-4 py-4 sm:py-8">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4 sm:mb-6">
         <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-secondary-800">
-          <FaTheaterMasks className="h-6 w-6 sm:h-7 sm:w-7 md:h-8 md:w-8 mr-2 text-primary-600 inline-block" /> {translate('entertainment.manage_venues') || 'จัดการสถานที่บันเทิง'}
+          <FaTheaterMasks className="mr-2 inline-block h-6 w-6 text-secondary-600 sm:h-7 sm:w-7 md:h-8 md:w-8" aria-hidden /> {translate('entertainment.manage_venues') || 'จัดการสถานที่บันเทิง'}
         </h1>
         <button
           onClick={handleCreate}
-          className="w-full sm:w-auto bg-primary-600 text-white px-4 py-2 rounded-lg hover:bg-primary-700 transition-colors flex items-center justify-center space-x-2"
+          className="flex w-full items-center justify-center space-x-2 rounded-lg border border-secondary-300 bg-secondary-800 px-4 py-2 text-white transition-colors hover:bg-secondary-900 sm:w-auto"
         >
-          <FiPlus className="w-5 h-5" />
+          <FaPlus className="h-5 w-5" aria-hidden />
           <span>{translate('entertainment.add_venue') || 'เพิ่มสถานที่'}</span>
         </button>
       </div>
@@ -331,13 +424,13 @@ const AdminEntertainmentVenues = () => {
               {translate('common.search') || 'ค้นหา'}
             </label>
             <div className="relative">
-              <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-secondary-400" />
+              <FaSearch className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-secondary-400" aria-hidden />
               <input
                 type="text"
                 placeholder={translate('entertainment.search_placeholder') || 'ค้นหาชื่อ, คำอธิบาย, หมวดหมู่...'}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                className="w-full pl-10 pr-4 py-2 border border-secondary-300 rounded-lg focus:border-secondary-400 focus:outline-none focus:ring-2 focus:ring-secondary-300/80"
               />
             </div>
           </div>
@@ -349,7 +442,7 @@ const AdminEntertainmentVenues = () => {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="w-full px-4 py-2 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+              className="w-full px-4 py-2 border border-secondary-300 rounded-lg focus:border-secondary-400 focus:outline-none focus:ring-2 focus:ring-secondary-300/80"
             >
               <option value="all">{translate('common.all') || 'ทั้งหมด'}</option>
               <option value="open">{translate('common.open') || 'เปิด'}</option>
@@ -364,7 +457,7 @@ const AdminEntertainmentVenues = () => {
             <select
               value={typeFilter}
               onChange={(e) => setTypeFilter(e.target.value)}
-              className="w-full px-4 py-2 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+              className="w-full px-4 py-2 border border-secondary-300 rounded-lg focus:border-secondary-400 focus:outline-none focus:ring-2 focus:ring-secondary-300/80"
             >
               <option value="all">{translate('common.all') || 'ทั้งหมด'}</option>
               {getUniqueTypes().map((type) => (
@@ -401,8 +494,8 @@ const AdminEntertainmentVenues = () => {
                 <th className="px-4 xl:px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
                   {translate('entertainment.created_date_header') || 'วันที่สร้าง'}
                 </th>
-                <th className="px-4 xl:px-6 py-3 text-right text-xs font-medium text-secondary-500 uppercase tracking-wider">
-                  {translate('entertainment.actions_header') || 'การจัดการ'}
+                <th className="px-4 xl:px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
+                  {translate('admin.table.actions') || translate('entertainment.actions_header') || 'การจัดการ'}
                 </th>
               </tr>
             </thead>
@@ -434,16 +527,16 @@ const AdminEntertainmentVenues = () => {
                       </div>
                     </td>
                     <td className="px-4 xl:px-6 py-4 whitespace-nowrap">
-                      <span className="px-2 py-1 text-xs font-medium bg-primary-100 text-primary-800 rounded">
+                      <span className="rounded px-2 py-1 text-xs font-medium bg-secondary-100 text-secondary-700">
                         {venue.venue_type}
                       </span>
                     </td>
                     <td className="px-4 xl:px-6 py-4 whitespace-nowrap">
                       <span
-                        className={`px-2 py-1 text-xs font-medium rounded ${
+                        className={`rounded px-2 py-1 text-xs font-medium ${
                           venue.status === 'open'
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-red-100 text-red-800'
+                            ? 'border border-emerald-100/80 bg-emerald-50/90 text-emerald-900'
+                            : 'border border-slate-200 bg-slate-100 text-slate-600'
                         }`}
                       >
                         {venue.status === 'open' ? translate('common.open') || 'เปิด' : translate('common.closed') || 'ปิด'}
@@ -451,7 +544,7 @@ const AdminEntertainmentVenues = () => {
                     </td>
                     <td className="px-4 xl:px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
-                        <FaStar className="text-yellow-400 mr-1 text-xs" />
+                        <FaStar className="mr-1 text-xs text-secondary-500" aria-hidden />
                         <span className="text-xs xl:text-sm font-medium">
                           {Number(venue.average_rating || 0).toFixed(1)}
                         </span>
@@ -463,35 +556,36 @@ const AdminEntertainmentVenues = () => {
                     <td className="px-4 xl:px-6 py-4 whitespace-nowrap text-xs xl:text-sm text-secondary-500">
                       {new Date(venue.created_at).toLocaleDateString('th-TH')}
                     </td>
-                    <td className="px-4 xl:px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <div className="flex justify-end space-x-1 xl:space-x-2">
+                    <td className="px-4 xl:px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      <div className="flex flex-wrap gap-2">
                         <button
+                          type="button"
                           onClick={() => handleView(venue)}
-                          className="text-blue-600 hover:text-blue-900 p-1"
-                          title={translate('entertainment.view_details') || 'ดูรายละเอียด'}
+                          className="text-blue-600 hover:text-blue-900"
                         >
-                          <FiEye className="w-4 h-4 xl:w-5 xl:h-5" />
+                          {translate('admin.action.view')}
                         </button>
                         <button
+                          type="button"
                           onClick={() => handleManageGallery(venue)}
-                          className="text-purple-600 hover:text-purple-900 p-1"
-                          title={translate('entertainment.manage_images') || 'จัดการรูปภาพ'}
+                          className="text-emerald-600 hover:text-emerald-900"
                         >
-                          <FiImage className="w-4 h-4 xl:w-5 xl:h-5" />
+                          {translate('entertainment.manage_images') || translate('admin.action.upload_image')}
                         </button>
                         <button
+                          type="button"
                           onClick={() => handleEdit(venue)}
-                          className="text-yellow-600 hover:text-yellow-900 p-1"
-                          title={translate('entertainment.edit') || 'แก้ไข'}
+                          className="text-indigo-600 hover:text-indigo-900"
                         >
-                          <FiEdit2 className="w-4 h-4 xl:w-5 xl:h-5" />
+                          {translate('admin.action.edit')}
                         </button>
                         <button
+                          type="button"
                           onClick={() => handleDelete(venue)}
-                          className="text-red-600 hover:text-red-900 p-1"
-                          title={translate('entertainment.delete') || 'ลบ'}
+                          className="font-medium text-red-600 hover:text-red-900"
+                          title={translate('admin.action.delete')}
                         >
-                          <FiTrash2 className="w-4 h-4 xl:w-5 xl:h-5" />
+                          {translate('admin.action.delete')}
                         </button>
                       </div>
                     </td>
@@ -541,20 +635,20 @@ const AdminEntertainmentVenues = () => {
                     {venue.description}
                   </p>
                   <div className="flex flex-wrap items-center gap-2 mb-2">
-                    <span className="px-2 py-1 text-xs font-medium bg-primary-100 text-primary-800 rounded">
+                    <span className="rounded px-2 py-1 text-xs font-medium bg-secondary-100 text-secondary-700">
                       {venue.venue_type}
                     </span>
                     <span
-                      className={`px-2 py-1 text-xs font-medium rounded ${
+                      className={`rounded px-2 py-1 text-xs font-medium ${
                         venue.status === 'open'
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-red-100 text-red-800'
+                          ? 'border border-emerald-100/80 bg-emerald-50/90 text-emerald-900'
+                          : 'border border-slate-200 bg-slate-100 text-slate-600'
                       }`}
                     >
                       {venue.status === 'open' ? translate('common.open') || 'เปิด' : translate('common.closed') || 'ปิด'}
                     </span>
                     <div className="flex items-center">
-                      <FaStar className="text-yellow-400 mr-1 text-xs" />
+                      <FaStar className="mr-1 text-xs text-secondary-500" aria-hidden />
                       <span className="text-xs font-medium">
                         {Number(venue.average_rating || 0).toFixed(1)}
                       </span>
@@ -565,32 +659,32 @@ const AdminEntertainmentVenues = () => {
                   </div>
                   <div className="flex flex-wrap gap-2">
                     <button
+                      type="button"
                       onClick={() => handleView(venue)}
-                      className="flex-1 sm:flex-none px-3 py-1.5 text-xs sm:text-sm bg-blue-50 text-blue-600 rounded hover:bg-blue-100 flex items-center justify-center gap-1"
+                      className="text-xs text-blue-600 hover:text-blue-900 sm:text-sm"
                     >
-                      <FiEye className="w-4 h-4" />
-                      <span className="hidden sm:inline">{translate('common.view') || 'ดู'}</span>
+                      {translate('admin.action.view')}
                     </button>
                     <button
+                      type="button"
                       onClick={() => handleManageGallery(venue)}
-                      className="flex-1 sm:flex-none px-3 py-1.5 text-xs sm:text-sm bg-purple-50 text-purple-600 rounded hover:bg-purple-100 flex items-center justify-center gap-1"
+                      className="text-xs text-emerald-600 hover:text-emerald-900 sm:text-sm"
                     >
-                      <FiImage className="w-4 h-4" />
-                      <span className="hidden sm:inline">{translate('entertainment.image') || 'รูป'}</span>
+                      {translate('entertainment.manage_images') || translate('admin.action.upload_image')}
                     </button>
                     <button
+                      type="button"
                       onClick={() => handleEdit(venue)}
-                      className="flex-1 sm:flex-none px-3 py-1.5 text-xs sm:text-sm bg-yellow-50 text-yellow-600 rounded hover:bg-yellow-100 flex items-center justify-center gap-1"
+                      className="text-xs text-indigo-600 hover:text-indigo-900 sm:text-sm"
                     >
-                      <FiEdit2 className="w-4 h-4" />
-                      <span className="hidden sm:inline">{translate('entertainment.edit') || 'แก้ไข'}</span>
+                      {translate('admin.action.edit')}
                     </button>
                     <button
+                      type="button"
                       onClick={() => handleDelete(venue)}
-                      className="flex-1 sm:flex-none px-3 py-1.5 text-xs sm:text-sm bg-red-50 text-red-600 rounded hover:bg-red-100 flex items-center justify-center gap-1"
+                      className="text-xs font-medium text-red-600 hover:text-red-900 sm:text-sm"
                     >
-                      <FiTrash2 className="w-4 h-4" />
-                      <span className="hidden sm:inline">{translate('entertainment.delete') || 'ลบ'}</span>
+                      {translate('admin.action.delete')}
                     </button>
                   </div>
                 </div>
@@ -606,9 +700,9 @@ const AdminEntertainmentVenues = () => {
 
       {/* Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-y-auto m-2 sm:m-0">
-            <div className="flex justify-between items-center p-4 sm:p-6 border-b sticky top-0 bg-white z-10">
+        <div className="fixed inset-0 z-[1200] flex items-start justify-center overflow-y-auto bg-black/50 p-2 pt-20 pb-8 sm:p-4 sm:pt-24">
+          <div className="relative z-[1210] my-auto w-full max-w-4xl rounded-lg bg-white shadow-xl max-h-[min(90vh,calc(100vh-5rem))] overflow-y-auto">
+            <div className="sticky top-0 z-10 flex items-center justify-between border-b bg-white p-4 sm:p-6">
               <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-secondary-800 pr-2">
                 {modalType === 'create'
                   ? translate('entertainment.add_venue_title') || 'เพิ่มสถานที่บันเทิง'
@@ -620,7 +714,7 @@ const AdminEntertainmentVenues = () => {
                 onClick={() => setShowModal(false)}
                 className="text-secondary-400 hover:text-secondary-600 flex-shrink-0"
               >
-                <FiX className="w-5 h-5 sm:w-6 sm:h-6" />
+                <FaTimes className="h-5 w-5 sm:h-6 sm:w-6" aria-hidden />
               </button>
             </div>
 
@@ -645,10 +739,10 @@ const AdminEntertainmentVenues = () => {
                         {translate('entertainment.status_label') || 'สถานะ'}
                       </label>
                       <span
-                        className={`px-2 py-1 text-xs font-medium rounded ${
+                        className={`rounded px-2 py-1 text-xs font-medium ${
                           selectedVenue.status === 'open'
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-red-100 text-red-800'
+                            ? 'border border-emerald-100/80 bg-emerald-50/90 text-emerald-900'
+                            : 'border border-slate-200 bg-slate-100 text-slate-600'
                         }`}
                       >
                         {selectedVenue.status === 'open' ? translate('common.open') || 'เปิด' : translate('common.closed') || 'ปิด'}
@@ -659,7 +753,7 @@ const AdminEntertainmentVenues = () => {
                         {translate('entertainment.rating_label') || 'เรตติ้ง'}
                       </label>
                       <div className="flex items-center">
-                        <FaStar className="text-yellow-400 mr-1" />
+                        <FaStar className="mr-1 text-secondary-500" aria-hidden />
                         <span>{Number(selectedVenue.average_rating || 0).toFixed(1)}</span>
                         <span className="text-secondary-500 ml-1">
                           ({selectedVenue.total_reviews || 0} {translate('entertainment.reviews_label') || 'รีวิว'})
@@ -720,7 +814,7 @@ const AdminEntertainmentVenues = () => {
                         onChange={(e) =>
                           setFormData({ ...formData, venue_name: e.target.value })
                         }
-                        className="w-full px-4 py-2 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                        className="w-full px-4 py-2 border border-secondary-300 rounded-lg focus:border-secondary-400 focus:outline-none focus:ring-2 focus:ring-secondary-300/80"
                         required
                       />
                     </div>
@@ -733,7 +827,7 @@ const AdminEntertainmentVenues = () => {
                         onChange={(e) =>
                           setFormData({ ...formData, category: e.target.value || null })
                         }
-                        className="w-full px-4 py-2 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                        className="w-full px-4 py-2 border border-secondary-300 rounded-lg focus:border-secondary-400 focus:outline-none focus:ring-2 focus:ring-secondary-300/80"
                       >
                         <option value="">-- {translate('entertainment.category') || 'เลือกหมวดหมู่'} --</option>
                         {categories.map((cat) => (
@@ -754,7 +848,7 @@ const AdminEntertainmentVenues = () => {
                           setFormData({ ...formData, venue_type: e.target.value })
                         }
                         placeholder={translate('entertainment.venue_type_placeholder') || 'เช่น คาราโอเกะ, บาร์'}
-                        className="w-full px-4 py-2 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                        className="w-full px-4 py-2 border border-secondary-300 rounded-lg focus:border-secondary-400 focus:outline-none focus:ring-2 focus:ring-secondary-300/80"
                       />
                     </div>
                     <div className="col-span-2">
@@ -767,50 +861,107 @@ const AdminEntertainmentVenues = () => {
                           setFormData({ ...formData, description: e.target.value })
                         }
                         rows="3"
-                        className="w-full px-4 py-2 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                        className="w-full px-4 py-2 border border-secondary-300 rounded-lg focus:border-secondary-400 focus:outline-none focus:ring-2 focus:ring-secondary-300/80"
                       />
                     </div>
                     <div className="col-span-2">
                       <label className="block text-sm font-medium text-secondary-700 mb-1">
                         {translate('entertainment.address_label') || 'ที่อยู่'} *
                       </label>
-                      <input
-                        type="text"
+                      <AddressPicker
                         value={formData.address}
-                        onChange={(e) =>
-                          setFormData({ ...formData, address: e.target.value })
+                        onChange={(v) => setFormData((prev) => ({ ...prev, address: v }))}
+                        onLocationSelect={(loc) => {
+                          setFormData((prev) => ({
+                            ...prev,
+                            address: loc.address || prev.address,
+                            latitude: String(loc.lat),
+                            longitude: String(loc.lng),
+                          }));
+                        }}
+                        placeholder={
+                          translate('entertainment.address_search_placeholder') ||
+                          'พิมพ์ค้นหาที่อยู่หรือชื่อสถานที่ แล้วเลือกจากรายการ'
                         }
-                        className="w-full px-4 py-2 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500"
                         required
+                        restrictCountry={false}
+                        placeTypes={null}
+                        showManualGeocodeButton={false}
+                        className=""
                       />
                     </div>
                     {/* Location Picker */}
                     <div className="md:col-span-2">
-                      <label className="block text-sm font-medium text-secondary-700 mb-1">
-                        {translate('entertainment.location_label') || 'ตำแหน่งสถานที่'}
-                      </label>
-                      
-                      
-                      <MapPicker
-                        initialCenter={{
-                          lat: formData.latitude ? parseFloat(formData.latitude) : 13.7563,
-                          lng: formData.longitude ? parseFloat(formData.longitude) : 100.5018
-                        }}
-                        onLocationSelect={(location) => {
-                          setFormData(prev => ({
-                            ...prev,
-                            latitude: location.lat.toString(),
-                            longitude: location.lng.toString()
-                          }));
-                        }}
-                        height="250px"
-                        zoom={formData.latitude ? 17 : 12}
-                      />
-                      
-                      <p className="mt-2 text-xs text-secondary-500">
-                        <LuMapPin className="inline w-3 h-3 mr-1" />
-                        {translate('entertainment.map_hint') || 'เลื่อนแผนที่เพื่อเลือกตำแหน่ง'}
-                      </p>
+                      <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
+                        <label className="block text-sm font-medium text-secondary-700">
+                          {translate('entertainment.location_label') || 'ตำแหน่งสถานที่'}
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => setVenueMapExpanded((v) => !v)}
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-secondary-300 bg-white px-3 py-1.5 text-xs font-medium text-secondary-700 transition hover:bg-secondary-50 sm:text-sm"
+                        >
+                          {venueMapExpanded ? (
+                            <>
+                              <FaChevronUp className="h-3.5 w-3.5" aria-hidden />
+                              {translate('entertainment.hide_map') || 'ซ่อนแผนที่'}
+                            </>
+                          ) : (
+                            <>
+                              <FaChevronDown className="h-3.5 w-3.5" aria-hidden />
+                              {translate('entertainment.show_map') || 'แสดงแผนที่'}
+                            </>
+                          )}
+                        </button>
+                      </div>
+
+                      {venueMapExpanded ? (
+                        <>
+                          <MapPicker
+                            showPlaceSearch={false}
+                            initialCenter={{
+                              lat: formData.latitude ? parseFloat(formData.latitude) : 13.7563,
+                              lng: formData.longitude ? parseFloat(formData.longitude) : 100.5018
+                            }}
+                            onLocationSelect={(location) => {
+                              setFormData((prev) => ({
+                                ...prev,
+                                latitude: location.lat.toString(),
+                                longitude: location.lng.toString(),
+                                ...(typeof location.address === 'string' &&
+                                location.address.length > 0 &&
+                                !location.address.startsWith('ตำแหน่ง:')
+                                  ? { address: location.address }
+                                  : {}),
+                              }));
+                            }}
+                            height="280px"
+                            zoom={formData.latitude ? 17 : 12}
+                          />
+                          <p className="mt-2 text-xs text-secondary-500">
+                            <FaMapMarkerAlt className="mr-1 inline h-3 w-3 text-secondary-500" aria-hidden />
+                            {translate('entertainment.map_hint') === 'entertainment.map_hint'
+                              ? 'เลื่อนแผนที่เพื่อปรับพิกัด — ค้นหาสถานที่ได้ที่ช่องที่อยู่ด้านบน'
+                              : translate('entertainment.map_hint')}
+                          </p>
+                        </>
+                      ) : (
+                        <div className="rounded-lg border border-dashed border-secondary-300 bg-secondary-50 px-4 py-3 text-sm text-secondary-600">
+                          <p>
+                            {translate('entertainment.map_collapsed_hint') ||
+                              'แผนที่ถูกซ่อนเพื่อเลื่อนฟอร์มได้สะดวก — ค้นหาสถานที่ที่ช่องที่อยู่ด้านบน กด «แสดงแผนที่» เมื่อต้องการปรับพิกัดบนแผนที่'}
+                          </p>
+                          {formData.latitude && formData.longitude ? (
+                            <p className="mt-2 font-mono text-xs text-secondary-700">
+                              {Number(formData.latitude).toFixed(6)}, {Number(formData.longitude).toFixed(6)}
+                            </p>
+                          ) : (
+                            <p className="mt-2 text-xs text-secondary-500">
+                              {translate('entertainment.no_coordinates_yet') || 'ยังไม่ได้ตั้งพิกัด'}
+                            </p>
+                          )}
+                        </div>
+                      )}
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-secondary-700 mb-1">
@@ -822,7 +973,7 @@ const AdminEntertainmentVenues = () => {
                         onChange={(e) =>
                           setFormData({ ...formData, phone_number: e.target.value })
                         }
-                        className="w-full px-4 py-2 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                        className="w-full px-4 py-2 border border-secondary-300 rounded-lg focus:border-secondary-400 focus:outline-none focus:ring-2 focus:ring-secondary-300/80"
                       />
                     </div>
                     <div>
@@ -836,7 +987,7 @@ const AdminEntertainmentVenues = () => {
                           setFormData({ ...formData, opening_hours: e.target.value })
                         }
                         placeholder={translate('entertainment.opening_hours_placeholder') || 'เช่น 10:00 - 22:00'}
-                        className="w-full px-4 py-2 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                        className="w-full px-4 py-2 border border-secondary-300 rounded-lg focus:border-secondary-400 focus:outline-none focus:ring-2 focus:ring-secondary-300/80"
                       />
                     </div>
                     <div>
@@ -848,7 +999,7 @@ const AdminEntertainmentVenues = () => {
                         onChange={(e) =>
                           setFormData({ ...formData, status: e.target.value })
                         }
-                        className="w-full px-4 py-2 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                        className="w-full px-4 py-2 border border-secondary-300 rounded-lg focus:border-secondary-400 focus:outline-none focus:ring-2 focus:ring-secondary-300/80"
                       >
                         <option value="open">{translate('common.open') || 'เปิด'}</option>
                         <option value="closed">{translate('common.closed') || 'ปิด'}</option>
@@ -864,7 +1015,7 @@ const AdminEntertainmentVenues = () => {
                         onChange={(e) =>
                           setFormData({ ...formData, image: e.target.files[0] })
                         }
-                        className="w-full px-4 py-2 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                        className="w-full px-4 py-2 border border-secondary-300 rounded-lg focus:border-secondary-400 focus:outline-none focus:ring-2 focus:ring-secondary-300/80"
                       />
                     </div>
                   </div>
@@ -882,7 +1033,7 @@ const AdminEntertainmentVenues = () => {
                 </button>
                 <button
                   onClick={handleSave}
-                  className="w-full sm:w-auto px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+                  className="w-full rounded-lg bg-secondary-800 px-4 py-2 text-white hover:bg-secondary-900 sm:w-auto"
                 >
                   {translate('common.save') || 'บันทึก'}
                 </button>
@@ -894,12 +1045,12 @@ const AdminEntertainmentVenues = () => {
 
       {/* Gallery Management Modal */}
       {showGalleryModal && selectedVenue && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-6xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-y-auto m-2 sm:m-0">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 sm:gap-0 p-4 sm:p-6 border-b sticky top-0 bg-white z-10">
+        <div className="fixed inset-0 z-[1200] flex items-start justify-center overflow-y-auto bg-black/50 p-2 pt-20 pb-8 sm:p-4 sm:pt-24">
+          <div className="relative z-[1210] my-auto w-full max-w-6xl rounded-lg bg-white shadow-xl max-h-[min(90vh,calc(100vh-5rem))] overflow-y-auto">
+            <div className="sticky top-0 z-10 flex flex-col gap-2 border-b bg-white p-4 sm:flex-row sm:items-center sm:justify-between sm:gap-0 sm:p-6">
               <div className="flex-1 min-w-0">
                 <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-secondary-800 truncate">
-                  📷 {translate('entertainment.gallery_modal_title') || 'จัดการรูปภาพ'}
+                  <FcGallery className="inline mr-3 h-8 w-8 align-middle" aria-hidden /> <span className="text-xl sm:text-2xl md:text-2xl font-bold">{translate('entertainment.gallery_modal_title') || 'จัดการรูปภาพ'}</span>
                 </h2>
                 <p className="text-xs sm:text-sm text-secondary-500 mt-1 truncate">
                   {selectedVenue.venue_name}
@@ -909,10 +1060,11 @@ const AdminEntertainmentVenues = () => {
                 </p>
               </div>
               <button
-                onClick={() => setShowGalleryModal(false)}
+                type="button"
+                onClick={closeGalleryModal}
                 className="text-secondary-400 hover:text-secondary-600 flex-shrink-0 self-end sm:self-auto"
               >
-                <FiX className="w-5 h-5 sm:w-6 sm:h-6" />
+                <FaTimes className="h-5 w-5 sm:h-6 sm:w-6" aria-hidden />
               </button>
             </div>
 
@@ -920,65 +1072,82 @@ const AdminEntertainmentVenues = () => {
               {/* Upload Section */}
               <div className="mb-4 sm:mb-6 p-3 sm:p-4 bg-secondary-50 rounded-lg">
                 <label className="block text-sm font-medium text-secondary-700 mb-2">
-                  <FiUpload className="inline mr-2" />
+                  <FaUpload className="inline mr-2" />
                   {translate('entertainment.upload_image') || 'อัปโหลดรูปภาพใหม่'}
                 </label>
                 <input
                   type="file"
                   accept="image/*"
                   multiple
-                  onChange={handleAddImage}
-                  className="w-full text-xs sm:text-sm px-3 sm:px-4 py-2 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                  disabled={gallerySaving}
+                  onChange={handleAddGalleryFiles}
+                  className="w-full text-xs sm:text-sm px-3 sm:px-4 py-2 border border-secondary-300 rounded-lg focus:border-secondary-400 focus:outline-none focus:ring-2 focus:ring-secondary-300/80 disabled:opacity-50"
                 />
                 <p className="text-xs text-secondary-500 mt-1">
                   {translate('common.supports_files') || 'สามารถเลือกหลายรูปได้ (รองรับ JPG, PNG, GIF)'}
                 </p>
+                <p className="text-xs text-amber-800/90 mt-2 rounded-md bg-amber-50 px-2 py-1.5 border border-amber-200/80">
+                  {translate('entertainment.gallery_save_to_upload_hint') ||
+                    'รูปที่เลือกจะยังไม่อัปโหลดจนกว่าจะกด «บันทึก» — ยกเลิกหรือปิดโมดัลจะละทิ้งรูปที่ยังไม่บันทึก'}
+                </p>
               </div>
 
               {/* Images Grid */}
-              {venueImages.length > 0 ? (
+              {galleryDraft.length > 0 ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
-                  {venueImages
+                  {galleryDraft
                     .sort((a, b) => a.sort_order - b.sort_order)
                     .map((image, index) => (
                       <div
-                        key={image.image_id}
+                        key={image._key}
                         className="relative group bg-secondary-100 rounded-lg overflow-hidden"
                       >
                         <div className="aspect-square">
                           <img
-                            src={image.image_display_url || image.image_url || image.image}
+                            src={
+                              image.previewUrl ||
+                              image.image_display_url ||
+                              image.image_url ||
+                              image.image
+                            }
                             alt={image.caption || `Image ${index + 1}`}
                             className="w-full h-full object-cover"
                           />
                         </div>
-                        <div className="absolute top-2 left-2 bg-black bg-opacity-60 text-white text-xs px-2 py-1 rounded">
-                          #{image.sort_order}
+                        <div className="absolute top-2 left-2 max-w-[calc(100%-3rem)] bg-black bg-opacity-60 text-white text-xs px-2 py-1 rounded">
+                          <span>#{image.sort_order}</span>
+                          {image.file ? (
+                            <span className="ml-1.5 text-amber-200">
+                              · {translate('entertainment.gallery_pending_badge') || 'รอบันทึก'}
+                            </span>
+                          ) : null}
                         </div>
                         <div className="absolute top-1 right-1 sm:top-2 sm:right-2 flex flex-col space-y-0.5 sm:space-y-1">
                           <button
-                            onClick={() => handleMoveImage(image.image_id, 'up')}
-                            disabled={index === 0}
-                            className={`p-0.5 sm:p-1 rounded ${
+                            type="button"
+                            onClick={() => handleMoveGalleryItem(image._key, 'up')}
+                            disabled={index === 0 || gallerySaving}
+                            className={`rounded p-0.5 sm:p-1 ${
                               index === 0
-                                ? 'bg-gray-400 cursor-not-allowed opacity-50'
-                                : 'bg-blue-600 hover:bg-blue-700'
-                            } text-white`}
+                                ? 'cursor-not-allowed bg-secondary-200 text-secondary-500 opacity-70'
+                                : 'bg-secondary-600 text-white hover:bg-secondary-700'
+                            }`}
                             title={translate('common.move_up') || 'ย้ายขึ้น'}
                           >
-                            <FiArrowUp className="w-3 h-3 sm:w-4 sm:h-4" />
+                            <FaArrowUp className="h-3 w-3 sm:h-4 sm:w-4" aria-hidden />
                           </button>
                           <button
-                            onClick={() => handleMoveImage(image.image_id, 'down')}
-                            disabled={index === venueImages.length - 1}
-                            className={`p-0.5 sm:p-1 rounded ${
-                              index === venueImages.length - 1
-                                ? 'bg-gray-400 cursor-not-allowed opacity-50'
-                                : 'bg-blue-600 hover:bg-blue-700'
+                            type="button"
+                            onClick={() => handleMoveGalleryItem(image._key, 'down')}
+                            disabled={index === galleryDraft.length - 1 || gallerySaving}
+                            className={`rounded p-0.5 sm:p-1 ${
+                              index === galleryDraft.length - 1
+                                ? 'cursor-not-allowed bg-secondary-300 opacity-50'
+                                : 'bg-secondary-600 text-white hover:bg-secondary-700'
                             } text-white`}
                             title={translate('common.move_down') || 'ย้ายลง'}
                           >
-                            <FiArrowDown className="w-3 h-3 sm:w-4 sm:h-4" />
+                            <FaArrowDown className="h-3 w-3 sm:h-4 sm:w-4" aria-hidden />
                           </button>
                         </div>
                         <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-60 p-1.5 sm:p-2">
@@ -986,25 +1155,28 @@ const AdminEntertainmentVenues = () => {
                             type="text"
                             value={image.caption || ''}
                             onChange={(e) =>
-                              handleUpdateCaption(image.image_id, e.target.value)
+                              handleUpdateGalleryCaption(image._key, e.target.value)
                             }
+                            disabled={gallerySaving}
                             placeholder={translate('entertainment.image_caption') || 'เพิ่มคำอธิบาย...'}
-                            className="w-full px-1.5 sm:px-2 py-0.5 sm:py-1 text-xs text-white bg-transparent border border-white border-opacity-30 rounded focus:outline-none focus:border-white placeholder-white placeholder-opacity-50"
+                            className="w-full px-1.5 sm:px-2 py-0.5 sm:py-1 text-xs text-white bg-transparent border border-white border-opacity-30 rounded focus:outline-none focus:border-white placeholder-white placeholder-opacity-50 disabled:opacity-50"
                           />
                         </div>
                         <button
-                          onClick={() => handleDeleteImage(image.image_id)}
-                          className="absolute top-1 left-1 sm:top-2 sm:left-2 p-1 sm:p-1.5 bg-red-600 hover:bg-red-700 text-white rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                          type="button"
+                          onClick={() => handleDeleteGalleryItem(image._key)}
+                          disabled={gallerySaving}
+                          className="absolute left-1 top-1 rounded p-1 text-white opacity-0 transition-opacity group-hover:opacity-100 sm:left-2 sm:top-2 sm:p-1.5 bg-secondary-800 hover:bg-secondary-900 disabled:opacity-40"
                           title={translate('entertainment.delete_image') || 'ลบรูป'}
                         >
-                          <FiTrash2 className="w-3 h-3 sm:w-4 sm:h-4" />
+                          <FaTrash className="h-3 w-3 sm:h-4 sm:w-4" aria-hidden />
                         </button>
                       </div>
                     ))}
                 </div>
               ) : (
                 <div className="text-center py-12">
-                  <FiImage className="w-16 h-16 text-secondary-300 mx-auto mb-4" />
+                  <FaImage className="w-16 h-16 text-secondary-300 mx-auto mb-4" />
                   <p className="text-secondary-500">{translate('entertainment.no_images') || 'ยังไม่มีรูปภาพ'}</p>
                   <p className="text-sm text-secondary-400 mt-2">
                     {translate('entertainment.upload_image') || 'อัปโหลดรูปภาพเพื่อเริ่มต้น'}
@@ -1015,16 +1187,22 @@ const AdminEntertainmentVenues = () => {
 
             <div className="flex flex-col sm:flex-row justify-end gap-2 sm:gap-3 p-4 sm:p-6 border-t sticky bottom-0 bg-white">
               <button
-                onClick={() => setShowGalleryModal(false)}
-                className="w-full sm:w-auto px-4 py-2 border border-secondary-300 rounded-lg text-secondary-700 hover:bg-secondary-50"
+                type="button"
+                onClick={closeGalleryModal}
+                disabled={gallerySaving}
+                className="w-full sm:w-auto px-4 py-2 border border-secondary-300 rounded-lg text-secondary-700 hover:bg-secondary-50 disabled:opacity-50"
               >
                 {translate('common.cancel') || 'ยกเลิก'}
               </button>
               <button
+                type="button"
                 onClick={handleSaveGallery}
-                className="w-full sm:w-auto px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+                disabled={gallerySaving}
+                className="w-full rounded-lg bg-secondary-800 px-4 py-2 text-white hover:bg-secondary-900 sm:w-auto disabled:opacity-50"
               >
-                {translate('entertainment.save_gallery') || 'บันทึก'}
+                {gallerySaving
+                  ? translate('common.saving') || 'กำลังบันทึก...'
+                  : translate('entertainment.save_gallery') || 'บันทึก'}
               </button>
             </div>
           </div>
