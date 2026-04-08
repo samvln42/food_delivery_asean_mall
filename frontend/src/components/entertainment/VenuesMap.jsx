@@ -109,6 +109,8 @@ const VenuesMap = ({
   const [locating, setLocating] = useState(false);
   const markersRef = useRef([]);
   const infoWindowsRef = useRef([]);
+  const myLocMarkerRef = useRef(null); // แยก My Location dot ออกจาก marker array หลัก
+  const customMarkerClickedRef = useRef(false); // flag: click มาจาก custom marker ของเรา
   const apiKey = getGoogleMapsApiKey();
   // ref เพื่อให้ map init effect เข้าถึง userCoords ล่าสุดเสมอ (ไม่มีปัญหา stale closure)
   const userCoordsRef = useRef(userCoords);
@@ -135,6 +137,32 @@ const VenuesMap = ({
       .catch((err) => console.error('Failed to load Google Maps:', err));
   }, [apiKey]);
 
+  // My Location dot — แยก effect เพื่อไม่ให้ trigger marker/InfoWindow recreation
+  useEffect(() => {
+    if (!mapsLoaded || !map || !window.google?.maps) return;
+    const google = window.google;
+    const HtmlMarker = buildHtmlMarkerClass(google);
+
+    // ลบ dot เก่า
+    if (myLocMarkerRef.current?.setMap) myLocMarkerRef.current.setMap(null);
+    myLocMarkerRef.current = null;
+
+    if (!userCoords) return;
+    const myLocEl = document.createElement('div');
+    myLocEl.style.cssText =
+      'position:absolute;width:18px;height:18px;border-radius:50%;background:#2563eb;border:3px solid #fff;box-shadow:0 0 0 3px rgba(37,99,235,.35),0 2px 8px rgba(0,0,0,.25);transform:translate(-50%,-50%);pointer-events:none;';
+    myLocMarkerRef.current = new HtmlMarker(
+      new google.maps.LatLng(userCoords.lat, userCoords.lng),
+      map,
+      myLocEl
+    );
+    return () => {
+      if (myLocMarkerRef.current?.setMap) myLocMarkerRef.current.setMap(null);
+      myLocMarkerRef.current = null;
+    };
+  }, [mapsLoaded, map, userCoords]);
+
+  // Venue/restaurant markers — ไม่มี userCoords ใน deps เพื่อไม่ให้ InfoWindow ถูกปิดเมื่อ GPS อัปเดต
   useEffect(() => {
     if (!mapsLoaded || !mapRef.current || !window.google?.maps || !map) return;
 
@@ -149,22 +177,9 @@ const VenuesMap = ({
     infoWindowsRef.current.forEach((iw) => iw?.close());
     infoWindowsRef.current = [];
 
-    // "My Location" blue-dot marker
-    if (userCoords) {
-      const myLocEl = document.createElement('div');
-      myLocEl.style.cssText =
-        'position:absolute;width:18px;height:18px;border-radius:50%;background:#2563eb;border:3px solid #fff;box-shadow:0 0 0 3px rgba(37,99,235,.35),0 2px 8px rgba(0,0,0,.25);transform:translate(-50%,-50%);pointer-events:none;';
-      const myLocMarker = new HtmlMarker(
-        new google.maps.LatLng(userCoords.lat, userCoords.lng),
-        map,
-        myLocEl
-      );
-      markersRef.current.push(myLocMarker);
-    }
-
     if (itemsWithCoords.length === 0) {
       // ถ้า userCoords ถูก set แล้ว ให้ pan effect จัดการ (ไม่ override)
-      if (!userCoords) {
+      if (!userCoordsRef.current) {
         map.setCenter(DEFAULT_CENTER);
         map.setZoom(DEFAULT_ZOOM);
       }
@@ -222,10 +237,20 @@ const VenuesMap = ({
 
       dom.addEventListener('click', (e) => {
         e.stopPropagation();
+        customMarkerClickedRef.current = true; // บอก map click listener ว่า click นี้มาจาก marker ของเรา
         openInfo();
       });
 
       infoWindowsRef.current.push(infoWindow);
+    });
+
+    // ดัก map click: ถ้า click มาจาก custom marker → หยุด Google POI popup
+    // ถ้าเป็น click บน Google Maps POI ทั่วไป → ปล่อยให้ Google แสดง popup ปกติ
+    const mapClickListener = google.maps.event.addListener(map, 'click', (e) => {
+      if (customMarkerClickedRef.current) {
+        customMarkerClickedRef.current = false;
+        e.stop(); // กัน Google จากการเปิด POI popup
+      }
     });
 
     // ถ้า user เลือกเมืองเฉพาะ → fitBounds ไปยัง marker ในเมืองนั้น (ไม่ lock ที่ userCoords)
@@ -243,7 +268,7 @@ const VenuesMap = ({
         });
         map.setZoom(15);
       }
-    } else if (!userCoords) {
+    } else if (!userCoordsRef.current) {
       if (itemsWithCoords.length > 1) {
         map.fitBounds(bounds, { top: 60, right: 40, bottom: 40, left: 40 });
         google.maps.event.addListenerOnce(map, 'idle', () => {
@@ -259,6 +284,7 @@ const VenuesMap = ({
     }
 
     return () => {
+      google.maps.event.removeListener(mapClickListener);
       markersRef.current.forEach((m) => {
         if (m?.setMap) m.setMap(null);
       });
@@ -266,7 +292,8 @@ const VenuesMap = ({
       infoWindowsRef.current.forEach((iw) => iw?.close());
       infoWindowsRef.current = [];
     };
-  }, [mapsLoaded, map, itemsWithCoords, userCoords, locationCity]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mapsLoaded, map, itemsWithCoords, locationCity]);
 
   useEffect(() => {
     if (!mapsLoaded || !mapRef.current || !isGoogleMapsLoaded() || !window.google?.maps) return;
