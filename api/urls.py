@@ -31,6 +31,8 @@ router.register(r'dine-in-order-details', views.DineInOrderDetailViewSet, basena
 router.register(r'entertainment-venues', views.EntertainmentVenueViewSet, basename='entertainment-venue')
 router.register(r'venue-categories', views.VenueCategoryViewSet, basename='venue-category')
 router.register(r'venue-reviews', views.VenueReviewViewSet, basename='venue-review')
+router.register(r'countries', views.CountryViewSet, basename='country')
+router.register(r'cities', views.CityViewSet, basename='city')
 
 urlpatterns = [
     # Health check endpoint for ALB/ELB
@@ -52,4 +54,6 @@ urlpatterns = [
     # Delivery fee calculation endpoints
     path('calculate-delivery-fee/', views.calculate_delivery_fee_api, name='calculate-delivery-fee'),
     path('calculate-multi-restaurant-delivery-fee/', views.calculate_multi_restaurant_delivery_fee_api, name='calculate-multi-restaurant-delivery-fee'),
+    # Offline sync
+    path('sync-status/', views.sync_status, name='sync-status'),
 ] 

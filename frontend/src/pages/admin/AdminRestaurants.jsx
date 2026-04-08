@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../../contexts/LanguageContext';
-import { restaurantService, userService } from '../../services/api';
+import { restaurantService, userService, countryService, cityService } from '../../services/api';
 import { FiSearch } from "react-icons/fi";
 import { LuMapPin, LuX } from "react-icons/lu";
 import MapPicker from '../../components/maps/MapPicker';
@@ -645,6 +645,14 @@ const RestaurantModal = ({ restaurant, type, onClose, onUpdate, availableUsers }
     restaurant_name: restaurant?.restaurant_name || '',
     description: restaurant?.description || '',
     address: restaurant?.address || '',
+    country:
+      restaurant?.country != null && restaurant?.country !== ''
+        ? String(restaurant.country)
+        : '',
+    city:
+      restaurant?.city != null && restaurant?.city !== ''
+        ? String(restaurant.city)
+        : '',
     latitude: restaurant?.latitude || '',
     longitude: restaurant?.longitude || '',
     phone_number: restaurant?.phone_number || '',
@@ -670,6 +678,44 @@ const RestaurantModal = ({ restaurant, type, onClose, onUpdate, availableUsers }
   const [selectedFile, setSelectedFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(restaurant?.image_display_url || null);
   const [uploadLoading, setUploadLoading] = useState(false);
+  const [countriesList, setCountriesList] = useState([]);
+  const [citiesList, setCitiesList] = useState([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await countryService.getAll();
+        const list = res.data?.results || res.data || [];
+        if (!cancelled) setCountriesList(Array.isArray(list) ? list : []);
+      } catch (e) {
+        console.error(e);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!formData.country) {
+      setCitiesList([]);
+      return undefined;
+    }
+    (async () => {
+      try {
+        const res = await cityService.getAll({ country: formData.country });
+        const list = res.data?.results || res.data || [];
+        if (!cancelled) setCitiesList(Array.isArray(list) ? list : []);
+      } catch (e) {
+        console.error(e);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [formData.country]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -700,6 +746,8 @@ const RestaurantModal = ({ restaurant, type, onClose, onUpdate, availableUsers }
           createData.append('restaurant_name', formData.restaurant_name.trim());
           createData.append('description', formData.description || '');
           createData.append('address', formData.address || '');
+          if (formData.country) createData.append('country', parseInt(formData.country, 10));
+          if (formData.city) createData.append('city', parseInt(formData.city, 10));
           createData.append('phone_number', formData.phone_number || '');
           createData.append('opening_hours', formData.opening_hours || '');
           createData.append('status', formData.status || 'open');
@@ -718,6 +766,8 @@ const RestaurantModal = ({ restaurant, type, onClose, onUpdate, availableUsers }
             restaurant_name: formData.restaurant_name.trim(),
             description: formData.description || '',
             address: formData.address || '',
+            country: formData.country ? parseInt(formData.country, 10) : null,
+            city: formData.city ? parseInt(formData.city, 10) : null,
             phone_number: formData.phone_number || '',
             opening_hours: formData.opening_hours || '',
             status: formData.status || 'open',
@@ -746,6 +796,8 @@ const RestaurantModal = ({ restaurant, type, onClose, onUpdate, availableUsers }
           updateData.append('restaurant_name', formData.restaurant_name);
           updateData.append('description', formData.description || '');
           updateData.append('address', formData.address || '');
+          if (formData.country) updateData.append('country', parseInt(formData.country, 10));
+          if (formData.city) updateData.append('city', parseInt(formData.city, 10));
           updateData.append('phone_number', formData.phone_number || '');
           updateData.append('opening_hours', formData.opening_hours || '');
           updateData.append('status', formData.status || 'open');
@@ -760,6 +812,8 @@ const RestaurantModal = ({ restaurant, type, onClose, onUpdate, availableUsers }
         } else {
           updateData = {
             ...formData,
+            country: formData.country ? parseInt(formData.country, 10) : null,
+            city: formData.city ? parseInt(formData.city, 10) : null,
             latitude: formData.latitude ? parseFloat(formData.latitude) : null,
             longitude: formData.longitude ? parseFloat(formData.longitude) : null
           };
@@ -1116,6 +1170,61 @@ const RestaurantModal = ({ restaurant, type, onClose, onUpdate, availableUsers }
                 >
                   <FiSearch className="w-4 h-4" /> {translate('admin.restaurant_modal.find_coordinates')}
                 </button>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-secondary-700 mb-2">
+                {currentLanguage === 'en' ? 'Country' : currentLanguage === 'ko' ? '국가' : 'ประเทศ'}
+              </label>
+              {isEditable ? (
+                <select
+                  value={formData.country}
+                  onChange={(e) =>
+                    setFormData({ ...formData, country: e.target.value, city: '' })
+                  }
+                  className="w-full p-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white"
+                >
+                  <option value="">
+                    {currentLanguage === 'en' ? '—' : currentLanguage === 'ko' ? '—' : '— เลือกประเทศ —'}
+                  </option>
+                  {countriesList.map((c) => (
+                    <option key={c.country_id} value={String(c.country_id)}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <p className="w-full p-3 border border-secondary-100 rounded-lg bg-secondary-50 text-secondary-800">
+                  {restaurant?.country_name || '—'}
+                </p>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-secondary-700 mb-2">
+                {currentLanguage === 'en' ? 'City' : currentLanguage === 'ko' ? '도시' : 'เมือง'}
+              </label>
+              {isEditable ? (
+                <select
+                  value={formData.city}
+                  onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                  disabled={!formData.country}
+                  className="w-full p-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white disabled:bg-secondary-50"
+                >
+                  <option value="">
+                    {currentLanguage === 'en' ? '—' : currentLanguage === 'ko' ? '—' : '— เลือกเมือง —'}
+                  </option>
+                  {citiesList.map((c) => (
+                    <option key={c.city_id} value={String(c.city_id)}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <p className="w-full p-3 border border-secondary-100 rounded-lg bg-secondary-50 text-secondary-800">
+                  {restaurant?.city_name || '—'}
+                </p>
               )}
             </div>
 

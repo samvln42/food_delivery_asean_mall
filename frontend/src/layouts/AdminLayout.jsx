@@ -12,7 +12,7 @@ import { useAuth } from "../contexts/AuthContext";
 import websocketService from "../services/websocket";
 import AdminNotificationBridge from "../components/admin/AdminNotificationBridge";
 import { useLocation } from "react-router-dom";
-import { FaBars, FaTimes, FaChartBar, FaUsers, FaStore, FaFolder, FaCog, FaBullhorn, FaTags, FaTheaterMasks } from "react-icons/fa";
+import { FaBars, FaTimes, FaChartBar, FaUsers, FaStore, FaFolder, FaCog, FaBullhorn, FaTags, FaTheaterMasks, FaGlobe, FaMapMarkerAlt } from "react-icons/fa";
 import { FaUserCheck, FaUserXmark } from "react-icons/fa6";
 import { IoIosCreate  } from "react-icons/io";
 import { BiSolidPhoneCall } from "react-icons/bi";
@@ -379,6 +379,28 @@ const AdminLayout = ({ children }) => {
                   }`}
                 >
                   <FaTheaterMasks className="h-6 w-6 mr-2" /> {translate('admin.entertainment_venues') || 'สถานที่บันเทิง'}
+                </Link>
+                <Link
+                  to="/admin/countries"
+                  onClick={() => setSidebarOpen(false)}
+                  className={`flex items-center px-4 py-2 rounded-lg transition-colors ${
+                    location.pathname === '/admin/countries'
+                      ? 'bg-primary-50 text-primary-600'
+                      : 'text-secondary-700 hover:bg-primary-50 hover:text-primary-600'
+                  }`}
+                >
+                  <FaGlobe className="h-6 w-6 mr-2" /> {translate('admin.countries') || 'จัดการประเทศ'}
+                </Link>
+                <Link
+                  to="/admin/cities"
+                  onClick={() => setSidebarOpen(false)}
+                  className={`flex items-center px-4 py-2 rounded-lg transition-colors ${
+                    location.pathname === '/admin/cities'
+                      ? 'bg-primary-50 text-primary-600'
+                      : 'text-secondary-700 hover:bg-primary-50 hover:text-primary-600'
+                  }`}
+                >
+                  <FaMapMarkerAlt className="h-6 w-6 mr-2" /> {translate('admin.cities') || 'จัดการเมือง'}
                 </Link>
                 <Link
                   to="/admin/venue-categories"

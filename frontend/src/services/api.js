@@ -251,6 +251,24 @@ export const restaurantService = {
   delete: (id) => api.delete(`/restaurants/${id}/`),
 };
 
+export const countryService = {
+  getAll: (params = {}) => api.get('/countries/', { params }),
+  create: (data) => api.post('/countries/', data),
+  partialUpdate: (id, data) => api.patch(`/countries/${id}/`, data),
+  delete: (id) => api.delete(`/countries/${id}/`),
+  uploadFlag: (id, formData) =>
+    api.post(`/countries/${id}/upload_flag/`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }),
+};
+
+export const cityService = {
+  getAll: (params = {}) => api.get('/cities/', { params }),
+  create: (data) => api.post('/cities/', data),
+  partialUpdate: (id, data) => api.patch(`/cities/${id}/`, data),
+  delete: (id) => api.delete(`/cities/${id}/`),
+};
+
 // Product services
 export const productService = {
   getAll: (params = {}) => api.get('/products/', { params }),

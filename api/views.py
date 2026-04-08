@@ -4,7 +4,7 @@ from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.parsers import JSONParser, MultiPartParser, FormParser
 from rest_framework.permissions import IsAuthenticated, AllowAny, IsAdminUser
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import ValidationError, PermissionDenied
 from django_filters.rest_framework import DjangoFilterBackend
 from django.contrib.auth import authenticate, login, logout
 from django.db.models import Q, Count, Sum, Avg
@@ -30,6 +30,7 @@ from .models import (
     GuestOrder, GuestOrderDetail, GuestDeliveryStatusLog, Advertisement,
     RestaurantTable, DineInCart, DineInCartItem, DineInOrder,
     DineInOrderDetail, DineInStatusLog, DineInProduct,
+    Country, City,
     EntertainmentVenue, VenueImage, VenueCategory, VenueReview
 )
 from .serializers import (
@@ -45,6 +46,7 @@ from .serializers import (
     DineInCartItemSerializer, DineInOrderSerializer, DineInOrderDetailSerializer,
     DineInStatusLogSerializer, AddToCartSerializer, UpdateCartItemSerializer,
     CreateDineInOrderSerializer, UpdateDineInOrderStatusSerializer, DineInProductSerializer,
+    CountrySerializer, CitySerializer,
     EntertainmentVenueSerializer, EntertainmentVenueListSerializer, VenueImageSerializer, VenueCategorySerializer,
     VenueReviewSerializer
 )
@@ -60,6 +62,49 @@ logger = logging.getLogger(__name__)
 def health_check(request):
     """Simple health check view for load balancer."""
     return Response({"status": "ok"})
+
+
+# -------------------- Offline Sync Status Endpoint --------------------
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def sync_status(request):
+    """
+    คืนค่า version hash สำหรับ offline sync
+    Client ใช้เปรียบเทียบกับ version ที่ cache ไว้
+    ถ้าต่างกัน → ต้อง sync ข้อมูลใหม่
+    """
+    from django.db.models import Max
+    import hashlib
+
+    def iso(dt):
+        return dt.isoformat() if dt else ""
+
+    def safe_max_ts(model, field="updated_at"):
+        """ดึง max timestamp อย่างปลอดภัย — fallback เป็น count ถ้าไม่มี field"""
+        try:
+            return model.objects.aggregate(v=Max(field))["v"]
+        except Exception:
+            # model ไม่มี updated_at → ใช้ record count แทน
+            return str(model.objects.count())
+
+    venue_ts = safe_max_ts(EntertainmentVenue)
+    restaurant_ts = safe_max_ts(Restaurant)
+    category_ts = safe_max_ts(VenueCategory)
+    country_ts = safe_max_ts(Country)
+    city_ts = safe_max_ts(City)
+
+    raw = "|".join([
+        iso(venue_ts) if hasattr(venue_ts, "isoformat") else str(venue_ts or ""),
+        iso(restaurant_ts) if hasattr(restaurant_ts, "isoformat") else str(restaurant_ts or ""),
+        iso(category_ts) if hasattr(category_ts, "isoformat") else str(category_ts or ""),
+        iso(country_ts) if hasattr(country_ts, "isoformat") else str(country_ts or ""),
+        str(city_ts or ""),
+    ])
+    version = hashlib.md5(raw.encode()).hexdigest()[:12]
+
+    return Response({
+        "version": version,
+    })
 
 
 NOMINATIM_BASE_URL = getattr(
@@ -302,13 +347,13 @@ def geocode_search_proxy(request):
 
 
 class RestaurantViewSet(viewsets.ModelViewSet):
-    queryset = Restaurant.objects.all()
+    queryset = Restaurant.objects.select_related('country', 'city').all()
     serializer_class = RestaurantSerializer
     filter_backends = [filters.SearchFilter, filters.OrderingFilter, DjangoFilterBackend]
-    search_fields = ['restaurant_name', 'description', 'address']
+    search_fields = ['restaurant_name', 'description', 'address', 'country__name', 'city__name']
     ordering_fields = ['average_rating', 'created_at', 'restaurant_name']
     ordering = ['-average_rating']
-    filterset_fields = ['status', 'is_special']
+    filterset_fields = ['status', 'is_special', 'country', 'city']
     
     def get_permissions(self):
         if self.action in ['list', 'retrieve', 'products', 'reviews', 'analytics', 'special', 'nearby']:
@@ -3921,17 +3966,131 @@ class VenueCategoryViewSet(viewsets.ModelViewSet):
         return context
 
 
+class CountryViewSet(viewsets.ModelViewSet):
+    """ตารางอ้างอิงประเทศ — แก้ไขได้เฉพาะแอดมิน"""
+    queryset = Country.objects.all().order_by('sort_order', 'name')
+    serializer_class = CountrySerializer
+    pagination_class = None
+    parser_classes = [JSONParser, MultiPartParser, FormParser]
+    filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
+    filterset_fields = ['is_active']
+    ordering_fields = ['sort_order', 'name', 'country_id']
+    ordering = ['sort_order', 'name']
+
+    def get_permissions(self):
+        if self.action in ['list', 'retrieve']:
+            permission_classes = [AllowAny]
+        else:
+            permission_classes = [IsAuthenticated]
+        return [permission() for permission in permission_classes]
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        if self.action == 'list' and (
+            not self.request.user.is_authenticated
+            or getattr(self.request.user, 'role', None) != 'admin'
+        ):
+            qs = qs.filter(is_active=True)
+        return qs
+
+    def _require_admin(self):
+        if not self.request.user.is_authenticated or getattr(self.request.user, 'role', None) != 'admin':
+            raise PermissionDenied('Admin only.')
+
+    def perform_create(self, serializer):
+        self._require_admin()
+        serializer.save()
+
+    def perform_update(self, serializer):
+        self._require_admin()
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        self._require_admin()
+        instance.delete()
+
+    @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated])
+    def upload_flag(self, request, pk=None):
+        """อัปโหลดรูปธงชาติ (เฉพาะแอดมิน) — ส่ง multipart ฟิลด์ชื่อ flag"""
+        country = self.get_object()
+        self._require_admin()
+        if 'flag' not in request.FILES:
+            return Response(
+                {'error': 'Please select an image file'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        image_file = request.FILES['flag']
+        allowed_types = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp']
+        if image_file.content_type not in allowed_types:
+            return Response(
+                {'error': 'Only JPG, PNG, GIF and WebP files are supported'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if image_file.size > 2 * 1024 * 1024:
+            return Response(
+                {'error': 'File size must not exceed 2MB'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        country.flag = image_file
+        country.save()
+        serializer = CountrySerializer(country, context={'request': request})
+        return Response(serializer.data)
+
+
+class CityViewSet(viewsets.ModelViewSet):
+    """ตารางอ้างอิงเมือง — แก้ไขได้เฉพาะแอดมิน"""
+    queryset = City.objects.select_related('country').all().order_by('country', 'name')
+    serializer_class = CitySerializer
+    pagination_class = None
+    filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
+    filterset_fields = ['country']
+    ordering_fields = ['name', 'city_id']
+    ordering = ['country', 'name']
+
+    def get_permissions(self):
+        if self.action in ['list', 'retrieve']:
+            permission_classes = [AllowAny]
+        else:
+            permission_classes = [IsAuthenticated]
+        return [permission() for permission in permission_classes]
+
+    def _require_admin(self):
+        if not self.request.user.is_authenticated or getattr(self.request.user, 'role', None) != 'admin':
+            raise PermissionDenied('Admin only.')
+
+    def perform_create(self, serializer):
+        self._require_admin()
+        serializer.save()
+
+    def perform_update(self, serializer):
+        self._require_admin()
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        self._require_admin()
+        instance.delete()
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        if self.action == 'list' and (
+            not self.request.user.is_authenticated
+            or getattr(self.request.user, 'role', None) != 'admin'
+        ):
+            qs = qs.filter(country__is_active=True)
+        return qs
+
+
 class EntertainmentVenueViewSet(viewsets.ModelViewSet):
     """
     ViewSet for managing entertainment venues
     """
-    queryset = EntertainmentVenue.objects.select_related('category').prefetch_related('images')
+    queryset = EntertainmentVenue.objects.select_related('category', 'country', 'city').prefetch_related('images')
     serializer_class = EntertainmentVenueSerializer
     filter_backends = [filters.SearchFilter, filters.OrderingFilter, DjangoFilterBackend]
-    search_fields = ['venue_name', 'description', 'address', 'venue_type', 'category__category_name']
+    search_fields = ['venue_name', 'description', 'address', 'venue_type', 'category__category_name', 'country__name', 'city__name']
     ordering_fields = ['average_rating', 'created_at', 'venue_name']
     ordering = ['-average_rating']
-    filterset_fields = ['status', 'category', 'venue_type']
+    filterset_fields = ['status', 'category', 'venue_type', 'country', 'city']
     parser_classes = [JSONParser, MultiPartParser, FormParser]
     
     def get_permissions(self):

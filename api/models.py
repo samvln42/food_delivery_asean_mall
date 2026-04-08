@@ -43,6 +43,64 @@ def category_image_upload_path(instance, filename):
     return os.path.join('categories', filename)
 
 
+def country_flag_upload_path(instance, filename):
+    """Generate upload path for country flag images"""
+    import os
+    from django.utils.text import slugify
+
+    ext = filename.split('.')[-1] if '.' in filename else 'png'
+    base = slugify(instance.name) or f'country_{instance.pk or "new"}'
+    pk = instance.pk or 'tmp'
+    filename = f'{pk}_{base}.{ext}'
+    return os.path.join('countries', 'flags', filename)
+
+
+class Country(models.Model):
+    """ประเทศ (ตารางอ้างอิง — ใช้กับร้านและสถานที่บันเทิง)"""
+    country_id = models.AutoField(primary_key=True)
+    name = models.CharField(max_length=100, unique=True)
+    flag = models.ImageField(
+        upload_to=country_flag_upload_path,
+        blank=True,
+        null=True,
+        help_text='รูปธงชาติ (แนะนำสัดส่วนใกล้เคียง 4:3 หรือสี่เหลี่ยมจัตุรัส)',
+    )
+    sort_order = models.PositiveIntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'countries'
+        ordering = ['sort_order', 'name']
+        indexes = [
+            models.Index(fields=['is_active', 'sort_order']),
+        ]
+
+    def __str__(self):
+        return self.name
+
+
+class City(models.Model):
+    """เมือง — ผูกกับประเทศหนึ่งประเทศ"""
+    city_id = models.AutoField(primary_key=True)
+    country = models.ForeignKey(Country, on_delete=models.CASCADE, related_name='cities')
+    name = models.CharField(max_length=120)
+
+    class Meta:
+        db_table = 'cities'
+        ordering = ['country', 'name']
+        constraints = [
+            models.UniqueConstraint(fields=['country', 'name'], name='unique_city_name_per_country'),
+        ]
+        indexes = [
+            models.Index(fields=['country']),
+        ]
+
+    def __str__(self):
+        return f'{self.name}, {self.country.name}'
+
+
 class Restaurant(models.Model):
     STATUS_CHOICES = [
         ('open', 'Open'),
@@ -54,6 +112,14 @@ class Restaurant(models.Model):
     restaurant_name = models.CharField(max_length=100)
     description = models.TextField(blank=True, null=True)
     address = models.CharField(max_length=255)
+    country = models.ForeignKey(
+        Country, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='restaurants', help_text='Country where the restaurant is located',
+    )
+    city = models.ForeignKey(
+        City, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='restaurants', help_text='City where the restaurant is located',
+    )
     latitude = models.DecimalField(max_digits=20, decimal_places=12, null=True, blank=True, help_text='Restaurant latitude')
     longitude = models.DecimalField(max_digits=20, decimal_places=12, null=True, blank=True, help_text='Restaurant longitude')
     phone_number = models.CharField(max_length=20, blank=True, null=True)
@@ -219,6 +285,14 @@ class EntertainmentVenue(models.Model):
     venue_name = models.CharField(max_length=200)
     description = models.TextField(blank=True, null=True)
     address = models.CharField(max_length=500)
+    country = models.ForeignKey(
+        Country, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='entertainment_venues', help_text='Country where the venue is located',
+    )
+    city = models.ForeignKey(
+        City, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='entertainment_venues', help_text='City where the venue is located',
+    )
     latitude = models.DecimalField(max_digits=20, decimal_places=12, null=True, blank=True, help_text='Venue latitude')
     longitude = models.DecimalField(max_digits=20, decimal_places=12, null=True, blank=True, help_text='Venue longitude')
     phone_number = models.CharField(max_length=20, blank=True, null=True)

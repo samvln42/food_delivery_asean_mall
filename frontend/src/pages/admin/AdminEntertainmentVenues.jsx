@@ -18,7 +18,7 @@ import {
   FaChevronUp,
   FaChevronDown,
 } from 'react-icons/fa';
-import { entertainmentVenueService, venueCategoryService } from '../../services/api';
+import { entertainmentVenueService, venueCategoryService, countryService, cityService } from '../../services/api';
 import MapPicker from '../../components/maps/MapPicker';
 import AddressPicker from '../../components/maps/AddressPicker';
 
@@ -42,10 +42,14 @@ const AdminEntertainmentVenues = () => {
   const [gallerySaving, setGallerySaving] = useState(false);
   /** ซ่อนแผนที่ชั่วคราวเพื่อเลื่อนฟอร์มโดยไม่ให้แผนที่ดัก scroll / zoom */
   const [venueMapExpanded, setVenueMapExpanded] = useState(true);
+  const [countriesList, setCountriesList] = useState([]);
+  const [citiesList, setCitiesList] = useState([]);
   const [formData, setFormData] = useState({
     venue_name: '',
     description: '',
     address: '',
+    country: '',
+    city: '',
     latitude: '',
     longitude: '',
     phone_number: '',
@@ -91,6 +95,42 @@ const AdminEntertainmentVenues = () => {
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await countryService.getAll();
+        const list = res.data?.results || res.data || [];
+        if (!cancelled) setCountriesList(Array.isArray(list) ? list : []);
+      } catch (e) {
+        console.error(e);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!formData.country) {
+      setCitiesList([]);
+      return undefined;
+    }
+    (async () => {
+      try {
+        const res = await cityService.getAll({ country: formData.country });
+        const list = res.data?.results || res.data || [];
+        if (!cancelled) setCitiesList(Array.isArray(list) ? list : []);
+      } catch (e) {
+        console.error(e);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [formData.country]);
+
+  useEffect(() => {
     if (showModal && modalType !== 'view') {
       setVenueMapExpanded(true);
     }
@@ -107,6 +147,8 @@ const AdminEntertainmentVenues = () => {
       venue_name: '',
       description: '',
       address: '',
+      country: '',
+      city: '',
       latitude: '',
       longitude: '',
       phone_number: '',
@@ -125,6 +167,9 @@ const AdminEntertainmentVenues = () => {
       venue_name: venue.venue_name || '',
       description: venue.description || '',
       address: venue.address || '',
+      country:
+        venue.country != null && venue.country !== '' ? String(venue.country) : '',
+      city: venue.city != null && venue.city !== '' ? String(venue.city) : '',
       latitude: venue.latitude || '',
       longitude: venue.longitude || '',
       phone_number: venue.phone_number || '',
@@ -334,6 +379,16 @@ const AdminEntertainmentVenues = () => {
       if (dataToSend.opening_hours === '') dataToSend.opening_hours = null;
       if (dataToSend.description === '') dataToSend.description = null;
       if (dataToSend.venue_type === '') dataToSend.venue_type = null;
+      if (dataToSend.country === '' || dataToSend.country == null) {
+        dataToSend.country = null;
+      } else {
+        dataToSend.country = parseInt(dataToSend.country, 10);
+      }
+      if (dataToSend.city === '' || dataToSend.city == null) {
+        dataToSend.city = null;
+      } else {
+        dataToSend.city = parseInt(dataToSend.city, 10);
+      }
       
       // Convert category to integer if it's a string
       if (dataToSend.category && typeof dataToSend.category === 'string') {
@@ -773,6 +828,26 @@ const AdminEntertainmentVenues = () => {
                       </label>
                       <p className="text-secondary-900">{selectedVenue.address}</p>
                     </div>
+                    {(selectedVenue.country_name || selectedVenue.country) && (
+                      <div>
+                        <label className="block text-sm font-medium text-secondary-700 mb-1">
+                          ประเทศ / Country
+                        </label>
+                        <p className="text-secondary-900">
+                          {selectedVenue.country_name || selectedVenue.country || '—'}
+                        </p>
+                      </div>
+                    )}
+                    {(selectedVenue.city_name || selectedVenue.city) && (
+                      <div>
+                        <label className="block text-sm font-medium text-secondary-700 mb-1">
+                          เมือง / City
+                        </label>
+                        <p className="text-secondary-900">
+                          {selectedVenue.city_name || selectedVenue.city || '—'}
+                        </p>
+                      </div>
+                    )}
                     <div>
                       <label className="block text-sm font-medium text-secondary-700 mb-1">
                         <FaPhone className="inline mr-1" />
@@ -889,6 +964,45 @@ const AdminEntertainmentVenues = () => {
                         showManualGeocodeButton={false}
                         className=""
                       />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-secondary-700 mb-1">
+                        ประเทศ / Country
+                      </label>
+                      <select
+                        value={formData.country}
+                        onChange={(e) =>
+                          setFormData({ ...formData, country: e.target.value, city: '' })
+                        }
+                        className="w-full px-4 py-2 border border-secondary-300 rounded-lg focus:border-secondary-400 focus:outline-none focus:ring-2 focus:ring-secondary-300/80 bg-white"
+                      >
+                        <option value="">— เลือกประเทศ —</option>
+                        {countriesList.map((c) => (
+                          <option key={c.country_id} value={String(c.country_id)}>
+                            {c.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-secondary-700 mb-1">
+                        เมือง / City
+                      </label>
+                      <select
+                        value={formData.city}
+                        onChange={(e) =>
+                          setFormData({ ...formData, city: e.target.value })
+                        }
+                        disabled={!formData.country}
+                        className="w-full px-4 py-2 border border-secondary-300 rounded-lg focus:border-secondary-400 focus:outline-none focus:ring-2 focus:ring-secondary-300/80 bg-white disabled:bg-secondary-50"
+                      >
+                        <option value="">— เลือกเมือง —</option>
+                        {citiesList.map((c) => (
+                          <option key={c.city_id} value={String(c.city_id)}>
+                            {c.name}
+                          </option>
+                        ))}
+                      </select>
                     </div>
                     {/* Location Picker */}
                     <div className="md:col-span-2">

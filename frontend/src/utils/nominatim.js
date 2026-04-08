@@ -5,6 +5,10 @@
  */
 
 import { API_CONFIG } from '../config/api.js';
+import {
+  buildLocationCandidatesFromNominatimAddress,
+  mergeDisplayNameCandidates,
+} from './locationMatch.js';
 
 const GEOCODING_PROXY_BASE_URL = `${API_CONFIG.BASE_URL}/geocode`;
 const REVERSE_CACHE_TTL_MS = 5 * 60 * 1000;
@@ -360,6 +364,37 @@ export const reverseGeocode = async (lat, lng) => {
   pendingReverseRequests.set(cacheKey, requestPromise);
   return requestPromise;
 };
+
+/**
+ * Reverse geocode → ประเทศ + รายการชื่อพื้นที่เรียงจากเฉพาะ → กว้าง (จับคู่เมืองใน DB)
+ * @returns {Promise<{ country: string, country_code: string, allCandidates: string[] }>}
+ */
+export async function reverseGeocodeStructured(lat, lng) {
+  const numericLat = Number(lat);
+  const numericLng = Number(lng);
+  if (!Number.isFinite(numericLat) || !Number.isFinite(numericLng)) {
+    throw new Error('Coordinates must be valid numbers');
+  }
+
+  await throttleReverseRequest();
+  const url = buildGeocodingProxyUrl('reverse', {
+    lat: numericLat,
+    lon: numericLng,
+  });
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Reverse geocoding failed: ${response.status}`);
+  }
+  const data = await response.json();
+  const a = data.address || {};
+  let allCandidates = buildLocationCandidatesFromNominatimAddress(a);
+  allCandidates = mergeDisplayNameCandidates(data.display_name, allCandidates);
+  return {
+    country: a.country || '',
+    country_code: (a.country_code || '').toUpperCase(),
+    allCandidates,
+  };
+}
 
 /**
  * Search addresses (Autocomplete)

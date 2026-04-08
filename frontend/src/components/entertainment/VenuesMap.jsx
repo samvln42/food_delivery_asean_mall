@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { loadGoogleMaps, isGoogleMapsLoaded } from '../../utils/googleMapsLoader';
 import { getGoogleMapsApiKey } from '../../utils/googleMaps';
+import { FaCrosshairs } from 'react-icons/fa';
 
 const DEFAULT_CENTER = { lat: 17.9757, lng: 102.6331 }; // Vientiane, Laos
 const DEFAULT_ZOOM = 14;
@@ -91,13 +92,27 @@ function buildHtmlMarkerClass(google) {
   };
 }
 
-const VenuesMap = ({ places, venues, height = 'calc(100vh - 140px)', onPlaceClick, onVenueClick }) => {
+const VenuesMap = ({
+  places,
+  venues,
+  height = 'calc(100vh - 140px)',
+  onPlaceClick,
+  onVenueClick,
+  userCoords,
+  locationCity,
+  onUserCoordsChange,
+  searchQuery,
+}) => {
   const mapRef = useRef(null);
   const [map, setMap] = useState(null);
   const [mapsLoaded, setMapsLoaded] = useState(false);
+  const [locating, setLocating] = useState(false);
   const markersRef = useRef([]);
   const infoWindowsRef = useRef([]);
   const apiKey = getGoogleMapsApiKey();
+  // ref เพื่อให้ map init effect เข้าถึง userCoords ล่าสุดเสมอ (ไม่มีปัญหา stale closure)
+  const userCoordsRef = useRef(userCoords);
+  useEffect(() => { userCoordsRef.current = userCoords; }, [userCoords]);
 
   const items = useMemo(() => {
     if (Array.isArray(places) && places.length > 0) return places;
@@ -134,9 +149,25 @@ const VenuesMap = ({ places, venues, height = 'calc(100vh - 140px)', onPlaceClic
     infoWindowsRef.current.forEach((iw) => iw?.close());
     infoWindowsRef.current = [];
 
+    // "My Location" blue-dot marker
+    if (userCoords) {
+      const myLocEl = document.createElement('div');
+      myLocEl.style.cssText =
+        'position:absolute;width:18px;height:18px;border-radius:50%;background:#2563eb;border:3px solid #fff;box-shadow:0 0 0 3px rgba(37,99,235,.35),0 2px 8px rgba(0,0,0,.25);transform:translate(-50%,-50%);pointer-events:none;';
+      const myLocMarker = new HtmlMarker(
+        new google.maps.LatLng(userCoords.lat, userCoords.lng),
+        map,
+        myLocEl
+      );
+      markersRef.current.push(myLocMarker);
+    }
+
     if (itemsWithCoords.length === 0) {
-      map.setCenter(DEFAULT_CENTER);
-      map.setZoom(DEFAULT_ZOOM);
+      // ถ้า userCoords ถูก set แล้ว ให้ pan effect จัดการ (ไม่ override)
+      if (!userCoords) {
+        map.setCenter(DEFAULT_CENTER);
+        map.setZoom(DEFAULT_ZOOM);
+      }
       return;
     }
 
@@ -197,14 +228,34 @@ const VenuesMap = ({ places, venues, height = 'calc(100vh - 140px)', onPlaceClic
       infoWindowsRef.current.push(infoWindow);
     });
 
-    if (itemsWithCoords.length > 1) {
-      map.fitBounds(bounds, { top: 60, right: 40, bottom: 40, left: 40 });
-    } else if (itemsWithCoords.length === 1) {
-      map.setCenter({
-        lat: parseFloat(itemsWithCoords[0].latitude),
-        lng: parseFloat(itemsWithCoords[0].longitude),
-      });
-      map.setZoom(16);
+    // ถ้า user เลือกเมืองเฉพาะ → fitBounds ไปยัง marker ในเมืองนั้น (ไม่ lock ที่ userCoords)
+    // ถ้าไม่ได้เลือกเมือง → pan/zoom จัดการใน userCoords effect แยกต่างหาก
+    if (locationCity) {
+      if (itemsWithCoords.length > 1) {
+        map.fitBounds(bounds, { top: 60, right: 40, bottom: 40, left: 40 });
+        google.maps.event.addListenerOnce(map, 'idle', () => {
+          if (map.getZoom() < 11) map.setZoom(11);
+        });
+      } else if (itemsWithCoords.length === 1) {
+        map.setCenter({
+          lat: parseFloat(itemsWithCoords[0].latitude),
+          lng: parseFloat(itemsWithCoords[0].longitude),
+        });
+        map.setZoom(15);
+      }
+    } else if (!userCoords) {
+      if (itemsWithCoords.length > 1) {
+        map.fitBounds(bounds, { top: 60, right: 40, bottom: 40, left: 40 });
+        google.maps.event.addListenerOnce(map, 'idle', () => {
+          if (map.getZoom() < 11) map.setZoom(11);
+        });
+      } else if (itemsWithCoords.length === 1) {
+        map.setCenter({
+          lat: parseFloat(itemsWithCoords[0].latitude),
+          lng: parseFloat(itemsWithCoords[0].longitude),
+        });
+        map.setZoom(15);
+      }
     }
 
     return () => {
@@ -215,14 +266,17 @@ const VenuesMap = ({ places, venues, height = 'calc(100vh - 140px)', onPlaceClic
       infoWindowsRef.current.forEach((iw) => iw?.close());
       infoWindowsRef.current = [];
     };
-  }, [mapsLoaded, map, itemsWithCoords]);
+  }, [mapsLoaded, map, itemsWithCoords, userCoords, locationCity]);
 
   useEffect(() => {
     if (!mapsLoaded || !mapRef.current || !isGoogleMapsLoaded() || !window.google?.maps) return;
 
+    const initCoords = userCoordsRef.current;
     const googleMap = new window.google.maps.Map(mapRef.current, {
-      center: DEFAULT_CENTER,
-      zoom: DEFAULT_ZOOM,
+      center: initCoords
+        ? { lat: initCoords.lat, lng: initCoords.lng }
+        : DEFAULT_CENTER,
+      zoom: initCoords ? 14 : DEFAULT_ZOOM,
       mapTypeControl: true,
       streetViewControl: false,
       fullscreenControl: true,
@@ -231,6 +285,53 @@ const VenuesMap = ({ places, venues, height = 'calc(100vh - 140px)', onPlaceClic
     });
     setMap(googleMap);
   }, [mapsLoaded]);
+
+  // Pan & zoom ไปยังตำแหน่งปัจจุบันทุกครั้งที่ userCoords เปลี่ยน (GPS อัปเดต)
+  // ใช้ setTimeout เพื่อให้ pan effect ทำงานหลัง marker effect เสมอ
+  useEffect(() => {
+    if (!map || !userCoords) return;
+    // ถ้า map เพิ่งสร้างด้วย userCoords เป็น initial center แล้ว ไม่ต้อง pan ซ้ำ
+    // แต่ถ้า userCoords เพิ่งได้รับ (GPS async) ให้ pan ไปเสมอ
+    const t = setTimeout(() => {
+      map.panTo({ lat: userCoords.lat, lng: userCoords.lng });
+      map.setZoom(14);
+    }, 100);
+    return () => clearTimeout(t);
+  }, [map, userCoords]);
+
+  // เมื่อค้นหาด้วยชื่อ ให้เลื่อนไปยังผลลัพธ์ตัวแรกที่มีพิกัด
+  useEffect(() => {
+    const q = (searchQuery || '').trim();
+    if (!map || !q || itemsWithCoords.length === 0) return;
+    const first = itemsWithCoords[0];
+    map.panTo({
+      lat: parseFloat(first.latitude),
+      lng: parseFloat(first.longitude),
+    });
+    map.setZoom(16);
+  }, [map, itemsWithCoords, searchQuery]);
+
+  const recenterToCurrentLocation = () => {
+    if (!map || typeof navigator === 'undefined' || !navigator.geolocation || locating) return;
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const nextCoords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        map.panTo(nextCoords);
+        map.setZoom(14);
+        if (typeof onUserCoordsChange === 'function') onUserCoordsChange(nextCoords);
+        setLocating(false);
+      },
+      () => {
+        if (userCoords) {
+          map.panTo({ lat: userCoords.lat, lng: userCoords.lng });
+          map.setZoom(14);
+        }
+        setLocating(false);
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 }
+    );
+  };
 
   if (!apiKey) {
     return (
@@ -251,6 +352,19 @@ const VenuesMap = ({ places, venues, height = 'calc(100vh - 140px)', onPlaceClic
         className="venues-map-container"
         style={{ height: '100%', width: '100%' }}
       />
+      <button
+        type="button"
+        onClick={recenterToCurrentLocation}
+        disabled={locating}
+        className="absolute z-[1200] inline-flex items-center justify-center rounded-full border border-gray-200 bg-white/95 p-2.5 text-gray-700 shadow-lg backdrop-blur hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
+        style={{
+          right: '13px',
+          bottom: 'max(12rem, calc(env(safe-area-inset-bottom) + 1.25rem))'
+        }}
+        title="กลับไปตำแหน่งปัจจุบัน"
+      >
+        <FaCrosshairs className="h-3.5 w-3.5" aria-hidden />
+      </button>
     </div>
   );
 };

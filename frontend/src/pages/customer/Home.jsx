@@ -24,10 +24,10 @@ const Home = () => {
   // const { user } = useAuth();
   const navigate = useNavigate();
 
-  // Fetch data when component mounts or language changes
+  // Fetch data เฉพาะ mount ครั้งแรก (categories/settings ไม่ขึ้นกับภาษา)
   useEffect(() => {
     fetchData();
-  }, [currentLanguage]);
+  }, []);
 
   // Auto-refresh data when user comes back after being away for a while
   useEffect(() => {
@@ -54,24 +54,50 @@ const Home = () => {
 
   const fetchData = async () => {
     try {
-      // ใช้ loading เฉพาะเมื่อยังไม่มีข้อมูล
       if (categories.length === 0) {
         setLoading(true);
       }
 
-      // Try to fetch from API first
+      // ดึง settings จาก localStorage cache ก่อน (TTL 10 นาที)
+      const cachedSettings = (() => {
+        try {
+          const raw = sessionStorage.getItem('app_settings_cache');
+          if (!raw) return null;
+          const { data, ts } = JSON.parse(raw);
+          if (Date.now() - ts < 10 * 60 * 1000) return data;
+        } catch {}
+        return null;
+      })();
+
       try {
-        const [categoriesRes, settingsRes] = await Promise.all([
-          categoryService.getAll({ page_size: 1000, ordering: 'sort_order,category_name' }),
-          appSettingsService.getPublic(),
-        ]);
+        // ดึง categories พร้อม settings (ถ้าไม่มี cache)
+        const fetches = [
+          categoryService.getAll({ page_size: 18, ordering: 'sort_order,category_name' }),
+        ];
+        if (!cachedSettings) fetches.push(appSettingsService.getPublic());
+
+        const results = await Promise.all(fetches);
+        const [categoriesRes, settingsRes] = results;
+
+        const categoriesResActual = categoriesRes;
+        const settingsResActual = cachedSettings ? { data: cachedSettings } : settingsRes;
 
         const categoryData =
-          categoriesRes.data?.results || categoriesRes.data || [];
-        const settingsData = settingsRes.data || null;
+          categoriesResActual.data?.results || categoriesResActual.data || [];
+        const settingsData = settingsResActual.data || null;
 
         setCategories(categoryData);
         setAppSettings(settingsData);
+
+        // cache settings ใน sessionStorage
+        if (!cachedSettings && settingsData) {
+          try {
+            sessionStorage.setItem('app_settings_cache', JSON.stringify({
+              data: settingsData,
+              ts: Date.now(),
+            }));
+          } catch {}
+        }
       } catch (apiError) {
         console.error("API error:", apiError);
         throw apiError; // Re-throw to be caught by outer catch
@@ -125,6 +151,9 @@ const Home = () => {
               src={appSettings.banner_url}
               alt="Banner"
               className="w-full h-full object-cover"
+              fetchPriority="high"
+              loading="eager"
+              decoding="async"
             />
             {/* Darker overlay for better text readability and search bar visibility */}
             <div className="absolute inset-0 bg-black/50"></div>

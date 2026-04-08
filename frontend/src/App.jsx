@@ -75,6 +75,8 @@ const AdminSettings = lazy(() => import('./pages/admin/AdminSettings'));
 const AdminAdvertisements = lazy(() => import('./pages/admin/AdminAdvertisements'));
 const AdminEntertainmentVenues = lazy(() => import('./pages/admin/AdminEntertainmentVenues'));
 const AdminVenueCategories = lazy(() => import('./pages/admin/AdminVenueCategories'));
+const AdminCountries = lazy(() => import('./pages/admin/AdminCountries'));
+const AdminCities = lazy(() => import('./pages/admin/AdminCities'));
 
 // Layouts - โหลดทันทีเพราะใช้บ่อย
 import CustomerLayout from './layouts/CustomerLayout';
@@ -518,8 +520,21 @@ function App() {
                       </ProtectedRoute>
                     } />
 
+                    <Route path="/admin/countries" element={
+                      <ProtectedRoute allowedRoles={['admin']}>
+                        <AdminLayout>
+                          <AdminCountries />
+                        </AdminLayout>
+                      </ProtectedRoute>
+                    } />
 
-                    
+                    <Route path="/admin/cities" element={
+                      <ProtectedRoute allowedRoles={['admin']}>
+                        <AdminLayout>
+                          <AdminCities />
+                        </AdminLayout>
+                      </ProtectedRoute>
+                    } />
 
                     {/* Error Routes */}
                     <Route path="/unauthorized" element={<Unauthorized />} />

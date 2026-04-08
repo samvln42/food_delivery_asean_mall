@@ -9,16 +9,44 @@ from .models import (
     CategoryTranslation, ProductTranslation, GuestOrder, GuestOrderDetail, GuestDeliveryStatusLog,
     Advertisement, RestaurantTable, DineInCart, DineInCartItem, DineInOrder,
     DineInOrderDetail, DineInStatusLog, DineInProduct,
-    EntertainmentVenue, VenueImage, VenueCategory
+    EntertainmentVenue, VenueImage, VenueCategory,
+    Country, City,
 )
 
 
 # UserAdmin moved to accounts app
 
 
+@admin.register(Country)
+class CountryAdmin(admin.ModelAdmin):
+    list_display = ['name', 'flag_preview', 'sort_order', 'is_active', 'created_at']
+    list_filter = ['is_active']
+    search_fields = ['name']
+    ordering = ['sort_order', 'name']
+    readonly_fields = ['flag_preview']
+
+    def flag_preview(self, obj):
+        if obj.flag:
+            return format_html(
+                '<img src="{}" width="36" height="24" style="object-fit:cover;border-radius:4px" alt="" />',
+                obj.flag.url,
+            )
+        return '—'
+
+    flag_preview.short_description = 'ธง'
+
+
+@admin.register(City)
+class CityAdmin(admin.ModelAdmin):
+    list_display = ['name', 'country']
+    list_filter = ['country']
+    search_fields = ['name', 'country__name']
+    ordering = ['country', 'name']
+
+
 @admin.register(Restaurant)
 class RestaurantAdmin(admin.ModelAdmin):
-    list_display = ['restaurant_name', 'user', 'is_special', 'status', 'average_rating', 'total_reviews']
+    list_display = ['restaurant_name', 'user', 'country', 'city', 'is_special', 'status', 'average_rating', 'total_reviews']
     list_filter = ['is_special', 'status', 'created_at']
     search_fields = ['restaurant_name', 'description', 'address']
     readonly_fields = ['average_rating', 'total_reviews', 'created_at', 'updated_at']

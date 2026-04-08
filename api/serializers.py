@@ -1,6 +1,7 @@
-﻿from rest_framework import serializers
+from rest_framework import serializers
 from accounts.models import User
 from .models import (
+    Country, City,
     Restaurant, Category, Product, Order, OrderDetail,
     Payment, Review, ProductReview, DeliveryStatusLog, Notification,
     SearchHistory, PopularSearch, UserFavorite, AnalyticsDaily,
@@ -29,6 +30,38 @@ def get_absolute_image_url(image_url, request=None):
 
 
 # User serializer moved to accounts app
+
+
+class CountrySerializer(serializers.ModelSerializer):
+    flag_display_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Country
+        fields = [
+            'country_id',
+            'name',
+            'flag',
+            'flag_display_url',
+            'sort_order',
+            'is_active',
+            'created_at',
+            'updated_at',
+        ]
+        read_only_fields = ['country_id', 'flag', 'flag_display_url', 'created_at', 'updated_at']
+
+    def get_flag_display_url(self, obj):
+        if not obj.flag:
+            return None
+        return get_absolute_image_url(obj.flag.url, self.context.get('request'))
+
+
+class CitySerializer(serializers.ModelSerializer):
+    country_name = serializers.CharField(source='country.name', read_only=True)
+
+    class Meta:
+        model = City
+        fields = ['city_id', 'country', 'country_name', 'name']
+        read_only_fields = ['city_id']
 
 
 class CategoryTranslationSerializer(serializers.ModelSerializer):
@@ -298,17 +331,34 @@ class RestaurantSerializer(serializers.ModelSerializer):
     user_username = serializers.CharField(source='user.username', read_only=True)
     products_count = serializers.IntegerField(source='products.count', read_only=True)
     image_display_url = serializers.SerializerMethodField()
-    
+    country_name = serializers.CharField(source='country.name', read_only=True, allow_null=True)
+    city_name = serializers.CharField(source='city.name', read_only=True, allow_null=True)
+    country = serializers.PrimaryKeyRelatedField(
+        queryset=Country.objects.all(), allow_null=True, required=False,
+    )
+    city = serializers.PrimaryKeyRelatedField(
+        queryset=City.objects.all(), allow_null=True, required=False,
+    )
+
     class Meta:
         model = Restaurant
-        fields = ['restaurant_id', 'user', 'user_username', 'restaurant_name', 
-                 'description', 'address', 'latitude', 'longitude', 'phone_number', 'is_special', 
-                 'opening_hours', 'status', 'image', 'image_url', 'image_display_url', 'qr_code_image_url', 
-                 'bank_account_number', 'bank_name', 'account_name', 
-                 'average_rating', 'total_reviews', 'products_count', 
+        fields = ['restaurant_id', 'user', 'user_username', 'restaurant_name',
+                 'description', 'address', 'country', 'country_name', 'city', 'city_name', 'latitude', 'longitude', 'phone_number', 'is_special',
+                 'opening_hours', 'status', 'image', 'image_url', 'image_display_url', 'qr_code_image_url',
+                 'bank_account_number', 'bank_name', 'account_name',
+                 'average_rating', 'total_reviews', 'products_count',
                  'created_at', 'updated_at']
-        read_only_fields = ['restaurant_id', 'average_rating', 'total_reviews', 
+        read_only_fields = ['restaurant_id', 'average_rating', 'total_reviews',
                           'created_at', 'updated_at']
+
+    def validate(self, attrs):
+        country = attrs['country'] if 'country' in attrs else (self.instance.country if self.instance else None)
+        city = attrs['city'] if 'city' in attrs else (self.instance.city if self.instance else None)
+        if city and not country:
+            raise serializers.ValidationError({'country': 'Select a country when a city is set.'})
+        if city and country and city.country_id != country.country_id:
+            raise serializers.ValidationError({'city': 'City does not belong to the selected country.'})
+        return attrs
     
     def get_image_display_url(self, obj):
         """Get the best available image URL"""
@@ -1651,16 +1701,33 @@ class EntertainmentVenueSerializer(serializers.ModelSerializer):
     image_display_url = serializers.SerializerMethodField()
     images = VenueImageSerializer(many=True, read_only=True)
     category_name = serializers.CharField(source='category.category_name', read_only=True)
-    
+    country_name = serializers.CharField(source='country.name', read_only=True, allow_null=True)
+    city_name = serializers.CharField(source='city.name', read_only=True, allow_null=True)
+    country = serializers.PrimaryKeyRelatedField(
+        queryset=Country.objects.all(), allow_null=True, required=False,
+    )
+    city = serializers.PrimaryKeyRelatedField(
+        queryset=City.objects.all(), allow_null=True, required=False,
+    )
+
     class Meta:
         model = EntertainmentVenue
         fields = [
-            'venue_id', 'venue_name', 'description', 'address', 'latitude', 'longitude',
+            'venue_id', 'venue_name', 'description', 'address', 'country', 'country_name', 'city', 'city_name', 'latitude', 'longitude',
             'phone_number', 'opening_hours', 'status', 'venue_type', 'category', 'category_name',
             'image', 'image_url', 'image_display_url', 'average_rating', 'total_reviews',
             'images', 'created_at', 'updated_at'
         ]
         read_only_fields = ['venue_id', 'average_rating', 'total_reviews', 'created_at', 'updated_at']
+
+    def validate(self, attrs):
+        country = attrs['country'] if 'country' in attrs else (self.instance.country if self.instance else None)
+        city = attrs['city'] if 'city' in attrs else (self.instance.city if self.instance else None)
+        if city and not country:
+            raise serializers.ValidationError({'country': 'Select a country when a city is set.'})
+        if city and country and city.country_id != country.country_id:
+            raise serializers.ValidationError({'city': 'City does not belong to the selected country.'})
+        return attrs
     
     def validate_latitude(self, value):
         """Convert string to Decimal if needed and ensure max 12 decimal places"""
@@ -1722,11 +1789,13 @@ class EntertainmentVenueListSerializer(serializers.ModelSerializer):
     """Lightweight serializer for venue list (without images)"""
     image_display_url = serializers.SerializerMethodField()
     category_name = serializers.CharField(source='category.category_name', read_only=True)
-    
+    country_name = serializers.CharField(source='country.name', read_only=True, allow_null=True)
+    city_name = serializers.CharField(source='city.name', read_only=True, allow_null=True)
+
     class Meta:
         model = EntertainmentVenue
         fields = [
-            'venue_id', 'venue_name', 'description', 'address', 'latitude', 'longitude',
+            'venue_id', 'venue_name', 'description', 'address', 'country', 'country_name', 'city', 'city_name', 'latitude', 'longitude',
             'phone_number', 'opening_hours', 'status', 'venue_type', 'category', 'category_name',
             'image_display_url', 'average_rating', 'total_reviews', 'created_at'
         ]
