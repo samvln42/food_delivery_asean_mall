@@ -9,7 +9,7 @@ from .models import (
     CategoryTranslation, ProductTranslation, GuestOrder, GuestOrderDetail, GuestDeliveryStatusLog,
     Advertisement, RestaurantTable, DineInCart, DineInCartItem, DineInOrder, 
     DineInOrderDetail, DineInStatusLog, DineInProduct, DineInProductTranslation,
-    EntertainmentVenue, VenueImage, VenueCategory, VenueReview
+    EntertainmentVenue, VenueImage, VenueCategory, VenueReview, VenueTranslation
 )
 
 
@@ -1696,6 +1696,15 @@ class VenueCategorySerializer(serializers.ModelSerializer):
         return get_absolute_image_url(icon_url, self.context.get('request'))
 
 
+class VenueTranslationSerializer(serializers.ModelSerializer):
+    language_code = serializers.CharField(source='language.code', read_only=True)
+    language_name = serializers.CharField(source='language.name', read_only=True)
+
+    class Meta:
+        model = VenueTranslation
+        fields = ['language_code', 'language_name', 'translated_name', 'translated_description']
+
+
 class EntertainmentVenueSerializer(serializers.ModelSerializer):
     """Serializer for entertainment venues"""
     image_display_url = serializers.SerializerMethodField()
@@ -1709,16 +1718,88 @@ class EntertainmentVenueSerializer(serializers.ModelSerializer):
     city = serializers.PrimaryKeyRelatedField(
         queryset=City.objects.all(), allow_null=True, required=False,
     )
+    translations = serializers.SerializerMethodField()
 
     class Meta:
         model = EntertainmentVenue
         fields = [
             'venue_id', 'venue_name', 'description', 'address', 'country', 'country_name', 'city', 'city_name', 'latitude', 'longitude',
-            'phone_number', 'opening_hours', 'status', 'venue_type', 'category', 'category_name',
+            'phone_number', 'opening_hours', 'status', 'category', 'category_name',
             'image', 'image_url', 'image_display_url', 'average_rating', 'total_reviews',
-            'images', 'created_at', 'updated_at'
+            'images', 'created_at', 'updated_at', 'translations'
         ]
         read_only_fields = ['venue_id', 'average_rating', 'total_reviews', 'created_at', 'updated_at']
+
+    def get_translations(self, obj):
+        request = self.context.get('request')
+        if request:
+            lang_code = request.query_params.get('lang', None)
+            if lang_code:
+                filtered = obj.translations.filter(language__code=lang_code)
+                return VenueTranslationSerializer(filtered, many=True).data
+        return VenueTranslationSerializer(obj.translations.all(), many=True).data
+
+    def create(self, validated_data):
+        translations_data = self.context.get('request').data.get('translations') if self.context.get('request') else validated_data.pop('translations', None)
+        if isinstance(translations_data, str):
+            import json
+            try:
+                translations_data = json.loads(translations_data)
+            except json.JSONDecodeError:
+                translations_data = None
+
+        venue = EntertainmentVenue.objects.create(**validated_data)
+
+        if translations_data:
+            for lang_code, translation_data in translations_data.items():
+                if translation_data.get('name'):
+                    try:
+                        language = Language.objects.get(code=lang_code)
+                        VenueTranslation.objects.create(
+                            venue=venue,
+                            language=language,
+                            translated_name=translation_data['name'],
+                            translated_description=translation_data.get('description', '')
+                        )
+                    except Language.DoesNotExist:
+                        pass
+
+        return venue
+
+    def update(self, instance, validated_data):
+        translations_data = self.context.get('request').data.get('translations') if self.context.get('request') else validated_data.pop('translations', None)
+        if isinstance(translations_data, str):
+            import json
+            try:
+                translations_data = json.loads(translations_data)
+            except json.JSONDecodeError:
+                translations_data = None
+
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+
+        if translations_data is not None:
+            for lang_code, translation_data in translations_data.items():
+                if translation_data.get('name'):
+                    try:
+                        language = Language.objects.get(code=lang_code)
+                        translation, created = VenueTranslation.objects.get_or_create(
+                            venue=instance,
+                            language=language,
+                            defaults={
+                                'translated_name': translation_data['name'],
+                                'translated_description': translation_data.get('description', '')
+                            }
+                        )
+                        if not created:
+                            translation.translated_name = translation_data['name']
+                            translation.translated_description = translation_data.get('description', '')
+                            translation.save()
+                    except Language.DoesNotExist:
+                        pass
+
+        return instance
 
     def validate(self, attrs):
         country = attrs['country'] if 'country' in attrs else (self.instance.country if self.instance else None)
@@ -1791,15 +1872,25 @@ class EntertainmentVenueListSerializer(serializers.ModelSerializer):
     category_name = serializers.CharField(source='category.category_name', read_only=True)
     country_name = serializers.CharField(source='country.name', read_only=True, allow_null=True)
     city_name = serializers.CharField(source='city.name', read_only=True, allow_null=True)
+    translations = serializers.SerializerMethodField()
 
     class Meta:
         model = EntertainmentVenue
         fields = [
             'venue_id', 'venue_name', 'description', 'address', 'country', 'country_name', 'city', 'city_name', 'latitude', 'longitude',
-            'phone_number', 'opening_hours', 'status', 'venue_type', 'category', 'category_name',
-            'image_display_url', 'average_rating', 'total_reviews', 'created_at'
+            'phone_number', 'opening_hours', 'status', 'category', 'category_name',
+            'image_display_url', 'average_rating', 'total_reviews', 'created_at', 'translations'
         ]
         read_only_fields = ['venue_id', 'average_rating', 'total_reviews', 'created_at']
+
+    def get_translations(self, obj):
+        request = self.context.get('request')
+        if request:
+            lang_code = request.query_params.get('lang', None)
+            if lang_code:
+                filtered = obj.translations.filter(language__code=lang_code)
+                return VenueTranslationSerializer(filtered, many=True).data
+        return VenueTranslationSerializer(obj.translations.all(), many=True).data
     
     def get_image_display_url(self, obj):
         """Get the venue image URL"""

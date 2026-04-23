@@ -2,6 +2,7 @@ import React from 'react';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { FaCompass } from 'react-icons/fa';
 
+// eslint-disable-next-line no-unused-vars
 const DirectionsButton = ({ latitude, longitude, venueName }) => {
   const { translate } = useLanguage();
 

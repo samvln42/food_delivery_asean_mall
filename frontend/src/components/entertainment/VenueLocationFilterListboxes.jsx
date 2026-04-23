@@ -3,6 +3,9 @@ import { Listbox, ListboxButton, ListboxOption, ListboxOptions, Transition } fro
 import { ChevronUpDownIcon, CheckIcon } from '@heroicons/react/20/solid';
 import { FaGlobe, FaMapMarkerAlt } from 'react-icons/fa';
 
+/** ค่า Listbox สำหรับ "ทุกเมือง" — ใช้ sentinel แทน '' เพราะ Headless UI จัดการ value ว่างไม่เสถียร */
+export const CITY_ALL_VALUE = '__all_cities__';
+
 function listboxOptionClasses(active, selected) {
   return [
     'relative cursor-pointer select-none py-2.5 pl-3 pr-9 text-sm',
@@ -136,8 +139,8 @@ export default function VenueLocationFilterListboxes({
         </div>
       ) : (
         <Listbox
-          value={selectedCity ? String(selectedCity.city_id) : ''}
-          onChange={(v) => onCityChange(v ?? '')}
+          value={selectedCity ? String(selectedCity.city_id) : CITY_ALL_VALUE}
+          onChange={(v) => onCityChange(v === CITY_ALL_VALUE || v == null || v === '' ? '' : v)}
         >
           <div className="relative min-w-0 w-full sm:max-w-[11rem]">
             <ListboxButton
@@ -175,6 +178,20 @@ export default function VenueLocationFilterListboxes({
                 transition
                 className="z-[100] mt-1 max-h-60 w-[min(100vw-2rem,16rem)] overflow-auto rounded-xl border border-gray-200/80 bg-white py-1 shadow-lg shadow-gray-200/50 [--anchor-gap:4px] focus:outline-none data-[closed]:scale-95 data-[closed]:opacity-0 data-[enter]:duration-100 data-[leave]:duration-75"
               >
+                <ListboxOption key="__all_cities__" value={CITY_ALL_VALUE} className="p-0">
+                  {({ focus, selected: sel }) => (
+                    <div className={listboxOptionClasses(focus, sel)}>
+                      <span className="block truncate pl-1 italic text-gray-600">
+                        {translate('entertainment.all_cities') || translate('common.all') || 'ทุกเมือง'}
+                      </span>
+                      {sel && (
+                        <span className="absolute inset-y-0 right-0 flex items-center pr-2 text-primary-600">
+                          <CheckIcon className="h-4 w-4" aria-hidden />
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </ListboxOption>
                 {filteredCities.map((c) => {
                   const id = String(c.city_id);
                   const isSel = selectedCity ? String(selectedCity.city_id) === id : false;

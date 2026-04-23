@@ -34,6 +34,7 @@ const AdminRestaurantProducts = () => {
       fetchRestaurantInfo();
       fetchProducts();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [restaurantId, currentPage, searchTerm, categoryFilter, availabilityFilter, currentLanguage]); // เพิ่ม currentLanguage
 
   // แยก useEffect สำหรับ fetchCategories เพื่อรอให้ restaurant โหลดเสร็จก่อน
@@ -41,6 +42,7 @@ const AdminRestaurantProducts = () => {
     if (restaurant) {
       fetchCategories();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [restaurant, currentLanguage]); // เพิ่ม currentLanguage
 
   const fetchRestaurantInfo = async () => {

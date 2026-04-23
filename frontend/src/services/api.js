@@ -25,7 +25,8 @@ api.interceptors.request.use(
       const needsLanguage = [
         '/products',
         '/categories',
-        '/restaurants'
+        '/restaurants',
+        '/entertainment-venues'
       ].some(endpoint => config.url.includes(endpoint));
       
       if (needsLanguage) {
@@ -548,7 +549,10 @@ export const dineInOrderDetailService = {
 // Entertainment Venue services
 export const entertainmentVenueService = {
   getAll: (params = {}) => api.get('/entertainment-venues/', { params }),
-  getById: (id) => api.get(`/entertainment-venues/${id}/`),
+  getById: (id, options = {}) => {
+    const config = options.allLanguages ? { skipLangFilter: true } : {};
+    return api.get(`/entertainment-venues/${id}/`, config);
+  },
   getImages: (id) => api.get(`/entertainment-venues/${id}/images/`),
   getNearby: (params = {}) => api.get('/entertainment-venues/nearby/', { params }),
   search: (query, params = {}) => api.get('/entertainment-venues/', { params: { search: query, ...params } }),
@@ -558,10 +562,11 @@ export const entertainmentVenueService = {
       if (data[key] !== null && data[key] !== undefined && data[key] !== '') {
         if (key === 'image' && data[key] instanceof File) {
           formData.append(key, data[key]);
+        } else if (key === 'translations') {
+          formData.append(key, JSON.stringify(data[key]));
         } else if (key === 'category' && data[key] === null) {
           // Skip null category
         } else if (key !== 'image') {
-          // Convert to string for FormData
           const value = data[key];
           if (value !== null && value !== undefined) {
             formData.append(key, value.toString());
@@ -594,10 +599,11 @@ export const entertainmentVenueService = {
       if (data[key] !== null && data[key] !== undefined && data[key] !== '') {
         if (key === 'image' && data[key] instanceof File) {
           formData.append(key, data[key]);
+        } else if (key === 'translations') {
+          formData.append(key, JSON.stringify(data[key]));
         } else if (key === 'category' && data[key] === null) {
           // Skip null category for PATCH
         } else if (key !== 'image') {
-          // Convert to string for FormData
           const value = data[key];
           if (value !== null && value !== undefined) {
             formData.append(key, value.toString());
@@ -614,6 +620,7 @@ export const entertainmentVenueService = {
   updateImage: (venueId, imageId, data) => api.patch(`/entertainment-venues/${venueId}/images/${imageId}/`, data),
   deleteImage: (venueId, imageId) => api.delete(`/entertainment-venues/${venueId}/images/${imageId}/`),
   batchUpdateImages: (venueId, imagesData) => api.post(`/entertainment-venues/${venueId}/images/batch-update/`, { images: imagesData }),
+  bulkCreate: (venues) => api.post('/entertainment-venues/bulk_create/', { venues }),
 };
 
 // Venue Review services
@@ -677,6 +684,7 @@ export const venueCategoryService = {
     });
   },
   delete: (id) => api.delete(`/venue-categories/${id}/`),
+  deleteIcon: (id) => api.post(`/venue-categories/${id}/delete_icon/`),
 };
 
 export const advertisementService = {

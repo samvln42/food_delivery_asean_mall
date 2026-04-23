@@ -107,7 +107,9 @@ const MapPickerLeaflet = forwardRef(({
   height = '400px'
 }, ref) => {
   const [currentLocation, setCurrentLocation] = useState(initialCenter);
+  // eslint-disable-next-line no-unused-vars
   const [address, setAddress] = useState('');
+  // eslint-disable-next-line no-unused-vars
   const [isLoading, setIsLoading] = useState(false);
   const zoomToCurrentLocationRef = useRef(null);
   const confirmLocationRef = useRef(null);

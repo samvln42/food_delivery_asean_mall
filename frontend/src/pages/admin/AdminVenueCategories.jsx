@@ -109,6 +109,21 @@ const AdminVenueCategories = () => {
     }
   };
 
+  const handleDeleteIcon = async () => {
+    if (!selectedCategory) return;
+    if (!window.confirm(translate('entertainment.delete_icon_confirm') || 'ยืนยันการลบไอคอน?')) return;
+    try {
+      const updated = await venueCategoryService.deleteIcon(selectedCategory.category_id);
+      setSelectedCategory(updated.data);
+      setFormData(prev => ({ ...prev, icon: null, icon_url: '' }));
+      await fetchCategories();
+      alert(translate('entertainment.delete_icon_success') || 'ลบไอคอนสำเร็จ');
+    } catch (err) {
+      console.error('Error deleting icon:', err);
+      alert(err.response?.data?.detail || err.message || translate('entertainment.delete_icon_error') || 'เกิดข้อผิดพลาดในการลบไอคอน');
+    }
+  };
+
   const handleSave = async () => {
     try {
       if (modalType === 'create') {
@@ -325,6 +340,21 @@ const AdminVenueCategories = () => {
                     <label className="block text-sm font-medium text-secondary-700 mb-1">
                       {translate('entertainment.icon_label') || 'ไอคอน'} ({translate('entertainment.image') || 'รูปภาพ'})
                     </label>
+                    {selectedCategory?.icon_display_url && !formData.icon && (
+                      <div className="flex items-center space-x-3 mb-2 p-2 bg-secondary-50 rounded-lg">
+                        <img src={selectedCategory.icon_display_url} alt="icon" className="w-10 h-10 object-contain" />
+                        <span className="text-sm text-secondary-500 flex-1">{translate('entertainment.current_icon') || 'ไอคอนปัจจุบัน'}</span>
+                        <button
+                          type="button"
+                          onClick={handleDeleteIcon}
+                          className="px-2 py-1 text-red-600 hover:bg-red-50 rounded text-sm flex items-center space-x-1"
+                          title={translate('entertainment.delete_icon') || 'ลบไอคอน'}
+                        >
+                          <FiTrash2 className="w-4 h-4" />
+                          <span>{translate('entertainment.delete_icon') || 'ลบ'}</span>
+                        </button>
+                      </div>
+                    )}
                     <input
                       type="file"
                       accept="image/*"

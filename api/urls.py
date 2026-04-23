@@ -37,6 +37,10 @@ router.register(r'cities', views.CityViewSet, basename='city')
 urlpatterns = [
     # Health check endpoint for ALB/ELB
     path('health/', views.health_check, name='health-check'),
+    # Explicitly register bulk_create before router to avoid 405 from detail-pk matching
+    path('entertainment-venues/bulk_create/',
+         views.EntertainmentVenueViewSet.as_view({'post': 'bulk_create'}),
+         name='entertainment-venue-bulk-create'),
     path('geocode/reverse/', views.reverse_geocode_proxy, name='geocode-reverse'),
     path('geocode/search/', views.geocode_search_proxy, name='geocode-search'),
     path('', include(router.urls)),

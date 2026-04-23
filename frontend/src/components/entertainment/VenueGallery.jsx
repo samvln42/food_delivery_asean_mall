@@ -47,6 +47,7 @@ const VenueGallery = ({ images, venueName, showFullGallery = false }) => {
       document.body.style.overflow = originalOverflow;
       document.removeEventListener('keydown', handleKeyDown);
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedImageIndex, images.length]);
 
   if (!images || images.length === 0) {

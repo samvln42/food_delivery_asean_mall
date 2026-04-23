@@ -488,13 +488,13 @@ class VenueCategoryAdmin(admin.ModelAdmin):
 class EntertainmentVenueAdmin(admin.ModelAdmin):
     list_display = ['venue_name', 'category', 'status', 'average_rating', 'total_reviews', 'created_at']
     list_filter = ['status', 'category', 'created_at']
-    search_fields = ['venue_name', 'description', 'address', 'venue_type']
+    search_fields = ['venue_name', 'description', 'address']
     readonly_fields = ['venue_id', 'average_rating', 'total_reviews', 'created_at', 'updated_at', 'image_preview']
     inlines = [VenueImageInline]
     
     fieldsets = (
         ('ข้อมูลสถานที่', {
-            'fields': ('venue_name', 'description', 'category', 'venue_type', 'status')
+            'fields': ('venue_name', 'description', 'category', 'status')
         }),
         ('ข้อมูลติดต่อ', {
             'fields': ('address', 'latitude', 'longitude', 'phone_number', 'opening_hours')

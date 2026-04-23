@@ -3965,6 +3965,17 @@ class VenueCategoryViewSet(viewsets.ModelViewSet):
         context['request'] = self.request
         return context
 
+    @action(detail=True, methods=['post'])
+    def delete_icon(self, request, pk=None):
+        category = self.get_object()
+        if category.icon:
+            category.icon.delete(save=False)
+            category.icon = None
+        category.icon_url = ''
+        category.save()
+        serializer = self.get_serializer(category)
+        return Response(serializer.data)
+
 
 class CountryViewSet(viewsets.ModelViewSet):
     """ตารางอ้างอิงประเทศ — แก้ไขได้เฉพาะแอดมิน"""
@@ -4087,10 +4098,10 @@ class EntertainmentVenueViewSet(viewsets.ModelViewSet):
     queryset = EntertainmentVenue.objects.select_related('category', 'country', 'city').prefetch_related('images')
     serializer_class = EntertainmentVenueSerializer
     filter_backends = [filters.SearchFilter, filters.OrderingFilter, DjangoFilterBackend]
-    search_fields = ['venue_name', 'description', 'address', 'venue_type', 'category__category_name', 'country__name', 'city__name']
+    search_fields = ['venue_name', 'description', 'address', 'category__category_name', 'country__name', 'city__name']
     ordering_fields = ['average_rating', 'created_at', 'venue_name']
     ordering = ['-average_rating']
-    filterset_fields = ['status', 'category', 'venue_type', 'country', 'city']
+    filterset_fields = ['status', 'category', 'country', 'city']
     parser_classes = [JSONParser, MultiPartParser, FormParser]
     
     def get_permissions(self):
@@ -4266,6 +4277,121 @@ class EntertainmentVenueViewSet(viewsets.ModelViewSet):
         except VenueImage.DoesNotExist:
             return Response({'error': 'Image not found'}, status=status.HTTP_404_NOT_FOUND)
     
+    @action(detail=False, methods=['post'], url_path='bulk_create', permission_classes=[IsAuthenticated])
+    def bulk_create(self, request):
+        """
+        Bulk-create entertainment venues from Excel import.
+        Expected body: { "venues": [ { venue_name, country_name, city_name,
+                                        address, latitude, longitude, phone_number,
+                                        opening_hours, description, status, category_name }, ... ] }
+        Returns: { success, failed, errors, new_countries, new_cities }
+        """
+        if request.user.role != 'admin':
+            return Response({'error': 'Only admins can bulk-import venues'}, status=status.HTTP_403_FORBIDDEN)
+
+        venues_data = request.data.get('venues', [])
+        if not isinstance(venues_data, list) or len(venues_data) == 0:
+            return Response({'error': 'venues list is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        success_count = 0
+        failed_count = 0
+        duplicate_count = 0
+        errors = []
+        duplicates = []
+        new_countries = []
+        new_cities = []
+
+        existing_names = {
+            name.lower()
+            for name in EntertainmentVenue.objects.values_list('venue_name', flat=True)
+        }
+
+        for idx, row in enumerate(venues_data):
+            row_num = idx + 2  # ตรงกับหมายเลขแถวใน Excel (header = 1)
+            venue_name = (row.get('venue_name') or '').strip()
+            if not venue_name:
+                errors.append({'row': row_num, 'venue_name': '—', 'message': 'venue_name ว่างเปล่า'})
+                failed_count += 1
+                continue
+
+            if venue_name.lower() in existing_names:
+                duplicates.append({'row': row_num, 'venue_name': venue_name})
+                duplicate_count += 1
+                continue
+
+            try:
+                # ─── Country / City (get_or_create, normalize title-case) ───────────
+                country_obj = None
+                city_obj = None
+                country_raw = (row.get('country_name') or '').strip().title()
+                city_raw = (row.get('city_name') or '').strip().title()
+
+                if country_raw:
+                    country_obj, created_c = Country.objects.get_or_create(name=country_raw)
+                    if created_c:
+                        new_countries.append(country_raw)
+                    if city_raw:
+                        city_obj, created_ct = City.objects.get_or_create(
+                            name=city_raw, country=country_obj
+                        )
+                        if created_ct:
+                            new_cities.append(f'{city_raw} ({country_raw})')
+
+                # ─── Category ────────────────────────────────────────────────────────
+                category_obj = None
+                cat_name = (row.get('category_name') or '').strip()
+                if cat_name:
+                    category_obj, _ = VenueCategory.objects.get_or_create(category_name=cat_name)
+
+                # ─── Lat / Lng ────────────────────────────────────────────────────────
+                def to_decimal_or_none(val):
+                    try:
+                        return float(str(val).replace(',', '.')) if str(val).strip() else None
+                    except (ValueError, TypeError):
+                        return None
+
+                lat = to_decimal_or_none(row.get('latitude'))
+                lng = to_decimal_or_none(row.get('longitude'))
+
+                # ─── Status ───────────────────────────────────────────────────────────
+                raw_status = (row.get('status') or 'open').strip().lower()
+                status_val = raw_status if raw_status in ('open', 'closed') else 'open'
+
+                # ─── Create ───────────────────────────────────────────────────────────
+                EntertainmentVenue.objects.create(
+                    venue_name=venue_name,
+                    country=country_obj,
+                    city=city_obj,
+                    address=(row.get('address') or '').strip(),
+                    latitude=lat,
+                    longitude=lng,
+                    phone_number=(row.get('phone_number') or '').strip() or None,
+                    opening_hours=(row.get('opening_hours') or '').strip() or None,
+                    description=(row.get('description') or '').strip() or None,
+                    status=status_val,
+                    category=category_obj,
+                )
+                existing_names.add(venue_name.lower())
+                success_count += 1
+
+            except Exception as exc:
+                failed_count += 1
+                errors.append({
+                    'row': row_num,
+                    'venue_name': venue_name,
+                    'message': str(exc),
+                })
+
+        return Response({
+            'success': success_count,
+            'failed': failed_count,
+            'duplicates': duplicate_count,
+            'duplicate_list': duplicates,
+            'errors': errors,
+            'new_countries': list(dict.fromkeys(new_countries)),
+            'new_cities': list(dict.fromkeys(new_cities)),
+        }, status=status.HTTP_200_OK)
+
     @action(detail=True, methods=['post'], url_path='images/batch-update', permission_classes=[IsAuthenticated])
     def batch_update_images(self, request, pk=None):
         """Batch update images (caption, sort_order)"""

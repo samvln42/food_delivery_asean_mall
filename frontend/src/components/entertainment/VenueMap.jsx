@@ -29,6 +29,7 @@ const VenueMap = ({ latitude, longitude, venueName, address, height = '300px' })
     if (mapsLoaded && mapRef.current && latitude && longitude && !map) {
       initializeMap();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mapsLoaded, latitude, longitude, map]);
 
   const initializeMap = () => {

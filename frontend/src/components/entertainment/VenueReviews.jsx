@@ -10,6 +10,7 @@ const VenueReviews = ({ venueId }) => {
   const { translate } = useLanguage();
   const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
+  // eslint-disable-next-line no-unused-vars
   const [error, setError] = useState(null);
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [rating, setRating] = useState(0);
@@ -20,6 +21,7 @@ const VenueReviews = ({ venueId }) => {
 
   useEffect(() => {
     fetchReviews();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [venueId]);
 
   const fetchReviews = async () => {

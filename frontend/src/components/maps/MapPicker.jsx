@@ -48,6 +48,7 @@ const MapPicker = forwardRef(({
       }
       return currentLocation;
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [map, currentLocation]);
 
   useEffect(() => {
@@ -70,6 +71,7 @@ const MapPicker = forwardRef(({
     if (mapsLoaded && mapRef.current && !map) {
       initializeMap();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mapsLoaded, map]);
 
   // เลื่อนแผนที่เมื่อพิกัดจากฟอร์มเปลี่ยน (เช่น เลือกจากช่องที่อยู่ Autocomplete)

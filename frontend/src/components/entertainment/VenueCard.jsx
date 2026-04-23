@@ -1,10 +1,11 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { useLanguage } from '../../contexts/LanguageContext';
+import { getTranslatedName, getTranslatedDescription } from '../../utils/translationHelpers';
 import { FaStar, FaTheaterMasks } from 'react-icons/fa';
 
 const VenueCard = ({ venue }) => {
-  const { translate } = useLanguage();
+  const { translate, currentLanguage } = useLanguage();
 
   const calculateDistance = (lat1, lon1, lat2, lon2) => {
     // Haversine formula for calculating distance
@@ -30,6 +31,7 @@ const VenueCard = ({ venue }) => {
     if (savedLocation) {
       try {
         return JSON.parse(savedLocation);
+      // eslint-disable-next-line no-unused-vars
       } catch (e) {
         return null;
       }
@@ -60,7 +62,7 @@ const VenueCard = ({ venue }) => {
         {venue.image_display_url ? (
           <img
             src={venue.image_display_url}
-            alt={venue.venue_name}
+            alt={getTranslatedName(venue, currentLanguage, venue.venue_name)}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
             onError={(e) => {
               e.target.style.display = 'none';
@@ -82,20 +84,13 @@ const VenueCard = ({ venue }) => {
             </span>
           </div>
         )}
-        {venue.venue_type && (
-          <div className="absolute top-1.5 sm:top-2 left-1.5 sm:left-2">
-            <span className="px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full text-xs font-semibold bg-primary-500 text-white">
-              {venue.venue_type}
-            </span>
-          </div>
-        )}
       </div>
       <div className="p-3 sm:p-4">
         <h3 className="font-bold text-base sm:text-lg text-secondary-800 mb-1.5 sm:mb-2 group-hover:text-primary-600 transition-colors line-clamp-1">
-          {venue.venue_name}
+          {getTranslatedName(venue, currentLanguage, venue.venue_name)}
         </h3>
         <p className="text-secondary-600 text-xs sm:text-sm mb-2 sm:mb-3 line-clamp-2">
-          {venue.description}
+          {getTranslatedDescription(venue, currentLanguage, venue.description)}
         </p>
         <div className="flex items-center justify-between text-xs sm:text-sm mb-2 sm:mb-3">
           <div className="flex items-center">

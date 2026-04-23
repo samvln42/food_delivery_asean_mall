@@ -298,7 +298,6 @@ class EntertainmentVenue(models.Model):
     phone_number = models.CharField(max_length=20, blank=True, null=True)
     opening_hours = models.CharField(max_length=200, blank=True, null=True, help_text="Opening hours (e.g., '18:00 - 02:00')")
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='open')
-    venue_type = models.CharField(max_length=100, blank=True, null=True, help_text="Type of venue (deprecated, use category)")
     category = models.ForeignKey(VenueCategory, on_delete=models.SET_NULL, null=True, blank=True, related_name='venues', help_text="Venue category")
     image = models.ImageField(upload_to='entertainment_venues/', blank=True, null=True, help_text="Main venue image")
     image_url = models.CharField(max_length=255, blank=True, null=True, help_text="Main venue image URL (alternative to image)")
@@ -361,6 +360,20 @@ class VenueImage(models.Model):
     
     def __str__(self):
         return f"Image {self.image_id} for {self.venue.venue_name}"
+
+
+class VenueTranslation(models.Model):
+    venue = models.ForeignKey(EntertainmentVenue, on_delete=models.CASCADE, related_name='translations')
+    language = models.ForeignKey('Language', on_delete=models.CASCADE)
+    translated_name = models.CharField(max_length=200, blank=True)
+    translated_description = models.TextField(blank=True)
+
+    class Meta:
+        db_table = 'venue_translations'
+        unique_together = ['venue', 'language']
+
+    def __str__(self):
+        return f"{self.venue.venue_name} [{self.language.code}]"
 
 
 class VenueReview(models.Model):

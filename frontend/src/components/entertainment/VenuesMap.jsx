@@ -1,7 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { loadGoogleMaps, isGoogleMapsLoaded } from '../../utils/googleMapsLoader';
 import { getGoogleMapsApiKey } from '../../utils/googleMaps';
+import { useLanguage } from '../../contexts/LanguageContext';
+import { getTranslatedName } from '../../utils/translationHelpers';
 import { FaCrosshairs } from 'react-icons/fa';
+
 
 const DEFAULT_CENTER = { lat: 17.9757, lng: 102.6331 }; // Vientiane, Laos
 const DEFAULT_ZOOM = 14;
@@ -103,6 +106,8 @@ const VenuesMap = ({
   onUserCoordsChange,
   searchQuery,
 }) => {
+  
+  const {translate, currentLanguage } = useLanguage();
   const mapRef = useRef(null);
   const [map, setMap] = useState(null);
   const [mapsLoaded, setMapsLoaded] = useState(false);
@@ -188,7 +193,9 @@ const VenuesMap = ({
 
     itemsWithCoords.forEach((place) => {
       const isRestaurant = place.type === 'restaurant';
-      const name = isRestaurant ? place.restaurant_name || '' : place.venue_name || '';
+      const name = isRestaurant
+        ? place.restaurant_name || ''
+        : getTranslatedName(place, currentLanguage, place.venue_name || '');
       const pos = {
         lat: parseFloat(place.latitude),
         lng: parseFloat(place.longitude),
@@ -213,7 +220,7 @@ const VenuesMap = ({
         ${place.address ? `<p style="font-size: 12px; color: #666; margin: 0 0 8px 0; line-height: 1.3;">${(place.address || '').replace(/</g, '&lt;')}</p>` : ''}
         <a href="${detailUrl}" class="place-detail-link"
            style="display: inline-block; background: #2563eb; color: white; padding: 6px 12px; border-radius: 6px; font-size: 12px; text-decoration: none; font-weight: 500;">
-          ดูรายละเอียด →
+          ${translate('common.view_details') || 'ดูรายละเอียด →'}
         </a>
       `;
 
@@ -293,7 +300,7 @@ const VenuesMap = ({
       infoWindowsRef.current = [];
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mapsLoaded, map, itemsWithCoords, locationCity]);
+  }, [mapsLoaded, map, itemsWithCoords, locationCity, currentLanguage]);
 
   useEffect(() => {
     if (!mapsLoaded || !mapRef.current || !isGoogleMapsLoaded() || !window.google?.maps) return;
@@ -313,18 +320,17 @@ const VenuesMap = ({
     setMap(googleMap);
   }, [mapsLoaded]);
 
-  // Pan & zoom ไปยังตำแหน่งปัจจุบันทุกครั้งที่ userCoords เปลี่ยน (GPS อัปเดต)
-  // ใช้ setTimeout เพื่อให้ pan effect ทำงานหลัง marker effect เสมอ
+  // Pan & zoom ไปยังตำแหน่งปัจจุบันเมื่อมี GPS (ยังไม่ได้เลือกเมืองเฉพาะ)
+  // ถ้าเลือกเมืองแล้ว — อย่า pan กลับ GPS เพราะจะทับการ fitBounds ของ marker หลังเปลี่ยนประเภท
   useEffect(() => {
     if (!map || !userCoords) return;
-    // ถ้า map เพิ่งสร้างด้วย userCoords เป็น initial center แล้ว ไม่ต้อง pan ซ้ำ
-    // แต่ถ้า userCoords เพิ่งได้รับ (GPS async) ให้ pan ไปเสมอ
+    if (locationCity) return;
     const t = setTimeout(() => {
       map.panTo({ lat: userCoords.lat, lng: userCoords.lng });
       map.setZoom(14);
     }, 100);
     return () => clearTimeout(t);
-  }, [map, userCoords]);
+  }, [map, userCoords, locationCity]);
 
   // เมื่อค้นหาด้วยชื่อ ให้เลื่อนไปยังผลลัพธ์ตัวแรกที่มีพิกัด
   useEffect(() => {

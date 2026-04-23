@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python manage.py migrate api 0039_venuetranslation)",
+      "Bash(python manage.py check)",
+      "Bash(python -c ' *)",
+      "Bash(python manage.py shell -c ' *)",
+      "Bash(npx tsc *)"
+    ]
+  }
+}

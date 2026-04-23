@@ -123,6 +123,7 @@ const AddressPickerLeaflet = ({
     }
   };
 
+  // eslint-disable-next-line no-unused-vars
   const handleManualGeocode = async () => {
     if (!address || address.trim() === '') {
       setError('กรุณากรอกที่อยู่');

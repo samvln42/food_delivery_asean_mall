@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import * as XLSX from 'xlsx';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { FcGallery } from "react-icons/fc";
 import {
@@ -17,13 +18,19 @@ import {
   FaClock,
   FaChevronUp,
   FaChevronDown,
+  FaFileExcel,
+  FaDownload,
+  FaCheckCircle,
+  FaExclamationTriangle,
+  FaSpinner,
 } from 'react-icons/fa';
 import { entertainmentVenueService, venueCategoryService, countryService, cityService } from '../../services/api';
+import { getTranslatedName, getTranslatedDescription } from '../../utils/translationHelpers';
 import MapPicker from '../../components/maps/MapPicker';
 import AddressPicker from '../../components/maps/AddressPicker';
 
 const AdminEntertainmentVenues = () => {
-  const { translate } = useLanguage();
+  const { translate, availableLanguages, currentLanguage } = useLanguage();
   const [venues, setVenues] = useState([]);
   const [categories, setCategories] = useState([]);
   const [filteredVenues, setFilteredVenues] = useState([]);
@@ -40,6 +47,19 @@ const AdminEntertainmentVenues = () => {
   /** รายการในโมดัลแกลเลอรี: รูปจากเซิร์ฟเวอร์ + รูปรออัปโหลด (มี file + previewUrl) */
   const [galleryDraft, setGalleryDraft] = useState([]);
   const [gallerySaving, setGallerySaving] = useState(false);
+
+  // --- Excel Import ---
+  const [showImportModal, setShowImportModal] = useState(false);
+  /** ขั้นตอน: 'idle' | 'preview' | 'importing' | 'done' */
+  const [importStep, setImportStep] = useState('idle');
+  /** แถวที่ parse มาจาก Excel */
+  const [importRows, setImportRows] = useState([]);
+  /** venue_name (lowercase) ที่ซ้ำกันภายในไฟล์ Excel */
+  const [importDuplicateNames, setImportDuplicateNames] = useState(new Set());
+  /** { success: [], failed: [] } */
+  const [importResult, setImportResult] = useState(null);
+  const [exportingExcel, setExportingExcel] = useState(false);
+  const importFileRef = useRef(null);
   /** ซ่อนแผนที่ชั่วคราวเพื่อเลื่อนฟอร์มโดยไม่ให้แผนที่ดัก scroll / zoom */
   const [venueMapExpanded, setVenueMapExpanded] = useState(true);
   const [countriesList, setCountriesList] = useState([]);
@@ -54,10 +74,10 @@ const AdminEntertainmentVenues = () => {
     longitude: '',
     phone_number: '',
     opening_hours: '',
-    venue_type: '',
     category: null,
     status: 'open',
     image: null,
+    translations: {},
   });
 
   const fetchVenues = async () => {
@@ -67,7 +87,7 @@ const AdminEntertainmentVenues = () => {
       const params = {};
       if (searchTerm) params.search = searchTerm;
       if (statusFilter !== 'all') params.status = statusFilter;
-      if (typeFilter !== 'all') params.venue_type = typeFilter;
+      if (typeFilter !== 'all') params.category = typeFilter;
       
       const response = await entertainmentVenueService.getAll(params);
       const fetchedVenues = response.data?.results || response.data || [];
@@ -75,7 +95,7 @@ const AdminEntertainmentVenues = () => {
       setFilteredVenues(fetchedVenues);
     } catch (err) {
       console.error('Error fetching venues:', err);
-      setError(err.response?.data?.detail || err.message || 'เกิดข้อผิดพลาดในการโหลดข้อมูล');
+      setError(err.response?.data?.detail || err.message || translate('entertainment.load_error') || 'เกิดข้อผิดพลาดในการโหลดข้อมูล');
     } finally {
       setLoading(false);
     }
@@ -139,7 +159,7 @@ const AdminEntertainmentVenues = () => {
   useEffect(() => {
     fetchVenues();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchTerm, statusFilter, typeFilter]);
+  }, [searchTerm, statusFilter, typeFilter, currentLanguage]);
 
 
   const handleCreate = () => {
@@ -153,33 +173,50 @@ const AdminEntertainmentVenues = () => {
       longitude: '',
       phone_number: '',
       opening_hours: '',
-      venue_type: '',
       category: null,
       status: 'open',
       image: null,
+      translations: {},
     });
     setModalType('create');
     setShowModal(true);
   };
 
-  const handleEdit = (venue) => {
+  const handleEdit = async (venue) => {
+    let fullVenue = venue;
+    try {
+      const response = await entertainmentVenueService.getById(venue.venue_id, { allLanguages: true });
+      fullVenue = response.data;
+    } catch (err) {
+      console.error('Error fetching venue details:', err);
+    }
+
+    const translations = {};
+    if (fullVenue.translations) {
+      fullVenue.translations.forEach(trans => {
+        translations[trans.language_code] = {
+          name: trans.translated_name || '',
+          description: trans.translated_description || '',
+        };
+      });
+    }
+
     setFormData({
-      venue_name: venue.venue_name || '',
-      description: venue.description || '',
-      address: venue.address || '',
-      country:
-        venue.country != null && venue.country !== '' ? String(venue.country) : '',
-      city: venue.city != null && venue.city !== '' ? String(venue.city) : '',
-      latitude: venue.latitude || '',
-      longitude: venue.longitude || '',
-      phone_number: venue.phone_number || '',
-      opening_hours: venue.opening_hours || '',
-      venue_type: venue.venue_type || '',
-      category: venue.category || null,
-      status: venue.status || 'open',
+      venue_name: fullVenue.venue_name || '',
+      description: fullVenue.description || '',
+      address: fullVenue.address || '',
+      country: fullVenue.country != null && fullVenue.country !== '' ? String(fullVenue.country) : '',
+      city: fullVenue.city != null && fullVenue.city !== '' ? String(fullVenue.city) : '',
+      latitude: fullVenue.latitude || '',
+      longitude: fullVenue.longitude || '',
+      phone_number: fullVenue.phone_number || '',
+      opening_hours: fullVenue.opening_hours || '',
+      category: fullVenue.category || null,
+      status: fullVenue.status || 'open',
       image: null,
+      translations,
     });
-    setSelectedVenue(venue);
+    setSelectedVenue(fullVenue);
     setModalType('edit');
     setShowModal(true);
   };
@@ -289,10 +326,10 @@ const AdminEntertainmentVenues = () => {
         const next = prev.filter((x) => x._key !== draftKey);
         return next.map((it, idx) => ({ ...it, sort_order: idx + 1 }));
       });
-      alert('ลบรูปภาพสำเร็จ');
+      alert(translate('entertainment.delete_image_success') || 'ลบรูปภาพสำเร็จ');
     } catch (err) {
       console.error('Error deleting image:', err);
-      alert(err.response?.data?.detail || err.message || 'เกิดข้อผิดพลาดในการลบรูปภาพ');
+      alert(err.response?.data?.detail || err.message || translate('entertainment.delete_image_error') || 'เกิดข้อผิดพลาดในการลบรูปภาพ');
     }
   };
 
@@ -355,13 +392,13 @@ const AdminEntertainmentVenues = () => {
       }
 
       await entertainmentVenueService.batchUpdateImages(selectedVenue.venue_id, imagesData);
-      alert('บันทึกรูปภาพสำเร็จ');
+      alert(translate('entertainment.save_gallery_success') || 'บันทึกรูปภาพสำเร็จ');
       setGalleryDraft([]);
       setShowGalleryModal(false);
       await fetchVenues();
     } catch (err) {
       console.error('Error saving gallery:', err);
-      alert(err.response?.data?.detail || err.message || 'เกิดข้อผิดพลาดในการบันทึกรูปภาพ');
+      alert(err.response?.data?.detail || err.message || translate('entertainment.save_gallery_error') || 'เกิดข้อผิดพลาดในการบันทึกรูปภาพ');
     } finally {
       setGallerySaving(false);
     }
@@ -378,7 +415,6 @@ const AdminEntertainmentVenues = () => {
       if (dataToSend.phone_number === '') dataToSend.phone_number = null;
       if (dataToSend.opening_hours === '') dataToSend.opening_hours = null;
       if (dataToSend.description === '') dataToSend.description = null;
-      if (dataToSend.venue_type === '') dataToSend.venue_type = null;
       if (dataToSend.country === '' || dataToSend.country == null) {
         dataToSend.country = null;
       } else {
@@ -422,6 +458,16 @@ const AdminEntertainmentVenues = () => {
         dataToSend.longitude = Math.round(dataToSend.longitude * 1e12) / 1e12;
       }
       
+      // Filter out empty translations
+      const validTranslations = {};
+      Object.keys(dataToSend.translations || {}).forEach(langCode => {
+        const t = dataToSend.translations[langCode];
+        if (t && t.name && t.name.trim()) {
+          validTranslations[langCode] = { name: t.name.trim(), description: t.description || '' };
+        }
+      });
+      dataToSend.translations = validTranslations;
+
       if (modalType === 'create') {
         await entertainmentVenueService.create(dataToSend);
         alert(translate('entertainment.add_success') || 'เพิ่มสถานที่สำเร็จ');
@@ -440,9 +486,173 @@ const AdminEntertainmentVenues = () => {
     }
   };
 
-  const getUniqueTypes = () => {
-    const types = [...new Set(venues.map((v) => v.venue_type).filter(Boolean))];
-    return types;
+  const getUniqueCategories = () => {
+    const seen = new Set();
+    return venues
+      .filter((v) => v.category && v.category_name)
+      .filter((v) => { if (seen.has(v.category)) return false; seen.add(v.category); return true; })
+      .map((v) => ({ id: v.category, name: v.category_name }));
+  };
+
+  // ─── Excel Import ────────────────────────────────────────────────────────────
+
+  const EXCEL_COLUMNS = [
+    'venue_name', 'country_name', 'city_name',
+    'address', 'latitude', 'longitude',
+    'phone_number', 'opening_hours', 'description', 'status', 'category',
+  ];
+
+  const handleDownloadDatabaseExcel = async () => {
+    setExportingExcel(true);
+    try {
+      const allVenues = [];
+      let page = 1;
+      let hasNext = true;
+      const pageSize = 300;
+
+      while (hasNext) {
+        const response = await entertainmentVenueService.getAll({
+          page,
+          page_size: pageSize,
+          ordering: 'venue_name',
+        });
+        const payload = response.data;
+        const rows = Array.isArray(payload) ? payload : (payload?.results || []);
+
+        if (Array.isArray(rows) && rows.length > 0) {
+          allVenues.push(...rows);
+        }
+
+        if (Array.isArray(payload)) {
+          hasNext = false;
+        } else {
+          hasNext = Boolean(payload?.next);
+          if (hasNext) page += 1;
+        }
+
+        if (!rows.length) hasNext = false;
+        if (page > 500) hasNext = false;
+      }
+
+      const mappedRows = allVenues.map((v) => ({
+        venue_name: v.venue_name || '',
+        country_name: v.country_name || '',
+        city_name: v.city_name || '',
+        address: v.address || '',
+        latitude: v.latitude ?? '',
+        longitude: v.longitude ?? '',
+        phone_number: v.phone_number || '',
+        opening_hours: v.opening_hours || '',
+        description: v.description || '',
+        status: ['open', 'closed'].includes(v.status) ? v.status : 'open',
+        category: v.category_name || '',
+      }));
+
+      const sheetData = [
+        EXCEL_COLUMNS,
+        ...mappedRows.map((row) => EXCEL_COLUMNS.map((col) => row[col] ?? '')),
+      ];
+
+      const ws = XLSX.utils.aoa_to_sheet(sheetData);
+      ws['!cols'] = EXCEL_COLUMNS.map((key) => {
+        if (key === 'description') return { wch: 36 };
+        if (['venue_name', 'address'].includes(key)) return { wch: 28 };
+        return { wch: 18 };
+      });
+
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Venues');
+      const dateSuffix = new Date().toISOString().slice(0, 10);
+      XLSX.writeFile(wb, `entertainment_venues_export_${dateSuffix}.xlsx`);
+    } catch (err) {
+      console.error('Error exporting venues excel:', err);
+      alert(
+        err.response?.data?.detail ||
+          err.message ||
+          (translate('common.error') || 'เกิดข้อผิดพลาด')
+      );
+    } finally {
+      setExportingExcel(false);
+    }
+  };
+
+  const handleImportFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const wb = XLSX.read(evt.target.result, { type: 'binary' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const raw = XLSX.utils.sheet_to_json(ws, { defval: '' });
+
+        const rows = raw.map((r, idx) => {
+          const row = {};
+          EXCEL_COLUMNS.forEach((col) => {
+            row[col] = String(r[col] ?? '').trim();
+          });
+          return { _row: idx + 2, ...row };
+        }).filter((r) => r.venue_name);
+
+        const nameCounts = {};
+        rows.forEach((r) => {
+          const key = r.venue_name.toLowerCase();
+          nameCounts[key] = (nameCounts[key] || 0) + 1;
+        });
+        const dupNames = new Set(
+          Object.entries(nameCounts).filter(([, c]) => c > 1).map(([k]) => k)
+        );
+
+        setImportRows(rows);
+        setImportDuplicateNames(dupNames);
+        setImportStep('preview');
+        setImportResult(null);
+      } catch (err) {
+        alert((translate('entertainment.import_read_error') || 'ไม่สามารถอ่านไฟล์ Excel ได้') + ': ' + err.message);
+      }
+    };
+    reader.readAsBinaryString(file);
+    if (importFileRef.current) importFileRef.current.value = '';
+  };
+
+  const handleRunImport = async () => {
+    if (importRows.length === 0) return;
+    setImportStep('importing');
+
+    const payload = importRows.map((r) => ({
+      venue_name: r.venue_name,
+      country_name: r.country_name || '',
+      city_name: r.city_name || '',
+      address: r.address || '',
+      latitude: r.latitude !== '' ? r.latitude : null,
+      longitude: r.longitude !== '' ? r.longitude : null,
+      phone_number: r.phone_number || '',
+      opening_hours: r.opening_hours || '',
+      description: r.description || '',
+      status: ['open', 'closed'].includes(r.status) ? r.status : 'open',
+      category_name: r.category || '',
+    }));
+
+    try {
+      const response = await entertainmentVenueService.bulkCreate(payload);
+      setImportResult(response.data);
+      setImportStep('done');
+      await fetchVenues();
+    } catch (err) {
+      const detail = err.response?.data?.detail || err.message || translate('common.error') || 'เกิดข้อผิดพลาด';
+      alert((translate('entertainment.import_run_error') || 'นำเข้าล้มเหลว') + ': ' + detail);
+      setImportStep('preview');
+    }
+  };
+
+  const resetImportModal = () => {
+    setShowImportModal(false);
+    setImportStep('idle');
+    setImportRows([]);
+    setImportDuplicateNames(new Set());
+    setImportResult(null);
+    if (importFileRef.current) importFileRef.current.value = '';
   };
 
   if (loading) {
@@ -462,13 +672,39 @@ const AdminEntertainmentVenues = () => {
         <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-secondary-800">
           <FaTheaterMasks className="mr-2 inline-block h-6 w-6 text-secondary-600 sm:h-7 sm:w-7 md:h-8 md:w-8" aria-hidden /> {translate('entertainment.manage_venues') || 'จัดการสถานที่บันเทิง'}
         </h1>
-        <button
-          onClick={handleCreate}
-          className="flex w-full items-center justify-center space-x-2 rounded-lg border border-secondary-300 bg-secondary-800 px-4 py-2 text-white transition-colors hover:bg-secondary-900 sm:w-auto"
-        >
-          <FaPlus className="h-5 w-5" aria-hidden />
-          <span>{translate('entertainment.add_venue') || 'เพิ่มสถานที่'}</span>
-        </button>
+        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+          <button
+            type="button"
+            onClick={handleDownloadDatabaseExcel}
+            disabled={exportingExcel}
+            className="flex w-full items-center justify-center gap-2 rounded-lg border border-green-600 bg-white px-4 py-2 text-green-700 transition-colors hover:bg-green-50 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+          >
+            {exportingExcel ? (
+              <FaSpinner className="h-4 w-4 animate-spin" aria-hidden />
+            ) : (
+              <FaDownload className="h-4 w-4" aria-hidden />
+            )}
+            <span>
+              {translate('entertainment.download_template') || 'ดาวน์โหลด Excel'}
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => { setShowImportModal(true); setImportStep('idle'); }}
+            className="flex w-full items-center justify-center gap-2 rounded-lg border border-green-600 bg-white px-4 py-2 text-green-700 transition-colors hover:bg-green-50 sm:w-auto"
+          >
+            <FaFileExcel className="h-4 w-4" aria-hidden />
+            <span>{translate('entertainment.import_excel') || 'นำเข้า Excel'}</span>
+          </button>
+          <button
+            type="button"
+            onClick={handleCreate}
+            className="flex w-full items-center justify-center gap-2 rounded-lg border border-secondary-300 bg-secondary-800 px-4 py-2 text-white transition-colors hover:bg-secondary-900 sm:w-auto"
+          >
+            <FaPlus className="h-5 w-5" aria-hidden />
+            <span>{translate('entertainment.add_venue') || 'เพิ่มสถานที่'}</span>
+          </button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -515,9 +751,9 @@ const AdminEntertainmentVenues = () => {
               className="w-full px-4 py-2 border border-secondary-300 rounded-lg focus:border-secondary-400 focus:outline-none focus:ring-2 focus:ring-secondary-300/80"
             >
               <option value="all">{translate('common.all') || 'ทั้งหมด'}</option>
-              {getUniqueTypes().map((type) => (
-                <option key={type} value={type}>
-                  {type}
+              {getUniqueCategories().map((cat) => (
+                <option key={cat.id} value={cat.id}>
+                  {cat.name}
                 </option>
               ))}
             </select>
@@ -575,15 +811,15 @@ const AdminEntertainmentVenues = () => {
                     </td>
                     <td className="px-4 xl:px-6 py-4">
                       <div className="text-sm font-medium text-secondary-900">
-                        {venue.venue_name}
+                        {getTranslatedName(venue, currentLanguage, venue.venue_name)}
                       </div>
                       <div className="text-xs xl:text-sm text-secondary-500 line-clamp-1">
-                        {venue.description}
+                        {getTranslatedDescription(venue, currentLanguage, venue.description)}
                       </div>
                     </td>
                     <td className="px-4 xl:px-6 py-4 whitespace-nowrap">
                       <span className="rounded px-2 py-1 text-xs font-medium bg-secondary-100 text-secondary-700">
-                        {venue.venue_type}
+                        {venue.category_name || '—'}
                       </span>
                     </td>
                     <td className="px-4 xl:px-6 py-4 whitespace-nowrap">
@@ -684,15 +920,12 @@ const AdminEntertainmentVenues = () => {
                 </div>
                 <div className="flex-1 min-w-0">
                   <h3 className="text-base sm:text-lg font-semibold text-secondary-900 mb-1 truncate">
-                    {venue.venue_name}
+                    {getTranslatedName(venue, currentLanguage, venue.venue_name)}
                   </h3>
                   <p className="text-xs sm:text-sm text-secondary-500 line-clamp-2 mb-2">
-                    {venue.description}
+                    {getTranslatedDescription(venue, currentLanguage, venue.description)}
                   </p>
                   <div className="flex flex-wrap items-center gap-2 mb-2">
-                    <span className="rounded px-2 py-1 text-xs font-medium bg-secondary-100 text-secondary-700">
-                      {venue.venue_type}
-                    </span>
                     <span
                       className={`rounded px-2 py-1 text-xs font-medium ${
                         venue.status === 'open'
@@ -781,13 +1014,13 @@ const AdminEntertainmentVenues = () => {
                       <label className="block text-sm font-medium text-secondary-700 mb-1">
                         {translate('entertainment.venue_name_label') || 'ชื่อสถานที่'}
                       </label>
-                      <p className="text-secondary-900">{selectedVenue.venue_name}</p>
+                      <p className="text-secondary-900">{getTranslatedName(selectedVenue, currentLanguage, selectedVenue.venue_name)}</p>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-secondary-700 mb-1">
                         {translate('entertainment.category_label') || 'หมวดหมู่'}
                       </label>
-                      <p className="text-secondary-900">{selectedVenue.venue_type}</p>
+                      <p className="text-secondary-900">{selectedVenue.category_name || '—'}</p>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-secondary-700 mb-1">
@@ -819,7 +1052,7 @@ const AdminEntertainmentVenues = () => {
                       <label className="block text-sm font-medium text-secondary-700 mb-1">
                         {translate('entertainment.description_label') || 'คำอธิบาย'}
                       </label>
-                      <p className="text-secondary-900">{selectedVenue.description}</p>
+                      <p className="text-secondary-900">{getTranslatedDescription(selectedVenue, currentLanguage, selectedVenue.description)}</p>
                     </div>
                     <div className="col-span-2">
                       <label className="block text-sm font-medium text-secondary-700 mb-1">
@@ -831,7 +1064,7 @@ const AdminEntertainmentVenues = () => {
                     {(selectedVenue.country_name || selectedVenue.country) && (
                       <div>
                         <label className="block text-sm font-medium text-secondary-700 mb-1">
-                          ประเทศ / Country
+                          {translate('common.country') || 'ประเทศ'}
                         </label>
                         <p className="text-secondary-900">
                           {selectedVenue.country_name || selectedVenue.country || '—'}
@@ -841,7 +1074,7 @@ const AdminEntertainmentVenues = () => {
                     {(selectedVenue.city_name || selectedVenue.city) && (
                       <div>
                         <label className="block text-sm font-medium text-secondary-700 mb-1">
-                          เมือง / City
+                          {translate('common.city') || 'เมือง'}
                         </label>
                         <p className="text-secondary-900">
                           {selectedVenue.city_name || selectedVenue.city || '—'}
@@ -912,20 +1145,6 @@ const AdminEntertainmentVenues = () => {
                         ))}
                       </select>
                     </div>
-                    <div>
-                      <label className="block text-sm font-medium text-secondary-700 mb-1">
-                        {translate('entertainment.venue_type') || 'ประเภท'} ({translate('common.deprecated') || 'เก่า'} - {translate('entertainment.use_category') || 'ใช้หมวดหมู่แทน'})
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.venue_type}
-                        onChange={(e) =>
-                          setFormData({ ...formData, venue_type: e.target.value })
-                        }
-                        placeholder={translate('entertainment.venue_type_placeholder') || 'เช่น คาราโอเกะ, บาร์'}
-                        className="w-full px-4 py-2 border border-secondary-300 rounded-lg focus:border-secondary-400 focus:outline-none focus:ring-2 focus:ring-secondary-300/80"
-                      />
-                    </div>
                     <div className="col-span-2">
                       <label className="block text-sm font-medium text-secondary-700 mb-1">
                         {translate('entertainment.description_label') || 'คำอธิบาย'}
@@ -939,6 +1158,73 @@ const AdminEntertainmentVenues = () => {
                         className="w-full px-4 py-2 border border-secondary-300 rounded-lg focus:border-secondary-400 focus:outline-none focus:ring-2 focus:ring-secondary-300/80"
                       />
                     </div>
+
+                    {/* Translations */}
+                    {availableLanguages && availableLanguages.filter(lang => lang.code !== 'en').length > 0 && (
+                      <div className="col-span-2">
+                        <h4 className="text-sm font-medium text-secondary-800 mb-3">
+                          {translate('admin.product_modal.translations_title') || 'การแปลภาษา'}
+                        </h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {availableLanguages.filter(lang => lang.code !== 'en').map(lang => (
+                            <div key={lang.code} className="p-4 border border-secondary-200 rounded-lg bg-secondary-50">
+                              <h5 className="text-sm font-medium text-secondary-700 mb-3 flex items-center">
+                                <span className="w-6 h-6 bg-primary-100 text-primary-600 rounded-full flex items-center justify-center text-xs font-bold mr-2">
+                                  {lang.code.toUpperCase()}
+                                </span>
+                                {translate(`admin.language_${lang.code}`) || lang.name}
+                              </h5>
+                              <div className="mb-2">
+                                <label className="block text-xs text-secondary-600 mb-1">
+                                  {translate('entertainment.venue_name_label') || 'ชื่อสถานที่'}
+                                </label>
+                                <input
+                                  type="text"
+                                  value={formData.translations[lang.code]?.name || ''}
+                                  onChange={(e) => setFormData({
+                                    ...formData,
+                                    translations: {
+                                      ...formData.translations,
+                                      [lang.code]: {
+                                        ...formData.translations[lang.code],
+                                        name: e.target.value,
+                                      },
+                                    },
+                                  })}
+                                  placeholder={`${translate('entertainment.venue_name_label') || 'ชื่อสถานที่'} (${lang.code.toUpperCase()})`}
+                                  className="w-full p-2 border border-secondary-300 rounded text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs text-secondary-600 mb-1">
+                                  {translate('entertainment.description_label') || 'คำอธิบาย'}
+                                </label>
+                                <textarea
+                                  value={formData.translations[lang.code]?.description || ''}
+                                  onChange={(e) => setFormData({
+                                    ...formData,
+                                    translations: {
+                                      ...formData.translations,
+                                      [lang.code]: {
+                                        ...formData.translations[lang.code],
+                                        description: e.target.value,
+                                      },
+                                    },
+                                  })}
+                                  placeholder={`${translate('entertainment.description_label') || 'คำอธิบาย'} (${lang.code.toUpperCase()})`}
+                                  rows={2}
+                                  className="w-full p-2 border border-secondary-300 rounded text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                                />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        <p className="text-xs text-secondary-500 mt-2">
+                          {translate('admin.product_modal.translations_optional_hint') || 'ไม่บังคับ — หากไม่กรอก จะแสดงชื่อภาษาอังกฤษแทน'}
+                        </p>
+                      </div>
+                    )}
+
                     <div className="col-span-2">
                       <label className="block text-sm font-medium text-secondary-700 mb-1">
                         {translate('entertainment.address_label') || 'ที่อยู่'} *
@@ -967,7 +1253,7 @@ const AdminEntertainmentVenues = () => {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-secondary-700 mb-1">
-                        ประเทศ / Country
+                        {translate('common.country') || 'ประเทศ'}
                       </label>
                       <select
                         value={formData.country}
@@ -976,7 +1262,7 @@ const AdminEntertainmentVenues = () => {
                         }
                         className="w-full px-4 py-2 border border-secondary-300 rounded-lg focus:border-secondary-400 focus:outline-none focus:ring-2 focus:ring-secondary-300/80 bg-white"
                       >
-                        <option value="">— เลือกประเทศ —</option>
+                        <option value="">{translate('common.select_country') || '— เลือกประเทศ —'}</option>
                         {countriesList.map((c) => (
                           <option key={c.country_id} value={String(c.country_id)}>
                             {c.name}
@@ -986,7 +1272,7 @@ const AdminEntertainmentVenues = () => {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-secondary-700 mb-1">
-                        เมือง / City
+                        {translate('common.city') || 'เมือง'}
                       </label>
                       <select
                         value={formData.city}
@@ -996,7 +1282,7 @@ const AdminEntertainmentVenues = () => {
                         disabled={!formData.country}
                         className="w-full px-4 py-2 border border-secondary-300 rounded-lg focus:border-secondary-400 focus:outline-none focus:ring-2 focus:ring-secondary-300/80 bg-white disabled:bg-secondary-50"
                       >
-                        <option value="">— เลือกเมือง —</option>
+                        <option value="">{translate('common.select_city') || '— เลือกเมือง —'}</option>
                         {citiesList.map((c) => (
                           <option key={c.city_id} value={String(c.city_id)}>
                             {c.name}
@@ -1318,6 +1604,269 @@ const AdminEntertainmentVenues = () => {
                   ? translate('common.saving') || 'กำลังบันทึก...'
                   : translate('entertainment.save_gallery') || 'บันทึก'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Import Excel Modal ─────────────────────────────────────────────── */}
+      {showImportModal && (
+        <div className="fixed inset-0 z-[1200] flex items-start justify-center overflow-y-auto bg-black/50 p-2 pt-16 pb-8 sm:p-4 sm:pt-20">
+          <div className="relative z-[1210] my-auto w-full max-w-5xl rounded-xl bg-white shadow-2xl">
+
+            {/* Header */}
+            <div className="flex items-center justify-between border-b px-6 py-4">
+              <div className="flex items-center gap-3">
+                <FaFileExcel className="h-6 w-6 text-green-600" aria-hidden />
+                <div>
+                  <h2 className="text-lg font-bold text-secondary-800">
+                    {translate('entertainment.import_excel') || 'นำเข้า Excel'}
+                  </h2>
+                  <p className="text-xs text-secondary-500">
+                    {translate('entertainment.import_excel_sub') || 'นำเข้าสถานที่หลายรายการพร้อมกันจากไฟล์ .xlsx'}
+                  </p>
+                </div>
+              </div>
+              <button type="button" onClick={resetImportModal}
+                className="rounded-lg p-1.5 text-secondary-400 hover:bg-secondary-100 hover:text-secondary-600">
+                <FaTimes className="h-5 w-5" aria-hidden />
+              </button>
+            </div>
+
+            <div className="p-5 sm:p-6 space-y-6">
+
+              {/* Step 1 — เลือกไฟล์ */}
+              {(importStep === 'idle' || importStep === 'preview' || importStep === 'importing') && (
+                <div className="rounded-xl border border-dashed border-secondary-300 bg-secondary-50 p-5">
+                  <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-sm font-semibold text-secondary-700">
+                      1. {translate('entertainment.import_step_select') || 'เลือกไฟล์ Excel (.xlsx)'}
+                    </p>
+                  </div>
+                  <input
+                    ref={importFileRef}
+                    type="file"
+                    accept=".xlsx,.xls"
+                    disabled={importStep === 'importing'}
+                    onChange={handleImportFileChange}
+                    className="w-full rounded-lg border border-secondary-300 bg-white px-3 py-2 text-sm focus:outline-none disabled:opacity-50"
+                  />
+                  <p className="mt-2 text-xs text-secondary-400">
+                    {translate('entertainment.import_file_hint') ||
+                      'Column ที่ต้องการ: venue_name, country_name, city_name, address, latitude, longitude, phone_number, opening_hours, description, status, category'}
+                  </p>
+                </div>
+              )}
+
+              {/* Step 2 — Preview ตาราง */}
+              {(importStep === 'preview' || importStep === 'importing') && importRows.length > 0 && (
+                <div>
+                  <p className="mb-2 text-sm font-semibold text-secondary-700">
+                    2. {translate('entertainment.import_step_preview') || 'ตรวจสอบข้อมูลก่อนนำเข้า'}
+                    <span className="ml-2 rounded-full bg-secondary-100 px-2 py-0.5 text-xs text-secondary-600">
+                      {importRows.length} รายการ
+                    </span>
+                  </p>
+                  {importDuplicateNames.size > 0 && (
+                    <div className="mb-3 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                      <FaExclamationTriangle className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-amber-500" />
+                      <span>
+                        {(translate('entertainment.import_duplicate_warning') || 'พบชื่อสถานที่ซ้ำกันในไฟล์ {n} ชื่อ — รายการที่ซ้ำกับฐานข้อมูลจะถูกข้าม').replace('{n}', importDuplicateNames.size)}
+                      </span>
+                    </div>
+                  )}
+                  <div className="overflow-x-auto rounded-lg border border-secondary-200">
+                    <table className="min-w-full divide-y divide-secondary-200 text-xs">
+                      <thead className="bg-secondary-50 text-secondary-600">
+                        <tr>
+                          <th className="whitespace-nowrap px-3 py-2 text-left font-semibold">#</th>
+                          <th className="whitespace-nowrap px-3 py-2 text-left font-semibold">{translate('entertainment.venue_name_header') || 'ชื่อสถานที่'}</th>
+                          <th className="whitespace-nowrap px-3 py-2 text-left font-semibold">{translate('common.country') || 'ประเทศ'}</th>
+                          <th className="whitespace-nowrap px-3 py-2 text-left font-semibold">{translate('common.city') || 'เมือง'}</th>
+                          <th className="whitespace-nowrap px-3 py-2 text-left font-semibold">{translate('entertainment.address_label') || 'ที่อยู่'}</th>
+                          <th className="whitespace-nowrap px-3 py-2 text-left font-semibold">Lat</th>
+                          <th className="whitespace-nowrap px-3 py-2 text-left font-semibold">Lng</th>
+                          <th className="whitespace-nowrap px-3 py-2 text-left font-semibold">{translate('entertainment.status_header') || 'สถานะ'}</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-secondary-100 bg-white">
+                        {importRows.slice(0, 50).map((row) => {
+                          const isDup = importDuplicateNames.has(row.venue_name.toLowerCase());
+                          return (
+                          <tr key={row._row} className={isDup ? 'bg-amber-50' : 'hover:bg-secondary-50'}>
+                            <td className="px-3 py-1.5 text-secondary-400">{row._row}</td>
+                            <td className="max-w-[160px] px-3 py-1.5 font-medium text-secondary-800">
+                              <div className="flex items-center gap-1">
+                                <span className="truncate">{row.venue_name || <span className="text-red-400">{translate('entertainment.import_empty_field') || 'ว่าง!'}</span>}</span>
+                                {isDup && <FaExclamationTriangle className="h-3 w-3 flex-shrink-0 text-amber-500" title={translate('entertainment.import_dup_in_file') || 'ชื่อซ้ำในไฟล์'} />}
+                              </div>
+                            </td>
+                            <td className="px-3 py-1.5 text-secondary-600">{row.country_name || '—'}</td>
+                            <td className="px-3 py-1.5 text-secondary-600">{row.city_name || '—'}</td>
+                            <td className="max-w-[160px] truncate px-3 py-1.5 text-secondary-600">{row.address || '—'}</td>
+                            <td className="px-3 py-1.5 font-mono text-secondary-500">{row.latitude || '—'}</td>
+                            <td className="px-3 py-1.5 font-mono text-secondary-500">{row.longitude || '—'}</td>
+                            <td className="px-3 py-1.5">
+                              <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                                row.status === 'closed'
+                                  ? 'bg-red-100 text-red-700'
+                                  : 'bg-green-100 text-green-700'
+                              }`}>
+                                {row.status === 'closed' ? translate('common.closed') || 'ปิด' : translate('common.open') || 'เปิด'}
+                              </span>
+                            </td>
+                          </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                    {importRows.length > 50 && (
+                      <p className="border-t bg-secondary-50 px-4 py-2 text-center text-xs text-secondary-400">
+                        {(translate('entertainment.import_preview_limit') || 'แสดง 50 แถวแรก จากทั้งหมด {count} แถว').replace('{count}', importRows.length)}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Step 3 — กำลังนำเข้า */}
+              {importStep === 'importing' && (
+                <div className="flex items-center justify-center gap-3 rounded-lg bg-blue-50 px-4 py-4 text-blue-700">
+                  <FaSpinner className="h-5 w-5 animate-spin" />
+                  <span className="text-sm font-medium">
+                    {translate('entertainment.import_in_progress') || `กำลังนำเข้า ${importRows.length} รายการ...`}
+                  </span>
+                </div>
+              )}
+
+              {/* Step 4 — ผลลัพธ์ */}
+              {importStep === 'done' && importResult && (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="flex items-center gap-3 rounded-xl border border-green-200 bg-green-50 px-4 py-4">
+                      <FaCheckCircle className="h-7 w-7 flex-shrink-0 text-green-500" />
+                      <div>
+                        <p className="text-2xl font-bold text-green-700">{importResult.success ?? 0}</p>
+                        <p className="text-xs text-green-600">
+                          {translate('entertainment.import_success_count') || 'นำเข้าสำเร็จ'}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-4">
+                      <FaExclamationTriangle className="h-7 w-7 flex-shrink-0 text-amber-400" />
+                      <div>
+                        <p className="text-2xl font-bold text-amber-600">{importResult.duplicates ?? 0}</p>
+                        <p className="text-xs text-amber-600">{translate('entertainment.import_skip_label') || 'ข้ามซ้ำ'}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-4">
+                      <FaExclamationTriangle className="h-7 w-7 flex-shrink-0 text-red-400" />
+                      <div>
+                        <p className="text-2xl font-bold text-red-600">{importResult.failed ?? 0}</p>
+                        <p className="text-xs text-red-500">
+                          {translate('entertainment.import_failed_count') || 'ล้มเหลว'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {importResult.duplicate_list && importResult.duplicate_list.length > 0 && (
+                    <div>
+                      <p className="mb-2 text-sm font-semibold text-amber-700">{translate('entertainment.import_duplicate_section') || 'รายการที่ถูกข้าม (ชื่อซ้ำในฐานข้อมูล)'}</p>
+                      <div className="max-h-36 overflow-y-auto rounded-lg border border-amber-100">
+                        <table className="min-w-full text-xs">
+                          <thead className="bg-amber-50 text-amber-700">
+                            <tr>
+                              <th className="px-3 py-2 text-left">{translate('common.row') || 'แถว'}</th>
+                              <th className="px-3 py-2 text-left">{translate('entertainment.venue_name_label') || 'ชื่อสถานที่'}</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-amber-50 bg-white">
+                            {importResult.duplicate_list.map((d, i) => (
+                              <tr key={i}>
+                                <td className="px-3 py-1.5 text-secondary-500">{d.row}</td>
+                                <td className="px-3 py-1.5 text-secondary-700">{d.venue_name}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+
+                  {importResult.errors && importResult.errors.length > 0 && (
+                    <div>
+                      <p className="mb-2 text-sm font-semibold text-red-700">{translate('entertainment.import_error_section') || 'รายการที่มีปัญหา'}</p>
+                      <div className="max-h-48 overflow-y-auto rounded-lg border border-red-100">
+                        <table className="min-w-full text-xs">
+                          <thead className="bg-red-50 text-red-700">
+                            <tr>
+                              <th className="px-3 py-2 text-left">{translate('common.row') || 'แถว'}</th>
+                              <th className="px-3 py-2 text-left">{translate('entertainment.venue_name_label') || 'ชื่อ'}</th>
+                              <th className="px-3 py-2 text-left">{translate('common.error') || 'ข้อผิดพลาด'}</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-red-50 bg-white">
+                            {importResult.errors.map((e, i) => (
+                              <tr key={i}>
+                                <td className="px-3 py-1.5 text-secondary-500">{e.row ?? '—'}</td>
+                                <td className="max-w-[120px] truncate px-3 py-1.5 text-secondary-700">{e.venue_name ?? '—'}</td>
+                                <td className="px-3 py-1.5 text-red-600">{e.message ?? JSON.stringify(e.errors ?? e)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+
+                  {importResult.new_countries && importResult.new_countries.length > 0 && (
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">
+                      <span className="font-semibold">{translate('entertainment.import_new_countries') || 'สร้างประเทศใหม่'}: </span>
+                      {importResult.new_countries.join(', ')}
+                    </div>
+                  )}
+                  {importResult.new_cities && importResult.new_cities.length > 0 && (
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">
+                      <span className="font-semibold">{translate('entertainment.import_new_cities') || 'สร้างเมืองใหม่'}: </span>
+                      {importResult.new_cities.join(', ')}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="flex flex-col-reverse gap-2 border-t px-6 py-4 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={resetImportModal}
+                className="w-full rounded-lg border border-secondary-300 px-4 py-2 text-sm text-secondary-700 hover:bg-secondary-50 sm:w-auto"
+              >
+                {importStep === 'done' ? (translate('common.close') || 'ปิด') : (translate('common.cancel') || 'ยกเลิก')}
+              </button>
+
+              {importStep === 'preview' && importRows.length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleRunImport}
+                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-green-600 px-5 py-2 text-sm font-semibold text-white hover:bg-green-700 sm:w-auto"
+                >
+                  <FaFileExcel className="h-4 w-4" />
+                  {translate('entertainment.import_confirm') || `นำเข้า ${importRows.length} รายการ`}
+                </button>
+              )}
+
+              {importStep === 'done' && (
+                <button
+                  type="button"
+                  onClick={() => { setImportStep('idle'); setImportRows([]); setImportResult(null); }}
+                  className="flex w-full items-center justify-center gap-2 rounded-lg border border-green-500 px-4 py-2 text-sm font-medium text-green-700 hover:bg-green-50 sm:w-auto"
+                >
+                  <FaFileExcel className="h-4 w-4" />
+                  {translate('entertainment.import_again') || 'นำเข้าไฟล์ใหม่'}
+                </button>
+              )}
             </div>
           </div>
         </div>

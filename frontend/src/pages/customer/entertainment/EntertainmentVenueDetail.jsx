@@ -7,6 +7,7 @@ import VenueMap from '../../../components/entertainment/VenueMap';
 import DirectionsButton from '../../../components/entertainment/DirectionsButton';
 import VenueReviews from '../../../components/entertainment/VenueReviews';
 import { entertainmentVenueService } from '../../../services/api';
+import { getTranslatedName, getTranslatedDescription } from '../../../utils/translationHelpers';
 import { FaStar, FaMapMarkerAlt, FaPhone, FaClock, FaTags, FaTheaterMasks } from 'react-icons/fa';
 import { CheckCircleIcon, XCircleIcon } from '@heroicons/react/24/solid';
 
@@ -18,7 +19,7 @@ const EntertainmentVenueDetail = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('overview');
-  const { translate } = useLanguage();
+  const { translate, currentLanguage } = useLanguage();
 
   useEffect(() => {
     const fetchVenueData = async () => {
@@ -52,7 +53,7 @@ const EntertainmentVenueDetail = () => {
     };
     
     fetchVenueData();
-  }, [id]);
+  }, [id, currentLanguage]);
 
 
   if (loading) {
@@ -117,7 +118,7 @@ const EntertainmentVenueDetail = () => {
                 {translate('entertainment.venues') || 'สถานที่บันเทิง'}
               </Link>
               <span className="mx-1 sm:mx-2 text-secondary-400">&gt;</span>
-              <span className="text-secondary-600 truncate max-w-[150px] sm:max-w-none">{venue.venue_name}</span>
+              <span className="text-secondary-600 truncate max-w-[150px] sm:max-w-none">{getTranslatedName(venue, currentLanguage, venue.venue_name)}</span>
             </div>
           </nav>
         </div>
@@ -149,10 +150,10 @@ const EntertainmentVenueDetail = () => {
             {/* Venue Info */}
             <div className="flex-1">
               <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-secondary-900 mb-2">
-                {venue.venue_name}
+                {getTranslatedName(venue, currentLanguage, venue.venue_name)}
               </h1>
               <p className="text-sm sm:text-base md:text-lg text-secondary-600 mb-3 sm:mb-4 line-clamp-3 sm:line-clamp-none">
-                {venue.description}
+                {getTranslatedDescription(venue, currentLanguage, venue.description)}
               </p>
 
               {/* Rating */}
@@ -191,10 +192,10 @@ const EntertainmentVenueDetail = () => {
                     <span className="text-xs sm:text-sm md:text-base text-secondary-700">{venue.opening_hours}</span>
                   </div>
                 )}
-                {(venue.venue_type || venue.category_name) && (
+                {venue.category_name && (
                   <div className="flex items-center">
                     <FaTags className="text-secondary-500 mr-2 text-sm sm:text-base flex-shrink-0" />
-                    <span className="text-xs sm:text-sm md:text-base text-secondary-700">{venue.category_name || venue.venue_type}</span>
+                    <span className="text-xs sm:text-sm md:text-base text-secondary-700">{venue.category_name}</span>
                   </div>
                 )}
               </div>
@@ -293,7 +294,7 @@ const EntertainmentVenueDetail = () => {
               {translate('common.about') || 'เกี่ยวกับ'}
             </h2>
             <p className="text-sm sm:text-base text-secondary-700 leading-relaxed">
-              {venue.description || translate('entertainment.no_description') || 'ไม่มีรายละเอียด'}
+              {getTranslatedDescription(venue, currentLanguage, venue.description) || translate('entertainment.no_description') || 'ไม่มีรายละเอียด'}
             </p>
           </div>
         )}

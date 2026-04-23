@@ -54,6 +54,7 @@ const EntertainmentVenues = () => {
   const [searchInput, setSearchInput] = useState('');
   const searchInputRef = useRef(null);
   const [selectedCategory, setSelectedCategory] = useState(null);
+  // eslint-disable-next-line no-unused-vars
   const [sortBy, setSortBy] = useState('rating');
   const [locationCountry, setLocationCountry] = useState('');
   const [locationCity, setLocationCity] = useState('');
@@ -69,12 +70,15 @@ const EntertainmentVenues = () => {
         const parsed = JSON.parse(raw);
         if (parsed?.lat && parsed?.lng) return parsed;
       }
+    // eslint-disable-next-line no-unused-vars, no-empty
     } catch (_) {}
     return null;
   });
-  const { translate } = useLanguage();
+  const { translate, currentLanguage } = useLanguage();
   const navigate = useNavigate();
   const location = useLocation();
+  /** หลังผู้ใช้เลือกประเทศ/เมืองเอง — ไม่ให้ geolocation ทับ country จนเมืองหลุดหรือ filter ผิด */
+  const userAdjustedLocationRef = useRef(false);
 
   const filteredCities = useMemo(() => {
     if (!locationCountry) return [];
@@ -139,13 +143,16 @@ const EntertainmentVenues = () => {
       if (cancelled) return;
       const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
       setUserCoords(coords);
+      // eslint-disable-next-line no-unused-vars, no-empty
       try { sessionStorage.setItem('ev_userCoords', JSON.stringify(coords)); } catch (_) {}
       try {
         const parts = await reverseGeocodeStructured(pos.coords.latitude, pos.coords.longitude);
         if (cancelled) return;
         if (parts && (parts.country || parts.country_code)) {
           const cid = matchCountryId(countriesList, parts);
-          setLocationCountry(String(cid));
+          if (!userAdjustedLocationRef.current) {
+            setLocationCountry(String(cid));
+          }
         }
       } catch (e) {
         console.warn('EntertainmentVenues: reverse geocode failed', e);
@@ -168,7 +175,6 @@ const EntertainmentVenues = () => {
     );
 
     return () => { cancelled = true; };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [countriesList]);
 
   // ตรวจว่าเมืองที่เลือกยังอยู่ในประเทศที่เลือกอยู่ ถ้าไม่ใช่ให้ reset เป็น '' (ทุกเมือง)
@@ -214,7 +220,9 @@ const EntertainmentVenues = () => {
         if (selectedCategory !== CATEGORY_RESTAURANTS) {
           const params = { page_size: 100 };
           if (searchQuery) params.search = searchQuery;
-          if (selectedCategory) params.category = selectedCategory;
+          if (selectedCategory != null && selectedCategory !== CATEGORY_RESTAURANTS) {
+            params.category = Number(selectedCategory);
+          }
           params.country = parseInt(locationCountry, 10);
           if (locationCity) params.city = parseInt(locationCity, 10);
           if (sortBy === 'rating') params.ordering = '-average_rating';
@@ -316,6 +324,7 @@ const EntertainmentVenues = () => {
               if (selectedCategory === CATEGORY_RESTAURANTS || selectedCategory === null) setRestaurants(filteredRest);
               setError(null);
             }
+          // eslint-disable-next-line no-unused-vars
           } catch (dbErr) {
             if (!cancelled) setError('ไม่มีเน็ตและไม่มีข้อมูล offline');
           }
@@ -341,6 +350,7 @@ const EntertainmentVenues = () => {
     locationCity,
     locationBootstrapDone,
     userCoords,
+    currentLanguage,
   ]);
 
   const isLoading =
@@ -420,10 +430,16 @@ const EntertainmentVenues = () => {
                 locationCountry={locationCountry}
                 locationCity={locationCity}
                 onCountryChange={(id) => {
+                  userAdjustedLocationRef.current = true;
                   setLocationCountry(id);
                   setLocationCity('');
+                  setSelectedCategory(null);
                 }}
-                onCityChange={setLocationCity}
+                onCityChange={(id) => {
+                  userAdjustedLocationRef.current = true;
+                  setLocationCity(id);
+                  setSelectedCategory(null);
+                }}
                 translate={translate}
               />
             </div>
@@ -490,9 +506,10 @@ const EntertainmentVenues = () => {
               categories.map((category) => (
                 <button
                   key={category.category_id}
-                  onClick={() => setSelectedCategory(category.category_id)}
-                  className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap flex-shrink-0 ${
-                    selectedCategory === category.category_id
+                  type="button"
+                  onClick={() => setSelectedCategory(Number(category.category_id))}
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap flex-shrink-0 flex items-center gap-1.5 ${
+                    Number(selectedCategory) === Number(category.category_id)
                       ? 'bg-primary-500 text-white'
                       : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                   }`}
@@ -501,10 +518,10 @@ const EntertainmentVenues = () => {
                     <img
                       src={category.icon_display_url}
                       alt={category.category_name}
-                      className="inline w-3.5 h-3.5 mr-1"
+                      className="w-4 h-4 object-contain flex-shrink-0"
                     />
                   ) : (
-                    <FaTheaterMasks className="mr-1 inline h-3.5 w-3.5 shrink-0 text-gray-400" aria-hidden />
+                    <FaTheaterMasks className="h-4 w-4 shrink-0 text-gray-400" aria-hidden />
                   )}
                   {category.category_name}
                 </button>

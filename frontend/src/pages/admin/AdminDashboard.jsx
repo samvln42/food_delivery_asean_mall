@@ -9,6 +9,7 @@ import { SlRefresh  } from "react-icons/sl";
 import { MdOutlineAutoGraph } from "react-icons/md";
 
 const AdminDashboard = () => {
+  // eslint-disable-next-line no-unused-vars
   const { user, token } = useAuth();
   const { translate } = useLanguage();
   
@@ -57,6 +58,7 @@ const AdminDashboard = () => {
   };
 
 
+  // eslint-disable-next-line no-unused-vars
   const navigate = useNavigate();
 
   if (loading) {

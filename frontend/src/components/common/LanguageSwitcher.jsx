@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { languageService } from '../../services/languageService';
+import { GlobeAltIcon } from '@heroicons/react/24/outline';
 
 const LanguageSwitcher = () => {
   const { currentLanguage, availableLanguages, changeLanguage, isLoadingTranslations } = useLanguage();
@@ -60,19 +61,8 @@ const LanguageSwitcher = () => {
           </>
         ) : (
           <>
+            <GlobeAltIcon className="h-5 w-5 text-secondary-500" />
             <span>{getCurrentLanguageName()}</span>
-            <svg
-              className={`h-5 w-5 transform ${isOpen ? 'rotate-180' : ''} transition-transform duration-200`}
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 20 20"
-              fill="currentColor"
-            >
-              <path
-                fillRule="evenodd"
-                d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
-                clipRule="evenodd"
-              />
-            </svg>
           </>
         )}
       </button>
